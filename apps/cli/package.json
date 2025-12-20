@@ -1,0 +1,13 @@
+{
+	"name": "cli",
+	"module": "index.ts",
+	"type": "module",
+	"private": true,
+	"dependencies": {
+		"@effect/cli": "catalog:",
+		"effect": "catalog:"
+	},
+	"devDependencies": {
+		"@types/bun": "latest"
+	}
+}

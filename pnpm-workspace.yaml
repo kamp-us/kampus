@@ -1,0 +1,16 @@
+packages:
+  - packages/*
+  - apps/*
+
+catalog:
+  '@biomejs/biome': ^2.3.10
+  '@effect/cli': latest
+  '@effect/language-service': latest
+  '@niklaserik/effect-mcp': latest
+  effect: latest
+  turbo: ^2.7.0
+  typescript: ^5.9.3
+
+onlyBuiltDependencies:
+  - '@parcel/watcher'
+  - msgpackr-extract
