@@ -1,20 +1,22 @@
 {
-  "name": "kampus",
-  "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "packageManager": "pnpm@10.26.1",
-  "devDependencies": {
-    "@biomejs/biome": "catalog:",
-    "@effect/language-service": "catalog:",
-    "@niklaserik/effect-mcp": "catalog:",
-    "turbo": "catalog:",
-    "typescript": "catalog:"
-  }
+	"name": "kampus",
+	"version": "1.0.0",
+	"description": "",
+	"main": "index.js",
+	"scripts": {
+		"test": "echo \"Error: no test specified\" && exit 1"
+	},
+	"keywords": [],
+	"author": "",
+	"license": "ISC",
+	"packageManager": "pnpm@10.26.1",
+	"devDependencies": {
+		"@biomejs/biome": "catalog:",
+		"@effect/language-service": "catalog:",
+		"turbo": "catalog:",
+		"typescript": "catalog:"
+	},
+	"volta": {
+		"node": "25.2.1"
+	}
 }

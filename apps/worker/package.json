@@ -1,0 +1,31 @@
+{
+	"name": "worker",
+	"version": "0.0.0",
+	"private": true,
+	"scripts": {
+		"deploy": "wrangler deploy",
+		"dev": "wrangler dev",
+		"start": "wrangler dev",
+		"test": "vitest",
+		"cf-typegen": "wrangler types"
+	},
+	"devDependencies": {
+		"@cloudflare/vitest-pool-workers": "^0.8.19",
+		"drizzle-kit": "catalog:",
+		"typescript": "^5.5.2",
+		"vitest": "~3.2.0",
+		"wrangler": "catalog:"
+	},
+	"dependencies": {
+		"@effect/platform": "catalog:",
+		"@gqloom/core": "catalog:",
+		"@gqloom/effect": "catalog:",
+		"@usirin/forge": "catalog:",
+		"better-auth": "catalog:",
+		"drizzle-orm": "catalog:",
+		"effect": "catalog:",
+		"graphql": "catalog:",
+		"graphql-yoga": "catalog:",
+		"hono": "catalog:"
+	}
+}

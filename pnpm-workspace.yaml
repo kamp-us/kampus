@@ -5,11 +5,25 @@ packages:
 catalog:
   '@biomejs/biome': ^2.3.10
   '@effect/cli': latest
+  '@effect/cluster': latest
+  '@effect/experimental': 0.58.0
   '@effect/language-service': latest
-  '@niklaserik/effect-mcp': latest
-  effect: latest
+  '@effect/platform': ^0.94.0
+  '@effect/platform-bun': latest
+  '@gqloom/core': ^0.14.2
+  '@gqloom/effect': ^0.13.0
+  '@usirin/forge': ^0.2.0
+  better-auth: ^1.4.7
+  bluebun: ^0.0.34
+  drizzle-kit: ^0.31.8
+  drizzle-orm: 0.45.1
+  effect: ^3.19.13
+  graphql: ^16.12.0
+  graphql-yoga: ^5.18.0
+  hono: ^4.11.1
   turbo: ^2.7.0
   typescript: ^5.9.3
+  wrangler: ^4.56.0
 
 onlyBuiltDependencies:
   - '@parcel/watcher'
