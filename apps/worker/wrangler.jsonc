@@ -10,7 +10,9 @@
 	"observability": {
 		"enabled": true
 	},
-	"compatibility_flags": ["nodejs_compat"],
+	"compatibility_flags": [
+		"nodejs_compat"
+	],
 	"durable_objects": {
 		"bindings": [
 			{
@@ -22,18 +24,25 @@
 	"rules": [
 		{
 			"type": "Text",
-			"globs": ["**/*.sql"],
+			"globs": [
+				"**/*.sql"
+			],
 			"fallthrough": true
 		}
 	],
 	"migrations": [
 		{
 			"tag": "v1",
-			"new_sqlite_classes": ["Pasaport"]
+			"new_sqlite_classes": [
+				"Pasaport"
+			]
 		}
 	],
 	"vars": {
-		"ENVIRONMENT": "development"
+		"ENVIRONMENT": "development",
+		"API_KEY_PREFIX": "kampus_",
+		"SUPERUSER_EMAIL": "superuser@kampus.com",
+		"SUPERUSER_PASSWORD": "superuser1234"
 	}
 	/**
 	 * Smart Placement

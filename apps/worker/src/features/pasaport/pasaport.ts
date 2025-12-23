@@ -1,57 +1,51 @@
-import {DurableObject} from "cloudflare:workers";
-import {type Auth, type BetterAuthOptions, betterAuth, type DBAdapter} from "better-auth";
+import {DurableObject, env} from "cloudflare:workers";
+import {betterAuth} from "better-auth";
 import {drizzleAdapter} from "better-auth/adapters/drizzle";
-import {apiKey, magicLink} from "better-auth/plugins";
-import {type DrizzleSqliteDODatabase, drizzle} from "drizzle-orm/durable-sqlite";
+import {apiKey, bearer, magicLink} from "better-auth/plugins";
+import {drizzle} from "drizzle-orm/durable-sqlite";
 import {migrate} from "drizzle-orm/durable-sqlite/migrator";
 import * as schema from "./drizzle/drizzle.schema";
 import migrations from "./drizzle/migrations/migrations";
-import {env} from "cloudflare:workers";
-
-const API_KEY_PREFIX = "kampus_";
 
 export class Pasaport extends DurableObject<Env> {
 	db = drizzle(this.ctx.storage, {schema});
 	auth = betterAuth({
+		emailAndPassword: {enabled: true},
 		database: drizzleAdapter(this.db, {
 			provider: "sqlite",
 			schema,
 		}),
 		plugins: [
 			apiKey({
-				// TODO(@cansirin): get this from env
-				defaultPrefix: API_KEY_PREFIX,
-				startingCharactersConfig: {charactersLength: API_KEY_PREFIX.length + 5},
+				defaultPrefix: env.API_KEY_PREFIX,
+				startingCharactersConfig: {charactersLength: env.API_KEY_PREFIX.length + 5},
 			}),
+			bearer(), // We need this plugin to get the bearer token from the response headers
 			magicLink({
 				sendMagicLink: async ({email, token, url}) => {
-					const isDev = env.ENVIRONMENT === "development";
-					if (isDev) {
+					if (env.ENVIRONMENT === "development") {
 						console.log("Check console for the magic code", token, url);
 					}
 					console.log("Magic link requested for email:", email);
 				},
 			}),
 		],
-		user: {
-			additionalFields: {
-				role: {
-					type: "string",
-					default: "user",
-				},
-			},
-		},
 	});
 
 	constructor(ctx: DurableObjectState, env: Env) {
 		super(ctx, env);
-
 		this.ctx.blockConcurrencyWhile(async () => {
 			await migrate(this.db, migrations);
+
+			// if (isDev && !this.superUserReady) {
+			// 	console.log("Creating superuser...");
+			// 	const {user} = await this.createSuperUser();
+			// 	if (user) {
+			// 		this.superUserReady = true;
+			// 	}
+			// }
 		});
 	}
-
-	async init() {}
 
 	async fetch(request: Request) {
 		console.log("Pasaport DO received request:", request.url);
@@ -68,32 +62,50 @@ export class Pasaport extends DurableObject<Env> {
 		});
 	}
 
-	async getUserByEmail(email: string) {
-		const user = this.db.query.user.findFirst({
-			where: (user, {eq}) => eq(user.email, email),
+	async createSuperUser() {
+		return this.auth.api.signUpEmail({
+			body: {
+				name: "Super User",
+				email: env.SUPERUSER_EMAIL,
+				password: env.SUPERUSER_PASSWORD,
+				image: "https://robohash.org/superuser",
+			},
 		});
-
-		return user;
 	}
 
-	async requestMagicLink(email: string, headers: Headers) {
-		const result = await this.auth.api.signInMagicLink({
-			body: {email, name: email.split("@")[0]},
+	async loginWithEmail(email: string, password: string, headers: Headers) {
+		const {response, headers: responseHeaders} = await this.auth.api.signInEmail({
+			body: {email, password, rememberMe: false},
 			headers,
-		});
-		return result;
-	}
-
-	async verifyMagicLink(token: string, headers: Headers, cheatCode?: string, correctCode?: string) {
-		const result = await this.auth.api.magicLinkVerify({
-			query: {token},
-			headers,
+			returnHeaders: true,
 		});
 
-		return result;
+		const {user, token} = response;
+
+		// Prefer bearer token from response headers if available (bearer plugin)
+		const bearerToken = responseHeaders?.get("set-auth-token") ?? token;
+
+		return {user, token: bearerToken};
 	}
 
-	async listApiKeys(userID: string) {}
+	async listApiKeys(_userID: string) {
+		// TODO: Implement API key listing
+		return [];
+	}
 
-	async validateSession(token: string) {}
+	async validateSession(headers: Headers) {
+		try {
+			const session = await this.auth.api.getSession({headers});
+
+			if (!session?.user || !session.session) {
+				console.log("No session found", session);
+				return null;
+			}
+
+			return session;
+		} catch (error) {
+			console.error("Better Auth validateSession failed:", error);
+			return null;
+		}
+	}
 }

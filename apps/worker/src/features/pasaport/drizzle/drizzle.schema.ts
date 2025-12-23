@@ -28,7 +28,7 @@ export const session = sqliteTable("session", {
 	id: text("id")
 		.primaryKey()
 		.$defaultFn(() => id("sesh")),
-	userID: text("user_id")
+	userId: text("user_id")
 		.notNull()
 		.references(() => user.id, {onDelete: "cascade"}), // Cascade delete sessions on user delete
 	expiresAt: timestamp("expires_at").notNull(),
@@ -42,18 +42,18 @@ export const account = sqliteTable("account", {
 	id: text("id")
 		.primaryKey()
 		.$defaultFn(() => id("acc")),
-	userID: text("user_id")
+	userId: text("user_id")
 		.notNull()
 		.references(() => user.id, {onDelete: "cascade"}), // Cascade delete accounts on user delete
-	providerAccountID: text("provider_account_id").notNull(),
-	provider: text("provider").notNull(),
+	accountId: text("account_id"),
+	providerId: text("provider_id").notNull(),
 	accessToken: text("access_token"),
 	refreshToken: text("refresh_token"),
-	idToken: text("id_token"),
 	accessTokenExpiresAt: timestamp("access_token_expires_at"),
-	scope: text("scope"),
-	password: text("password"), // For email/password credential type
 	refreshTokenExpiresAt: timestamp("refresh_token_expires_at"),
+	scope: text("scope"),
+	idToken: text("id_token"),
+	password: text("password"),
 	...timestamps,
 });
 
