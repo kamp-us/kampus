@@ -41,8 +41,6 @@
 	"vars": {
 		"ENVIRONMENT": "development",
 		"API_KEY_PREFIX": "kampus_",
-		"SUPERUSER_EMAIL": "superuser@kampus.com",
-		"SUPERUSER_PASSWORD": "superuser1234"
 	}
 	/**
 	 * Smart Placement

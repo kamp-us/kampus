@@ -94,6 +94,29 @@ const helloResolver = resolver({
 				token,
 			};
 		}),
+	bootstrap: mutation(standard(User))
+		.input({
+			email: standard(Schema.String),
+			password: standard(Schema.String),
+			name: standard(Schema.String),
+		})
+		.resolve(async ({email, password, name}) => {
+			const ctx = useContext<GQLContext>();
+
+			// Bootstrap does not require authentication - it's for initial setup
+			const pasaport = ctx.env.PASAPORT.getByName("kampus");
+			const result = await pasaport.createUser(email, password, name || undefined);
+
+			if (!result.user) {
+				throw new Error("Failed to create user");
+			}
+
+			return {
+				id: result.user.id,
+				email: result.user.email,
+				name: result.user.name,
+			};
+		}),
 	createApiKey: mutation(standard(ApiKey))
 		.input({
 			name: standard(Schema.String),

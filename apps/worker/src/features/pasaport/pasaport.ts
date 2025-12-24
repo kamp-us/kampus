@@ -1,4 +1,4 @@
-import {DurableObject, env} from "cloudflare:workers";
+import {DurableObject} from "cloudflare:workers";
 import {drizzle} from "drizzle-orm/durable-sqlite";
 import {migrate} from "drizzle-orm/durable-sqlite/migrator";
 import {createAuth} from "./auth";
@@ -31,15 +31,17 @@ export class Pasaport extends DurableObject<Env> {
 		});
 	}
 
-	async createSuperUser() {
-		return this.auth.api.signUpEmail({
+	async createUser(email: string, password: string, name?: string) {
+		const result = await this.auth.api.signUpEmail({
 			body: {
-				name: "Super User",
-				email: env.SUPERUSER_EMAIL,
-				password: env.SUPERUSER_PASSWORD,
-				image: "https://robohash.org/superuser",
+				email,
+				password,
+				name: name || "User",
+				image: `https://robohash.org/${email}`,
 			},
 		});
+
+		return result;
 	}
 
 	async loginWithEmail(email: string, password: string, headers: Headers) {
