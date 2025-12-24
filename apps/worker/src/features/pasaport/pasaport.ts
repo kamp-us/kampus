@@ -1,57 +1,20 @@
 import {DurableObject} from "cloudflare:workers";
-import {type Auth, type BetterAuthOptions, betterAuth, type DBAdapter} from "better-auth";
-import {drizzleAdapter} from "better-auth/adapters/drizzle";
-import {apiKey, magicLink} from "better-auth/plugins";
-import {type DrizzleSqliteDODatabase, drizzle} from "drizzle-orm/durable-sqlite";
+import {drizzle} from "drizzle-orm/durable-sqlite";
 import {migrate} from "drizzle-orm/durable-sqlite/migrator";
+import {createAuth} from "./auth";
 import * as schema from "./drizzle/drizzle.schema";
 import migrations from "./drizzle/migrations/migrations";
-import {env} from "cloudflare:workers";
-
-const API_KEY_PREFIX = "kampus_";
 
 export class Pasaport extends DurableObject<Env> {
 	db = drizzle(this.ctx.storage, {schema});
-	auth = betterAuth({
-		database: drizzleAdapter(this.db, {
-			provider: "sqlite",
-			schema,
-		}),
-		plugins: [
-			apiKey({
-				// TODO(@cansirin): get this from env
-				defaultPrefix: API_KEY_PREFIX,
-				startingCharactersConfig: {charactersLength: API_KEY_PREFIX.length + 5},
-			}),
-			magicLink({
-				sendMagicLink: async ({email, token, url}) => {
-					const isDev = env.ENVIRONMENT === "development";
-					if (isDev) {
-						console.log("Check console for the magic code", token, url);
-					}
-					console.log("Magic link requested for email:", email);
-				},
-			}),
-		],
-		user: {
-			additionalFields: {
-				role: {
-					type: "string",
-					default: "user",
-				},
-			},
-		},
-	});
+	auth = createAuth(this.db);
 
 	constructor(ctx: DurableObjectState, env: Env) {
 		super(ctx, env);
-
 		this.ctx.blockConcurrencyWhile(async () => {
 			await migrate(this.db, migrations);
 		});
 	}
-
-	async init() {}
 
 	async fetch(request: Request) {
 		console.log("Pasaport DO received request:", request.url);
@@ -68,32 +31,53 @@ export class Pasaport extends DurableObject<Env> {
 		});
 	}
 
-	async getUserByEmail(email: string) {
-		const user = this.db.query.user.findFirst({
-			where: (user, {eq}) => eq(user.email, email),
-		});
-
-		return user;
-	}
-
-	async requestMagicLink(email: string, headers: Headers) {
-		const result = await this.auth.api.signInMagicLink({
-			body: {email, name: email.split("@")[0]},
-			headers,
-		});
-		return result;
-	}
-
-	async verifyMagicLink(token: string, headers: Headers, cheatCode?: string, correctCode?: string) {
-		const result = await this.auth.api.magicLinkVerify({
-			query: {token},
-			headers,
+	async createUser(email: string, password: string, name?: string) {
+		const result = await this.auth.api.signUpEmail({
+			body: {
+				email,
+				password,
+				name: name || "User",
+				image: `https://robohash.org/${email}`,
+			},
 		});
 
 		return result;
 	}
 
-	async listApiKeys(userID: string) {}
+	async loginWithEmail(email: string, password: string, headers: Headers) {
+		const {response, headers: responseHeaders} = await this.auth.api.signInEmail({
+			body: {email, password, rememberMe: false},
+			headers,
+			returnHeaders: true,
+		});
 
-	async validateSession(token: string) {}
+		const {user} = response;
+
+		const bearerToken = responseHeaders?.get("set-auth-token");
+		if (!bearerToken) {
+			throw new Error("No bearer token returned from server");
+		}
+
+		return {user, token: bearerToken};
+	}
+
+	async listApiKeys(_userID: string) {
+		// TODO: Implement API key listing
+		return [];
+	}
+
+	async validateSession(headers: Headers) {
+		try {
+			const session = await this.auth.api.getSession({headers});
+
+			if (!session?.user) {
+				return null;
+			}
+
+			return session;
+		} catch (error) {
+			console.error("Better Auth validateSession failed:", error);
+			return null;
+		}
+	}
 }
