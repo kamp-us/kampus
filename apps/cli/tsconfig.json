@@ -1,11 +1,13 @@
 {
+	"$schema": "https://json.schemastore.org/tsconfig",
 	"compilerOptions": {
 		// Environment setup & latest features
-		"lib": ["ESNext"],
+		"lib": ["ESNext", "dom"],
 		"target": "ESNext",
-		"module": "Preserve",
+		"module": "ESNext",
 		"moduleDetection": "force",
 		"jsx": "react-jsx",
+		"jsxImportSource": "@opentui/react",
 		"allowJs": true,
 		"plugins": [
 			{
