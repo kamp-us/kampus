@@ -4,6 +4,7 @@ import {EffectWeaver} from "@gqloom/effect";
 import {Schema} from "effect";
 import {createYoga} from "graphql-yoga";
 import {Hono} from "hono";
+import type {Session} from "./features/pasaport/auth";
 
 export {Pasaport} from "./features/pasaport/pasaport";
 
@@ -12,13 +13,8 @@ const standard = Schema.standardSchemaV1;
 interface GQLContext {
 	env: Env & ExecutionContext;
 	pasaport: {
-		header?: string | null;
-		user?: {
-			id: string;
-			email?: string | null;
-			name?: string | null;
-			role?: string;
-		} | null;
+		user?: Session["user"];
+		session?: Session["session"];
 	};
 	headers: Headers;
 }
@@ -37,32 +33,6 @@ app.on(["POST", "GET"], "/api/auth/*", async (c) => {
 	}
 });
 
-app.post("/api/cli/login", async (c) => {
-	try {
-		const {email, password} = await c.req.json();
-		const pasaport = c.env.PASAPORT.getByName("kampus");
-
-		const headers = new Headers(c.req.raw.headers);
-		const {user, token} = await pasaport.loginWithEmail(email, password, headers);
-
-		if (!user || !token) {
-			return c.json({error: "Invalid credentials"}, 401);
-		}
-
-		return c.json({
-			user: {
-				id: user.id,
-				email: user.email,
-				name: user.name,
-			},
-			token,
-		});
-	} catch (error) {
-		console.error("Error in CLI login:", error);
-		return c.json({error: "Login failed"}, 500);
-	}
-});
-
 export const ApiKey = Schema.Struct({
 	name: Schema.String,
 	key: Schema.String,
@@ -70,13 +40,60 @@ export const ApiKey = Schema.Struct({
 	title: "ApiKey",
 });
 
+export const User = Schema.Struct({
+	id: Schema.String,
+	email: Schema.String,
+	name: Schema.optional(Schema.String),
+}).annotations({
+	title: "User",
+});
+
+export const SignInResponse = Schema.Struct({
+	user: User,
+	token: Schema.String,
+}).annotations({
+	title: "SignInResponse",
+});
+
 const helloResolver = resolver({
-	hello: query(standard(Schema.String), () => {
+	me: query(standard(User)).resolve(async () => {
 		const ctx = useContext<GQLContext>();
 
-		return "Hello, World! " + ctx.pasaport.header;
-	}),
+		// Return current user if authenticated, otherwise null
+		if (!ctx.pasaport.user) {
+			throw new Error("Unauthorized: You must be logged in");
+		}
 
+		return {
+			id: ctx.pasaport.user.id,
+			email: ctx.pasaport.user.email,
+			name: ctx.pasaport.user.name,
+		};
+	}),
+	signIn: mutation(standard(SignInResponse))
+		.input({
+			email: standard(Schema.String),
+			password: standard(Schema.String),
+		})
+		.resolve(async ({email, password}) => {
+			const ctx = useContext<GQLContext>();
+
+			const pasaport = ctx.env.PASAPORT.getByName("kampus");
+			const {user, token} = await pasaport.loginWithEmail(email, password, ctx.headers);
+
+			if (!user || !token) {
+				throw new Error("Invalid credentials");
+			}
+
+			return {
+				user: {
+					id: user.id,
+					email: user.email,
+					name: user.name,
+				},
+				token,
+			};
+		}),
 	createApiKey: mutation(standard(ApiKey))
 		.input({
 			name: standard(Schema.String),
@@ -115,12 +132,11 @@ app.use("/graphql", async (c) => {
 			const pasaport = c.env.PASAPORT.getByName("kampus");
 
 			const sessionData = await pasaport.validateSession(forwardedHeaders);
-			console.log("sessionData", sessionData);
 
 			const context: GQLContext = {
 				// @ts-expect-error
 				env: {...c.env, ...c.executionCtx},
-				pasaport: {user: sessionData?.user},
+				pasaport: {user: sessionData?.user, session: sessionData?.session},
 				headers: forwardedHeaders,
 			};
 
