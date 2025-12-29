@@ -58,15 +58,32 @@ Each Durable Object is an **actor** with:
 - **Message passing** - Communication via RPC stubs
 - **Location transparency** - Cloudflare routes to correct instance
 
-**Patterns:**
-- One actor per domain entity (User, Library, WebPage)
-- Actors communicate via stubs obtained from env bindings
-- Keep actors focused—split when responsibilities diverge
+### Design Principles
 
-**Anti-patterns:**
-- God actors that handle everything
-- Passing DO instances directly (use IDs instead)
-- Relying on ordering between different actor calls
+- **Model around the "atom" of coordination** - Each DO represents one logical entity (user, document, room)
+- **Use `idFromName()` for routing** - Same input always routes to same instance
+- **Prefer RPC methods over `fetch()` handler** - Better type safety, no manual parsing
+- **Always await RPC calls** - Unawaited calls create dangling promises, errors get swallowed
+
+### Storage Rules
+
+- **Initialize with `blockConcurrencyWhile()`** - Run migrations in constructor, no requests until complete
+- **Persist critical state to SQLite first** - Then update in-memory caches
+- **Create indexes for frequently-queried columns** - Dramatically improves read performance
+- **Use `transaction()` for atomic read-modify-write** - Not `blockConcurrencyWhile()` on every request
+
+### Concurrency Gotchas
+
+- **Input gates only protect during storage ops** - `fetch()` calls allow interleaving
+- **Non-storage I/O can cause race conditions** - Use check-and-set patterns
+- **`blockConcurrencyWhile()` limits throughput** - ~5ms per call = max 200 req/sec
+
+### Anti-patterns
+
+- **Global singletons** - One DO handling all requests becomes a bottleneck
+- **Passing DO instances directly** - Use IDs, get stubs from env bindings
+- **Unawaited RPC calls** - Errors swallowed, return values lost
+- **Storing everything in parent DO** - Use parent-child relationships for parallelism
 
 ## Development Workflow - Spec-Driven Development
 
