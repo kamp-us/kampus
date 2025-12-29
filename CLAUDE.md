@@ -64,6 +64,7 @@ Each Durable Object is an **actor** with:
 - **Use `idFromName()` for routing** - Same input always routes to same instance
 - **Prefer RPC methods over `fetch()` handler** - Better type safety, no manual parsing
 - **Always await RPC calls** - Unawaited calls create dangling promises, errors get swallowed
+- **Return null for missing entities, don't throw** - When looking up by ID, return `null` if not found instead of throwing errors. This simplifies error handling and avoids RPC serialization issues with custom error classes
 
 ### Storage Rules
 
