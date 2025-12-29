@@ -42,6 +42,56 @@ Browser → kamp-us Worker → Backend Worker (service binding)
            └─ static      → Vite assets
 ```
 
+## Development Workflow - Spec-Driven Development
+
+This project follows a **spec-driven development** approach where every feature is thoroughly specified before implementation.
+
+**CRITICAL RULE: NEVER IMPLEMENT WITHOUT FOLLOWING THE COMPLETE SPEC FLOW**
+
+### Mandatory Workflow Steps
+
+**AUTHORIZATION PROTOCOL**: Before proceeding to any phase (2-5), you MUST:
+1. Present the completed work from the current phase
+2. Explicitly ask for user authorization to proceed
+3. Wait for clear user approval before continuing
+4. NEVER assume permission or proceed automatically
+
+### Phase-by-Phase Process
+
+| Phase | Deliverable | Gate |
+| ----- | ----------- | ---- |
+| 1 | `instructions.md` - capture user requirements, stories, acceptance criteria | — |
+| 2 | `requirements.md` - structured functional/non-functional requirements | **REQUIRES APPROVAL** |
+| 3 | `design.md` - technical design, architecture, Effect patterns | **REQUIRES APPROVAL** |
+| 4 | `plan.md` - implementation roadmap and task breakdown | **REQUIRES APPROVAL** |
+| 5 | Implementation - follow the plan exactly | **REQUIRES APPROVAL** |
+
+### Specification Structure
+
+```
+specs/
+├── README.md                    # Feature directory with completion status
+└── [feature-name]/
+    ├── instructions.md          # Initial requirements capture
+    ├── requirements.md          # Structured requirements analysis
+    ├── design.md                # Technical design and architecture
+    └── plan.md                  # Implementation roadmap and progress
+```
+
+**`specs/README.md`**: Simple checkbox list of features
+```markdown
+- [x] **[feature-name](./feature-name/)** - Brief description
+- [ ] **[another-feature](./another-feature/)** - Brief description
+```
+
+### Best Practices
+
+- **One feature per spec folder**: Keep features focused and manageable
+- **Iterative refinement**: Specs can evolve but major changes should be documented
+- **Cross-reference**: Link between instruction/requirement/design/plan files
+- **Progress tracking**: Update plan.md regularly during implementation
+- **Effect-first design**: Consider Effect patterns and error handling in design phase
+
 ## Patterns & Conventions
 
 ### Design System
@@ -104,6 +154,7 @@ Uses **Biome** for formatting and linting:
 
 | What | Where |
 | ------ | ------- |
+| Feature specs | `specs/[feature-name]/` |
 | Design tokens | `apps/kamp-us/src/design/phoenix.{ts,css}` |
 | GraphQL schema | `apps/worker/src/graphql/` |
 | Feature implementations | `apps/worker/src/features/*/` |
