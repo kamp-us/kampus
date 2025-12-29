@@ -1,0 +1,71 @@
+.container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  padding: var(--space-4);
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  width: 100%;
+  max-width: 400px;
+  padding: var(--space-6);
+  background: var(--gray-2);
+  border-radius: var(--radius-3);
+  border: 1px solid var(--gray-6);
+}
+
+.title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--gray-12);
+  margin: 0;
+}
+
+.info {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.info p {
+  margin: 0;
+  color: var(--gray-11);
+  font-size: 0.875rem;
+}
+
+.info strong {
+  color: var(--gray-12);
+}
+
+.logoutButton,
+.loginButton {
+  padding: var(--space-2) var(--space-4);
+  font-size: 0.875rem;
+  font-weight: 500;
+  border: none;
+  border-radius: var(--radius-2);
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.logoutButton {
+  color: white;
+  background: var(--ruby-9);
+}
+
+.logoutButton:hover {
+  background: var(--ruby-10);
+}
+
+.loginButton {
+  color: white;
+  background: var(--sky-9);
+}
+
+.loginButton:hover {
+  background: var(--sky-10);
+}

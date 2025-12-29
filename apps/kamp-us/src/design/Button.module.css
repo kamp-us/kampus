@@ -1,0 +1,45 @@
+.Button {
+	--button-text-default: var(--gray-a11);
+	--button-border-default: var(--gray-a8);
+	--button-bg-default: var(--gray-a3);
+	--button-bg-hover: var(--gray-a4);
+	--button-bg-active: var(--gray-a5);
+
+	box-sizing: border-box;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	padding: var(--space-12) var(--space-16);
+	border: none;
+	border-radius: var(--radius-4);
+	margin: 0;
+	font-family: inherit;
+	font-size: var(--font-size-2);
+	font-weight: var(--font-weight-medium);
+	line-height: var(--line-height-2);
+	letter-spacing: var(--letter-spacing-1);
+	min-height: 44px;
+
+	background-color: var(--button-bg-default);
+	color: var(--button-text-default);
+	box-shadow: 0 0 0 1px var(--button-border-default);
+
+	@media (hover: hover) {
+		&:hover:not([data-disabled]) {
+			background-color: var(--button-bg-hover);
+		}
+	}
+
+	&:active:not([data-disabled]) {
+		background-color: var(--button-bg-active);
+	}
+
+	&:focus-visible {
+		outline: 2px solid var(--blue-a8);
+		outline-offset: -1px;
+	}
+
+	&[data-disabled] {
+		opacity: 50%;
+	}
+}

@@ -1,0 +1,29 @@
+.IconButton {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 44px;
+	height: 44px;
+	padding: 0;
+	border: none;
+	border-radius: var(--radius-2);
+	background: transparent;
+	color: var(--gray-9);
+	cursor: pointer;
+
+	& svg {
+		width: 20px;
+		height: 20px;
+	}
+
+	@media (hover: hover) {
+		&:hover {
+			color: var(--gray-11);
+		}
+	}
+
+	&:focus-visible {
+		outline: 2px solid var(--blue-a8);
+		outline-offset: -1px;
+	}
+}

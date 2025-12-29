@@ -1,0 +1,102 @@
+@import "@radix-ui/colors/gray.css";
+@import "@radix-ui/colors/gray-alpha.css";
+@import "@radix-ui/colors/gray-dark.css";
+@import "@radix-ui/colors/gray-dark-alpha.css";
+@import "@radix-ui/colors/amber.css";
+@import "@radix-ui/colors/amber-alpha.css";
+@import "@radix-ui/colors/amber-dark.css";
+@import "@radix-ui/colors/amber-dark-alpha.css";
+@import "@radix-ui/colors/ruby.css";
+@import "@radix-ui/colors/ruby-alpha.css";
+@import "@radix-ui/colors/ruby-dark.css";
+@import "@radix-ui/colors/ruby-dark-alpha.css";
+@import "@radix-ui/colors/jade.css";
+@import "@radix-ui/colors/jade-alpha.css";
+@import "@radix-ui/colors/jade-dark.css";
+@import "@radix-ui/colors/jade-dark-alpha.css";
+@import "@radix-ui/colors/sky.css";
+@import "@radix-ui/colors/sky-alpha.css";
+@import "@radix-ui/colors/sky-dark.css";
+@import "@radix-ui/colors/sky-dark-alpha.css";
+
+:root {
+	--space-0: 0;
+	--space-2: 2px;
+	--space-4: 4px;
+	--space-8: 8px;
+	--space-12: 12px;
+	--space-16: 16px;
+	--space-20: 20px;
+	--space-24: 24px;
+	--space-28: 28px;
+	--space-32: 32px;
+	--space-36: 36px;
+	--space-40: 40px;
+	--space-44: 44px;
+	--space-48: 48px;
+	--space-52: 52px;
+	--space-56: 56px;
+	--space-60: 60px;
+	--space-64: 64px;
+	--space-72: 72px;
+	--space-96: 96px;
+	--space-128: 128px;
+	--space-256: 256px;
+	--space-512: 512px;
+}
+
+:root {
+  --radius-none: 0;
+  --radius-2: 2px;
+  --radius-4: 4px;
+  --radius-8: 8px;
+  --radius-12: 12px;
+  --radius-16: 16px;
+  --radius-round: 9999px;
+}
+
+:root {
+  --color-bg-base: var(--gray-1);
+  --color-bg-subtle: var(--gray-2);
+}
+
+:root {
+  /* Font sizes */
+  --font-size-1: 12px;
+  --font-size-2: 14px;
+  --font-size-3: 16px;
+  --font-size-4: 18px;
+  --font-size-5: 20px;
+  --font-size-6: 24px;
+  --font-size-7: 28px;
+  --font-size-8: 35px;
+  --font-size-9: 60px;
+
+  /* Letter spacing */
+  --letter-spacing-1: 0.0025em;
+  --letter-spacing-2: 0em;
+  --letter-spacing-3: 0em;
+  --letter-spacing-4: -0.0025em;
+  --letter-spacing-5: -0.005em;
+  --letter-spacing-6: -0.00625em;
+  --letter-spacing-7: -0.0075em;
+  --letter-spacing-8: -0.01em;
+  --letter-spacing-9: -0.025em;
+
+  /* Line heights */
+  --line-height-1: 16px;
+  --line-height-2: 20px;
+  --line-height-3: 24px;
+  --line-height-4: 26px;
+  --line-height-5: 28px;
+  --line-height-6: 30px;
+  --line-height-7: 36px;
+  --line-height-8: 40px;
+  --line-height-9: 60px;
+
+  /* Font weights */
+  --font-weight-light: 300;
+  --font-weight-regular: 400;
+  --font-weight-medium: 500;
+  --font-weight-bold: 700;
+}

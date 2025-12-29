@@ -1,0 +1,29 @@
+.root {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-4);
+}
+
+.label {
+	font-size: var(--font-size-2);
+	font-weight: var(--font-weight-medium);
+	line-height: var(--line-height-2);
+	letter-spacing: var(--letter-spacing-1);
+	color: var(--gray-12);
+}
+
+.description {
+	margin: 0;
+	font-size: var(--font-size-1);
+	font-weight: var(--font-weight-regular);
+	line-height: var(--line-height-1);
+	letter-spacing: var(--letter-spacing-1);
+	color: var(--gray-10);
+}
+
+.error {
+	font-size: var(--font-size-1);
+	font-weight: var(--font-weight-medium);
+	line-height: var(--line-height-1);
+	color: var(--ruby-10);
+}

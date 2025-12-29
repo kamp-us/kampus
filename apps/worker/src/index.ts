@@ -7,6 +7,8 @@ import {Hono} from "hono";
 import type {Session} from "./features/pasaport/auth";
 
 export {Pasaport} from "./features/pasaport/pasaport";
+export {WebPageParser} from "./features/web-page-parser/WebPageParser";
+export {Library} from "./features/library/Library";
 
 const standard = Schema.standardSchemaV1;
 
@@ -166,6 +168,19 @@ app.use("/graphql", async (c) => {
 			return context;
 		},
 	}).fetch(c.req.raw);
+});
+
+app.get("/parse-url", async (c) => {
+	const stub = c.env.WEB_PAGE_PARSER.getByName(
+		"https://nesbitt.io/2025/12/26/how-uv-got-so-fast.html",
+	);
+
+	await stub.init("https://nesbitt.io/2025/12/26/how-uv-got-so-fast.html");
+
+	const result = await stub.getMetadata();
+	console.log("URL Metadata:", result);
+
+	return c.json(result);
 });
 
 export default {

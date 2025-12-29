@@ -4,10 +4,17 @@
 	"type": "module",
 	"private": true,
 	"dependencies": {
+		"@effect/cli": "catalog:",
+		"@effect/platform": "catalog:",
+		"@effect/platform-bun": "catalog:",
+		"@opentui/core": "catalog:",
+		"@opentui/react": "catalog:",
 		"bluebun": "catalog:",
-		"effect": "catalog:"
+		"effect": "catalog:",
+		"react": "catalog:"
 	},
 	"devDependencies": {
-		"@types/bun": "latest"
+		"@types/bun": "catalog:",
+		"@types/react": "catalog:"
 	}
 }
