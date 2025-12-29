@@ -20,6 +20,10 @@
 			{
 				"name": "WEB_PAGE_PARSER",
 				"class_name": "WebPageParser"
+			},
+			{
+				"name": "LIBRARY",
+				"class_name": "Library"
 			}
 		]
 	},
@@ -33,7 +37,7 @@
 	"migrations": [
 		{
 			"tag": "v1",
-			"new_sqlite_classes": ["Pasaport", "WebPageParser"]
+			"new_sqlite_classes": ["Pasaport", "WebPageParser", "Library"]
 		}
 	],
 	"vars": {

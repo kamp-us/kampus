@@ -8,6 +8,7 @@ import type {Session} from "./features/pasaport/auth";
 
 export {Pasaport} from "./features/pasaport/pasaport";
 export {WebPageParser} from "./features/web-page-parser/WebPageParser";
+export {Library} from "./features/library/Library";
 
 const standard = Schema.standardSchemaV1;
 
