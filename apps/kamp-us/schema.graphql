@@ -1,0 +1,32 @@
+type Query {
+  node(id: String!): Node
+  me: User!
+}
+
+type Node {
+  id: String!
+  email: String!
+  name: String
+}
+
+type User {
+  id: String!
+  email: String!
+  name: String
+}
+
+type Mutation {
+  signIn(email: String!, password: String!): SignInResponse!
+  bootstrap(email: String!, password: String!, name: String!): User!
+  createApiKey(name: String!): ApiKey!
+}
+
+type SignInResponse {
+  user: User!
+  token: String!
+}
+
+type ApiKey {
+  name: String!
+  key: String!
+}
