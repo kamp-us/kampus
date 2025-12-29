@@ -11,6 +11,7 @@
 	},
 	"devDependencies": {
 		"@cloudflare/vitest-pool-workers": "^0.8.19",
+		"@types/node": "catalog:",
 		"drizzle-kit": "catalog:",
 		"typescript": "^5.5.2",
 		"vitest": "~3.2.0",
@@ -26,6 +27,7 @@
 		"effect": "catalog:",
 		"graphql": "catalog:",
 		"graphql-yoga": "catalog:",
-		"hono": "catalog:"
+		"hono": "catalog:",
+		"normalize-url": "catalog:"
 	}
 }
