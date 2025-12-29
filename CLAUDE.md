@@ -85,6 +85,81 @@ Each Durable Object is an **actor** with:
 - **Unawaited RPC calls** - Errors swallowed, return values lost
 - **Storing everything in parent DO** - Use parent-child relationships for parallelism
 
+### Alarms & Scheduling
+
+Use alarms for per-entity scheduled tasks:
+```typescript
+// Schedule future work
+await this.ctx.storage.setAlarm(Date.now() + 60_000) // 1 minute
+
+// Handle in alarm() method
+async alarm() {
+  await this.processScheduledWork()
+  // Re-schedule if recurring (alarms don't repeat automatically)
+  if (this.shouldContinue) {
+    await this.ctx.storage.setAlarm(Date.now() + 60_000)
+  }
+}
+```
+
+**Rules:**
+- Make alarm handlers idempotent (may fire multiple times)
+- Only schedule alarms when work is needed
+- Call `deleteAlarm()` before `deleteAll()` when cleaning up
+
+### WebSockets & Hibernation
+
+Use Hibernatable WebSockets API to reduce costs for idle connections:
+```typescript
+async fetch(request: Request) {
+  const [client, server] = Object.values(new WebSocketPair())
+
+  // Accept with hibernation support
+  this.ctx.acceptWebSocket(server)
+
+  // Store per-connection state (survives hibernation)
+  server.serializeAttachment({userId: "user_123", joinedAt: Date.now()})
+
+  return new Response(null, {status: 101, webSocket: client})
+}
+
+async webSocketMessage(ws: WebSocket, message: string) {
+  const state = ws.deserializeAttachment()
+  // Handle message with connection state
+}
+```
+
+**Benefits:**
+- DO can sleep while maintaining connections
+- Significantly reduces costs for chat/realtime apps
+
+### Error Handling & Retries
+
+When calling DOs from Workers, handle transient failures:
+```typescript
+async function callDOWithRetry(stub: DurableObjectStub, maxRetries = 3) {
+  for (let i = 0; i < maxRetries; i++) {
+    try {
+      return await stub.someMethod()
+    } catch (error) {
+      if (error.retryable) {
+        await sleep(Math.pow(2, i) * 100) // Exponential backoff
+        continue
+      }
+      if (error.overloaded) {
+        await sleep(1000) // Back off more for overload
+        continue
+      }
+      throw error // Non-retryable, rethrow
+    }
+  }
+}
+```
+
+**Error properties:**
+- `.retryable` - Transient failure, safe to retry
+- `.overloaded` - DO is overloaded, back off longer
+
 ## Development Workflow - Spec-Driven Development
 
 This project follows a **spec-driven development** approach where every feature is thoroughly specified before implementation.
