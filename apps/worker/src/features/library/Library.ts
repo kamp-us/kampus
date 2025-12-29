@@ -1,5 +1,5 @@
 import {DurableObject} from "cloudflare:workers";
-import {eq, sql} from "drizzle-orm";
+import {eq, inArray, sql} from "drizzle-orm";
 import {drizzle} from "drizzle-orm/durable-sqlite";
 import {migrate} from "drizzle-orm/durable-sqlite/migrator";
 import * as schema from "./drizzle/drizzle.schema";
@@ -74,6 +74,15 @@ export class Library extends DurableObject<Env> {
 			return null;
 		}
 
+		const updateValues: {name?: string; color?: string} = {};
+		if (updates.name) updateValues.name = updates.name;
+		if (updates.color) updateValues.color = updates.color.toLowerCase();
+
+		// If no updates provided, return existing tag unchanged
+		if (Object.keys(updateValues).length === 0) {
+			return existing;
+		}
+
 		// If updating name, check uniqueness (excluding current tag)
 		if (updates.name) {
 			const duplicate = await this.db
@@ -88,10 +97,6 @@ export class Library extends DurableObject<Env> {
 				throw new TagNameExistsError({tagName: updates.name});
 			}
 		}
-
-		const updateValues: {name?: string; color?: string} = {};
-		if (updates.name) updateValues.name = updates.name;
-		if (updates.color) updateValues.color = updates.color.toLowerCase();
 
 		const [tag] = await this.db
 			.update(schema.tag)
@@ -117,6 +122,10 @@ export class Library extends DurableObject<Env> {
 	// Story-Tag relationship methods
 
 	async tagStory(storyId: string, tagIds: string[]) {
+		if (tagIds.length === 0) {
+			return;
+		}
+
 		// Verify story exists
 		const story = await this.db
 			.select()
@@ -128,8 +137,18 @@ export class Library extends DurableObject<Env> {
 			return;
 		}
 
+		// Verify all tags exist before creating associations
+		const existingTags = await this.db
+			.select({id: schema.tag.id})
+			.from(schema.tag)
+			.where(inArray(schema.tag.id, tagIds))
+			.all();
+
+		const existingTagIds = new Set(existingTags.map((t) => t.id));
+		const validTagIds = tagIds.filter((id) => existingTagIds.has(id));
+
 		// Insert with ON CONFLICT DO NOTHING for idempotency
-		for (const tagId of tagIds) {
+		for (const tagId of validTagIds) {
 			await this.db.insert(schema.storyTag).values({storyId, tagId}).onConflictDoNothing();
 		}
 	}
