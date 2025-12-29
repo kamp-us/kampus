@@ -11,7 +11,6 @@ interface FieldProps {
 }
 
 export function Field({label, description, error, control}: FieldProps) {
-	console.log({error});
 	return (
 		<BaseField.Root className={styles.root}>
 			<BaseField.Label className={styles.label}>{label}</BaseField.Label>

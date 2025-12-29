@@ -72,7 +72,6 @@ export function Login() {
 
 					<Field
 						label="Email"
-						description="Foo bar"
 						control={
 							<Input
 								type="email"

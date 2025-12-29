@@ -10,13 +10,7 @@ import {KampusStateStorage} from "../services/KampusStateStorage";
 // Define the top-level command
 const command = Command.make("kampus", {}, () =>
 	Effect.gen(function* () {
-		const store = yield* KampusStateStorage;
-
-		yield* store.setSessionToken("foobar");
-
-		const token = yield* store.getSessionToken();
-
-		yield* Console.log(`Session Token: ${token}`);
+		yield* Console.log("kampus cli - use a subcommand to get started");
 	}),
 ).pipe(Command.withSubcommands([login, gql]));
 

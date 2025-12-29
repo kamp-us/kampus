@@ -48,7 +48,7 @@ export class KampusStateStorage extends Effect.Service<KampusStateStorage>()(
 			const clearSession = Effect.fn("KampusStateStorage.clearSession")(function* () {
 				const cfg = yield* loadState();
 				const {sessionToken, user, ...rest} = cfg;
-				yield* saveState(rest);
+				yield* kv.set("state", KampusState.make(rest));
 			});
 
 			return {
