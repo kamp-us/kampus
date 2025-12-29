@@ -4,4 +4,4 @@ Feature directory with completion status. Each feature follows the [spec-driven 
 
 ## Features
 
-<!-- Add new features here using: - [ ] **[feature-name](./feature-name/)** - Brief description -->
+- [ ] **[library-tags](./library-tags/)** - Add per-user tags with name and color to organize library stories
