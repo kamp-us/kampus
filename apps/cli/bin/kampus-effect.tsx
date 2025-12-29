@@ -3,7 +3,7 @@
 import {Command} from "@effect/cli";
 import {BunContext, BunRuntime} from "@effect/platform-bun";
 import {Console, Effect, Layer} from "effect";
-
+import {gql} from "../commands/gql";
 import {login} from "../commands/login";
 import {KampusStateStorage} from "../services/KampusStateStorage";
 
@@ -18,7 +18,7 @@ const command = Command.make("kampus", {}, () =>
 
 		yield* Console.log(`Session Token: ${token}`);
 	}),
-).pipe(Command.withSubcommands([login]));
+).pipe(Command.withSubcommands([login, gql]));
 
 // Set up the CLI application
 const cli = Command.run(command, {
