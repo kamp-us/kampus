@@ -25,6 +25,14 @@ pnpm --filter worker run dev           # Wrangler dev server
 pnpm --filter worker run test          # Run Vitest tests
 ```
 
+## Development Rules
+
+Before committing, ensure code passes:
+1. `biome check --write .` - Fix formatting/linting
+2. `pnpm --filter worker exec tsc --noEmit` - Type check worker
+
+Never commit code with lint errors or type failures.
+
 ## Architecture
 
 ```
@@ -41,6 +49,24 @@ Browser → kamp-us Worker → Backend Worker (service binding)
            ├─ /api/auth/* → Better Auth
            └─ static      → Vite assets
 ```
+
+## Actor Model (Durable Objects)
+
+Each Durable Object is an **actor** with:
+- **Single-threaded execution** - No concurrency within instance, no locks needed
+- **Isolated state** - Own SQLite database, no shared memory
+- **Message passing** - Communication via RPC stubs
+- **Location transparency** - Cloudflare routes to correct instance
+
+**Patterns:**
+- One actor per domain entity (User, Library, WebPage)
+- Actors communicate via stubs obtained from env bindings
+- Keep actors focused—split when responsibilities diverge
+
+**Anti-patterns:**
+- God actors that handle everything
+- Passing DO instances directly (use IDs instead)
+- Relying on ordering between different actor calls
 
 ## Development Workflow - Spec-Driven Development
 
@@ -142,6 +168,52 @@ Uses **Biome** for formatting and linting:
 - Bracket spacing: false (`{foo}` not `{ foo }`)
 - Run `biome check .` or `biome format . --write`
 
+## Effect Best Practices
+
+### Sequential Operations
+Use `Effect.gen()` with generators, not `.pipe()` chains:
+```typescript
+const program = Effect.gen(function* () {
+  const user = yield* getUser(id)
+  const profile = yield* getProfile(user.profileId)
+  return { user, profile }
+})
+```
+
+### Error Handling
+Define tagged errors in feature schema files:
+```typescript
+class UserNotFound extends Data.TaggedError("UserNotFound")<{
+  readonly userId: string
+}> {}
+```
+
+### Services
+Use `Effect.Service` for dependency injection:
+```typescript
+export class MyService extends Effect.Service<MyService>()("MyService", {
+  effect: Effect.gen(function* () {
+    // service implementation
+    return { method1, method2 }
+  }),
+}) {}
+```
+
+### Schema
+Use `Schema.Struct()` for data structures (not classes in DO context):
+```typescript
+const User = Schema.Struct({
+  id: Schema.String,
+  email: Schema.String,
+})
+```
+
+### Bridging Promises
+Wrap external Promise APIs:
+```typescript
+const result = yield* Effect.promise(() => externalAsyncCall())
+```
+
 ## Principles
 
 - **Effect.ts** for all async/error handling—not raw Promises
@@ -149,6 +221,128 @@ Uses **Biome** for formatting and linting:
 - **Base UI** for interactive components—extend, don't rebuild
 - **Drizzle + SQLite** for persistence in Durable Objects—not KV
 - Keep Durable Objects focused: one responsibility per DO
+
+## Testing
+
+Worker tests use Vitest with Cloudflare's test pool:
+```bash
+pnpm --filter worker run test
+```
+
+Test files: `apps/worker/test/*.spec.ts`
+
+**Pattern:**
+```typescript
+import { env, SELF } from 'cloudflare:test'
+import { describe, it, expect } from 'vitest'
+
+describe('Feature', () => {
+  it('works', async () => {
+    const response = await SELF.fetch('https://example.com/endpoint')
+    expect(response.status).toBe(200)
+  })
+})
+```
+
+## Common Gotchas
+
+- **DO can't return class instances** - Use `Schema.Struct()`, not `Schema.Class()`
+- **Don't run `turbo dev` automatically** - User starts dev servers manually
+- **Effect in worker** - Used via GQLoom's EffectWeaver, not direct Effect.gen
+- **Relay artifacts** - Run `pnpm --filter kamp-us run relay` after schema changes
+- **Design system className** - Props intentionally omit it; don't try to add styles
+
+## Reference Implementations
+
+Study these patterns before implementing similar features.
+
+### Durable Object with Drizzle
+
+**Schema** (`drizzle/drizzle.schema.ts`):
+```typescript
+import {id} from "@usirin/forge";
+import {index, integer, sqliteTable, text} from "drizzle-orm/sqlite-core";
+
+const timestamp = (name: string) => integer(name, {mode: "timestamp"});
+
+export const story = sqliteTable(
+  "story",
+  {
+    id: text("id").primaryKey().$defaultFn(() => id("story")),
+    url: text("string"),
+    normalizedUrl: text("string"),
+    title: text("title").notNull(),
+    description: text("description"),
+    createdAt: timestamp("created_at").notNull().$defaultFn(() => new Date()),
+  },
+  (table) => [
+    index("idx_story_normalized_url").on(table.normalizedUrl),
+    index("idx_story_created_at").on(table.createdAt),
+  ],
+);
+```
+
+**Durable Object** (`Library.ts`):
+```typescript
+import {DurableObject} from "cloudflare:workers";
+import {drizzle} from "drizzle-orm/durable-sqlite";
+import {migrate} from "drizzle-orm/durable-sqlite/migrator";
+import * as schema from "./drizzle/drizzle.schema";
+import migrations from "./drizzle/migrations/migrations";
+
+// keyed by user id
+export class Library extends DurableObject<Env> {
+  db = drizzle(this.ctx.storage, {schema});
+
+  constructor(ctx: DurableObjectState, env: Env) {
+    super(ctx, env);
+    this.ctx.blockConcurrencyWhile(async () => {
+      await migrate(this.db, migrations);
+    });
+  }
+
+  async createStory(options: {url: string; title: string; description?: string}) {
+    const [story] = await this.db
+      .insert(schema.story)
+      .values({...options, normalizedUrl: getNormalizedUrl(options.url)})
+      .returning();
+    return story;
+  }
+}
+```
+
+### Effect Service
+
+```typescript
+export class KampusStateStorage extends Effect.Service<KampusStateStorage>()(
+  "cli/services/KampusStateStorage",
+  {
+    dependencies: [BunKeyValueStore.layerFileSystem(KAMPUS_DIR)],
+    effect: Effect.gen(function* () {
+      const kv = (yield* KeyValueStore).forSchema(KampusState);
+
+      const loadState = Effect.fn("loadState")(function* () {
+        return (yield* kv.get("state")).pipe(
+          Option.getOrElse(() => KampusState.make({}))
+        );
+      });
+
+      return { loadState, /* ... */ };
+    }),
+  },
+) {}
+```
+
+### Tagged Error
+
+```typescript
+export class KampusConfigError<Method extends string> extends Data.TaggedError(
+  "@kampus/cli/services/KampusConfigError",
+)<{
+  method: Method;
+  cause: unknown;
+}> {}
+```
 
 ## Finding Things
 
