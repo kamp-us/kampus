@@ -1,5 +1,5 @@
 import {Component, type ReactNode, Suspense, useState} from "react";
-import {graphql, useLazyLoadQuery, useMutation} from "react-relay";
+import {graphql, type RecordSourceSelectorProxy, useLazyLoadQuery, useMutation} from "react-relay";
 import {Navigate} from "react-router";
 import type {LibraryCreateStoryMutation} from "../__generated__/LibraryCreateStoryMutation.graphql";
 import type {LibraryDeleteStoryMutation} from "../__generated__/LibraryDeleteStoryMutation.graphql";
@@ -185,13 +185,30 @@ function CreateStoryForm({
 
 		commit({
 			variables: {url, title},
+			updater: (store: RecordSourceSelectorProxy) => {
+				const payload = store.getRootField("createStory");
+				const newStory = payload?.getLinkedRecord("story");
+				if (!newStory) return;
+
+				const root = store.getRoot();
+				const me = root.getLinkedRecord("me");
+				const library = me?.getLinkedRecord("library");
+				const connection = library?.getLinkedRecord("stories", {first: 20});
+				if (!connection) return;
+
+				const storyId = newStory.getValue("id") as string;
+				const newEdge = store.create(`client:newEdge:${storyId}`, "StoryEdge");
+				newEdge.setLinkedRecord(newStory, "node");
+				newEdge.setValue(storyId, "cursor");
+
+				const edges = connection.getLinkedRecords("edges") || [];
+				connection.setLinkedRecords([newEdge, ...edges], "edges");
+			},
 			onCompleted: (response) => {
 				if (response.createStory.story) {
 					setUrl("");
 					setTitle("");
 					onCollapse();
-					// Force refetch by reloading - simple approach for now
-					window.location.reload();
 				}
 			},
 			onError: (err) => setError(err.message),
@@ -277,14 +294,15 @@ function StoryRow({story}: {story: {id: string; url: string; title: string; crea
 	};
 
 	const handleSaveEdit = () => {
-		if (editTitle.trim() === "") return;
-		if (editTitle === story.title) {
+		const trimmedTitle = editTitle.trim();
+		if (trimmedTitle === "") return;
+		if (trimmedTitle === story.title) {
 			setIsEditing(false);
 			return;
 		}
 
 		commitUpdate({
-			variables: {id: story.id, title: editTitle},
+			variables: {id: story.id, title: trimmedTitle},
 			onCompleted: (response) => {
 				if (response.updateStory.error) {
 					setError(response.updateStory.error.message);
@@ -309,13 +327,18 @@ function StoryRow({story}: {story: {id: string; url: string; title: string; crea
 	const handleDelete = () => {
 		commitDelete({
 			variables: {id: story.id},
+			updater: (store: RecordSourceSelectorProxy) => {
+				const payload = store.getRootField("deleteStory");
+				const deletedId = payload?.getValue("deletedStoryId") as string | undefined;
+				if (deletedId) {
+					store.delete(deletedId);
+				}
+			},
 			onCompleted: (response) => {
 				if (response.deleteStory.error) {
 					setError(response.deleteStory.error.message);
-					setDeleteDialogOpen(false);
-				} else if (response.deleteStory.success) {
-					window.location.reload();
 				}
+				setDeleteDialogOpen(false);
 			},
 			onError: (err) => {
 				setError(err.message);
@@ -372,7 +395,7 @@ function StoryRow({story}: {story: {id: string; url: string; title: string; crea
 					</div>
 				</div>
 				<Menu.Root>
-					<Menu.Trigger>
+					<Menu.Trigger aria-label="Story options">
 						<MoreHorizontalIcon />
 					</Menu.Trigger>
 					<Menu.Portal>
