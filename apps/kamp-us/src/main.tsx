@@ -1,15 +1,16 @@
 import {StrictMode} from "react";
 import {createRoot} from "react-dom/client";
-import {createBrowserRouter, RouterProvider} from "react-router";
 import {RelayEnvironmentProvider} from "react-relay";
+import {createBrowserRouter, RouterProvider} from "react-router";
 
 import "./design/phoenix.css";
 import "./index.css";
 
 import App from "./App.tsx";
-import {Me} from "./components/Me";
-import {Login} from "./pages/Login";
 import {AuthProvider} from "./auth/AuthContext";
+import {Me} from "./components/Me";
+import {Library} from "./pages/Library";
+import {Login} from "./pages/Login";
 import {environment} from "./relay/environment";
 
 const router = createBrowserRouter([
@@ -24,6 +25,10 @@ const router = createBrowserRouter([
 	{
 		path: "/me",
 		element: <Me />,
+	},
+	{
+		path: "/me/library",
+		element: <Library />,
 	},
 ]);
 
