@@ -467,8 +467,8 @@ function AuthenticatedLibrary() {
 
 			{hasStories ? (
 				<div className={styles.storyList}>
-					{stories.map(({node}) => (
-						<StoryRow key={node.id} storyRef={node} onStoryDeleted={handleRefetch} />
+					{stories.map(({node, cursor}) => (
+						<StoryRow key={cursor} storyRef={node} onStoryDeleted={handleRefetch} />
 					))}
 				</div>
 			) : (
