@@ -4,4 +4,5 @@ Feature directory with completion status. Each feature follows the [spec-driven 
 
 ## Features
 
+- [ ] **[user-library-page](./user-library-page/)** - User-facing library page with story CRUD operations
 - [ ] **[library-tags](./library-tags/)** - Add per-user tags with name and color to organize library stories
