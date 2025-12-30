@@ -1,0 +1,1 @@
+DROP INDEX `idx_story_url`;
