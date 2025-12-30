@@ -5,7 +5,13 @@ import {migrate} from "drizzle-orm/durable-sqlite/migrator";
 import * as schema from "./drizzle/drizzle.schema";
 import migrations from "./drizzle/migrations/migrations";
 import {getNormalizedUrl} from "./getNormalizedUrl";
-import {InvalidTagColorError, isValidHexColor, TagNameExistsError} from "./schema";
+import {
+	InvalidTagColorError,
+	InvalidTagNameError,
+	isValidHexColor,
+	TagNameExistsError,
+	validateTagName,
+} from "./schema";
 
 // keyed by user id
 export class Library extends DurableObject<Env> {
@@ -123,6 +129,12 @@ export class Library extends DurableObject<Env> {
 	// Tag CRUD methods
 
 	async createTag(name: string, color: string) {
+		// Validate tag name
+		const nameValidation = validateTagName(name);
+		if (!nameValidation.valid) {
+			throw new InvalidTagNameError({name, reason: nameValidation.reason});
+		}
+
 		// Validate color format
 		if (!isValidHexColor(color)) {
 			throw new InvalidTagColorError({color});
@@ -160,6 +172,14 @@ export class Library extends DurableObject<Env> {
 	}
 
 	async updateTag(id: string, updates: {name?: string; color?: string}) {
+		// Validate tag name if provided
+		if (updates.name) {
+			const nameValidation = validateTagName(updates.name);
+			if (!nameValidation.valid) {
+				throw new InvalidTagNameError({name: updates.name, reason: nameValidation.reason});
+			}
+		}
+
 		// Validate color format if provided
 		if (updates.color && !isValidHexColor(updates.color)) {
 			throw new InvalidTagColorError({color: updates.color});

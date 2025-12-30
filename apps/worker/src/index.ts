@@ -11,7 +11,10 @@ import {
 } from "graphql";
 import {createYoga} from "graphql-yoga";
 import {Hono} from "hono";
-import {TagNameExistsError as TagNameExistsErrorRuntime} from "./features/library/schema";
+import {
+	InvalidTagNameError as InvalidTagNameErrorRuntime,
+	TagNameExistsError as TagNameExistsErrorRuntime,
+} from "./features/library/schema";
 import type {Session} from "./features/pasaport/auth";
 import {decodeGlobalId, encodeGlobalId, NodeType} from "./graphql/relay";
 
@@ -173,9 +176,19 @@ const TagNameExistsError = Schema.Struct({
 	tagName: Schema.String,
 }).annotations({title: "TagNameExistsError"});
 
+const InvalidTagNameError = Schema.Struct({
+	code: Schema.Literal("INVALID_TAG_NAME"),
+	message: Schema.String,
+	tagName: Schema.String,
+}).annotations({title: "InvalidTagNameError"});
+
+const TagError = Schema.Union(TagNameExistsError, InvalidTagNameError).annotations({
+	title: "TagError",
+});
+
 const CreateTagPayload = Schema.Struct({
 	tag: Schema.NullOr(Tag),
-	error: Schema.NullOr(TagNameExistsError),
+	error: Schema.NullOr(TagError),
 }).annotations({title: "CreateTagPayload"});
 
 // --- Library Resolvers ---
@@ -441,6 +454,16 @@ const tagResolver = resolver({
 						tag: null,
 						error: {
 							code: "TAG_NAME_EXISTS" as const,
+							message: e.message,
+							tagName: name,
+						},
+					};
+				}
+				if (e instanceof InvalidTagNameErrorRuntime) {
+					return {
+						tag: null,
+						error: {
+							code: "INVALID_TAG_NAME" as const,
 							message: e.message,
 							tagName: name,
 						},
