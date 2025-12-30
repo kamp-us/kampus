@@ -1,9 +1,10 @@
 import {Component, type ReactNode, Suspense, useCallback, useMemo, useState} from "react";
 import {graphql, useLazyLoadQuery, useMutation, useRefetchableFragment} from "react-relay";
-import {Navigate} from "react-router";
+import {Navigate, useSearchParams} from "react-router";
 import type {LibraryCreateStoryMutation} from "../__generated__/LibraryCreateStoryMutation.graphql";
 import type {LibraryCreateTagMutation} from "../__generated__/LibraryCreateTagMutation.graphql";
 import type {LibraryDeleteStoryMutation} from "../__generated__/LibraryDeleteStoryMutation.graphql";
+import type {LibraryFilteredQuery as LibraryFilteredQueryType} from "../__generated__/LibraryFilteredQuery.graphql";
 import type {LibraryQuery as LibraryQueryType} from "../__generated__/LibraryQuery.graphql";
 import type {LibraryStoryFragment$key} from "../__generated__/LibraryStoryFragment.graphql";
 import type {LibraryTagsQuery as LibraryTagsQueryType} from "../__generated__/LibraryTagsQuery.graphql";
@@ -41,6 +42,27 @@ const LibraryQuery = graphql`
 		me {
 			library {
 				stories(first: $first, after: $after) {
+					edges {
+						node {
+							...LibraryStoryFragment
+						}
+						cursor
+					}
+					pageInfo {
+						hasNextPage
+						endCursor
+					}
+				}
+			}
+		}
+	}
+`;
+
+const LibraryFilteredQuery = graphql`
+	query LibraryFilteredQuery($tagName: String!, $first: Float!, $after: String) {
+		me {
+			library {
+				storiesByTag(tagName: $tagName, first: $first, after: $after) {
 					edges {
 						node {
 							...LibraryStoryFragment
@@ -248,6 +270,64 @@ function useAvailableTags() {
 	return {tags: allTags, addTag};
 }
 
+// Hook to read/manage tag filter from URL
+function useTagFilter() {
+	const [searchParams, setSearchParams] = useSearchParams();
+
+	const activeTag = searchParams.get("tag");
+
+	const clearFilter = useCallback(() => {
+		setSearchParams({});
+	}, [setSearchParams]);
+
+	return {activeTag, clearFilter};
+}
+
+// TagFilterRow - shows current filter state and count
+function TagFilterRow({
+	activeTag,
+	tagDetails,
+	storyCount,
+	onClearFilter,
+}: {
+	activeTag: string | null;
+	tagDetails: {name: string; color: string} | null;
+	storyCount: number;
+	onClearFilter: () => void;
+}) {
+	const storyLabel = storyCount === 1 ? "story" : "stories";
+
+	if (!activeTag) {
+		return (
+			<div className={styles.tagFilterRow}>
+				<span className={styles.filterLabel}>All stories</span>
+				<span className={styles.storyCount}>
+					{storyCount} {storyLabel}
+				</span>
+			</div>
+		);
+	}
+
+	return (
+		<div className={styles.tagFilterRow}>
+			<span className={styles.filterLabel}>Filtered by</span>
+			<TagChip name={activeTag} color={tagDetails?.color ?? "888888"}>
+				<button
+					type="button"
+					className={styles.dismissButton}
+					onClick={onClearFilter}
+					aria-label={`Clear filter: ${activeTag}`}
+				>
+					×
+				</button>
+			</TagChip>
+			<span className={styles.storyCount}>
+				{storyCount} {storyLabel}
+			</span>
+		</div>
+	);
+}
+
 function EmptyState({onAddClick}: {onAddClick: () => void}) {
 	return (
 		<div className={styles.emptyState}>
@@ -259,22 +339,40 @@ function EmptyState({onAddClick}: {onAddClick: () => void}) {
 	);
 }
 
+function FilteredEmptyState({
+	tagName,
+	onClearFilter,
+}: {
+	tagName: string;
+	onClearFilter: () => void;
+}) {
+	return (
+		<div className={styles.emptyState}>
+			<h2 className={styles.emptyTitle}>No stories tagged "{tagName}"</h2>
+			<p className={styles.emptyText}>Try a different tag or view all your stories.</p>
+			<Button onClick={onClearFilter}>Show all stories</Button>
+		</div>
+	);
+}
+
 function CreateStoryForm({
 	isExpanded,
 	onExpand,
 	onCollapse,
 	availableTags,
 	onTagCreate,
+	initialTags = [],
 }: {
 	isExpanded: boolean;
 	onExpand: () => void;
 	onCollapse: () => void;
 	availableTags: Tag[];
 	onTagCreate: (tag: Tag) => void;
+	initialTags?: Tag[];
 }) {
 	const [url, setUrl] = useState("");
 	const [title, setTitle] = useState("");
-	const [selectedTags, setSelectedTags] = useState<Tag[]>([]);
+	const [selectedTags, setSelectedTags] = useState<Tag[]>(initialTags);
 	const [error, setError] = useState<string | null>(null);
 
 	const [commitStory, isCreating] = useMutation<LibraryCreateStoryMutation>(CreateStoryMutation);
@@ -312,7 +410,7 @@ function CreateStoryForm({
 				if (response.createStory.story) {
 					setUrl("");
 					setTitle("");
-					setSelectedTags([]);
+					setSelectedTags(initialTags);
 					onCollapse();
 				}
 			},
@@ -340,7 +438,7 @@ function CreateStoryForm({
 	const handleCancel = () => {
 		setUrl("");
 		setTitle("");
-		setSelectedTags([]);
+		setSelectedTags(initialTags);
 		setError(null);
 		onCollapse();
 	};
@@ -583,7 +681,12 @@ function StoryRow({
 					{story.tags.length > 0 && (
 						<div className={styles.storyTags}>
 							{story.tags.slice(0, 3).map((tag) => (
-								<TagChip key={tag.id} name={tag.name} color={tag.color} />
+								<TagChip
+									key={tag.id}
+									name={tag.name}
+									color={tag.color}
+									to={`/me/library?tag=${encodeURIComponent(tag.name)}`}
+								/>
 							))}
 							{story.tags.length > 3 && (
 								<span className={styles.moreTags}>+{story.tags.length - 3} more</span>
@@ -632,24 +735,19 @@ function StoryRow({
 
 function AuthenticatedLibrary() {
 	const [isFormExpanded, setIsFormExpanded] = useState(false);
-	const [fetchKey, setFetchKey] = useState(0);
-	const data = useLazyLoadQuery<LibraryQueryType>(
-		LibraryQuery,
-		{first: DEFAULT_PAGE_SIZE},
-		{fetchKey, fetchPolicy: fetchKey > 0 ? "network-only" : "store-or-network"},
-	);
-
+	const {activeTag, clearFilter} = useTagFilter();
 	const {tags: availableTags, addTag} = useAvailableTags();
 
-	const stories = data.me.library.stories.edges;
-	const hasStories = stories.length > 0;
+	// Find tag details for the active filter
+	const activeTagDetails = activeTag
+		? (availableTags.find((t) => t.name === activeTag) ?? null)
+		: null;
 
 	const handleExpand = () => setIsFormExpanded(true);
 	const handleCollapse = () => setIsFormExpanded(false);
 
-	const handleRefetch = useCallback(() => {
-		setFetchKey((k) => k + 1);
-	}, []);
+	// Prepopulate form with active filter tag
+	const initialTags = activeTagDetails ? [activeTagDetails] : [];
 
 	return (
 		<div className={styles.container}>
@@ -658,11 +756,66 @@ function AuthenticatedLibrary() {
 			</header>
 
 			<CreateStoryForm
+				key={activeTag ?? "all"}
 				isExpanded={isFormExpanded}
 				onExpand={handleExpand}
 				onCollapse={handleCollapse}
 				availableTags={availableTags}
 				onTagCreate={addTag}
+				initialTags={initialTags}
+			/>
+
+			<Suspense fallback={<LibrarySkeleton />}>
+				{activeTag ? (
+					<FilteredLibraryView
+						tagName={activeTag}
+						tagDetails={activeTagDetails}
+						availableTags={availableTags}
+						addTag={addTag}
+						onClearFilter={clearFilter}
+					/>
+				) : (
+					<AllStoriesView
+						availableTags={availableTags}
+						addTag={addTag}
+						onFormExpand={handleExpand}
+					/>
+				)}
+			</Suspense>
+		</div>
+	);
+}
+
+function AllStoriesView({
+	availableTags,
+	addTag,
+	onFormExpand,
+}: {
+	availableTags: Tag[];
+	addTag: (tag: Tag) => void;
+	onFormExpand: () => void;
+}) {
+	const [fetchKey, setFetchKey] = useState(0);
+	const data = useLazyLoadQuery<LibraryQueryType>(
+		LibraryQuery,
+		{first: DEFAULT_PAGE_SIZE},
+		{fetchKey, fetchPolicy: fetchKey > 0 ? "network-only" : "store-or-network"},
+	);
+
+	const stories = data.me.library.stories.edges;
+	const hasStories = stories.length > 0;
+
+	const handleRefetch = useCallback(() => {
+		setFetchKey((k) => k + 1);
+	}, []);
+
+	return (
+		<>
+			<TagFilterRow
+				activeTag={null}
+				tagDetails={null}
+				storyCount={stories.length}
+				onClearFilter={() => {}}
 			/>
 
 			{hasStories ? (
@@ -678,9 +831,64 @@ function AuthenticatedLibrary() {
 					))}
 				</div>
 			) : (
-				<EmptyState onAddClick={handleExpand} />
+				<EmptyState onAddClick={onFormExpand} />
 			)}
-		</div>
+		</>
+	);
+}
+
+function FilteredLibraryView({
+	tagName,
+	tagDetails,
+	availableTags,
+	addTag,
+	onClearFilter,
+}: {
+	tagName: string;
+	tagDetails: {name: string; color: string} | null;
+	availableTags: Tag[];
+	addTag: (tag: Tag) => void;
+	onClearFilter: () => void;
+}) {
+	const [fetchKey, setFetchKey] = useState(0);
+	const data = useLazyLoadQuery<LibraryFilteredQueryType>(
+		LibraryFilteredQuery,
+		{tagName, first: DEFAULT_PAGE_SIZE},
+		{fetchKey, fetchPolicy: fetchKey > 0 ? "network-only" : "store-or-network"},
+	);
+
+	const stories = data.me.library.storiesByTag.edges;
+	const hasStories = stories.length > 0;
+
+	const handleRefetch = useCallback(() => {
+		setFetchKey((k) => k + 1);
+	}, []);
+
+	return (
+		<>
+			<TagFilterRow
+				activeTag={tagName}
+				tagDetails={tagDetails}
+				storyCount={stories.length}
+				onClearFilter={onClearFilter}
+			/>
+
+			{hasStories ? (
+				<div className={styles.storyList}>
+					{stories.map(({node, cursor}) => (
+						<StoryRow
+							key={cursor}
+							storyRef={node}
+							onStoryDeleted={handleRefetch}
+							availableTags={availableTags}
+							onTagCreate={addTag}
+						/>
+					))}
+				</div>
+			) : (
+				<FilteredEmptyState tagName={tagName} onClearFilter={onClearFilter} />
+			)}
+		</>
 	);
 }
 

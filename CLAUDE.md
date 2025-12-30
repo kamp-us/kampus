@@ -230,6 +230,26 @@ Components in `apps/kamp-us/src/design/` follow these patterns:
 - Add new variants to existing components rather than one-off styles
 - For complex components, use the compound component pattern (see Fieldset)
 
+### Frontend Stack
+
+The `kamp-us` app uses:
+
+- **React 19** - UI framework
+- **Vite** - Build tool and dev server
+- **React Relay** - GraphQL client with compiler
+- **react-router** - Client-side routing (NOT `react-router-dom`)
+- **CSS Modules** - Scoped styling (`.module.css` files)
+- **Base UI** - Unstyled component primitives
+
+**Important:** Import from `react-router`, not `react-router-dom`:
+```typescript
+// Correct
+import {Link, useSearchParams, useNavigate} from "react-router";
+
+// Wrong - don't use this
+import {Link} from "react-router-dom";
+```
+
 ### Backend Features
 
 Features in `apps/worker/src/features/` follow a standard structure:

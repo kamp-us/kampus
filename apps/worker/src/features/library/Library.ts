@@ -5,7 +5,13 @@ import {migrate} from "drizzle-orm/durable-sqlite/migrator";
 import * as schema from "./drizzle/drizzle.schema";
 import migrations from "./drizzle/migrations/migrations";
 import {getNormalizedUrl} from "./getNormalizedUrl";
-import {InvalidTagColorError, isValidHexColor, TagNameExistsError} from "./schema";
+import {
+	InvalidTagColorError,
+	InvalidTagNameError,
+	isValidHexColor,
+	TagNameExistsError,
+	validateTagName,
+} from "./schema";
 
 // keyed by user id
 export class Library extends DurableObject<Env> {
@@ -123,6 +129,12 @@ export class Library extends DurableObject<Env> {
 	// Tag CRUD methods
 
 	async createTag(name: string, color: string) {
+		// Validate tag name
+		const nameValidation = validateTagName(name);
+		if (!nameValidation.valid) {
+			throw new InvalidTagNameError({name, reason: nameValidation.reason});
+		}
+
 		// Validate color format
 		if (!isValidHexColor(color)) {
 			throw new InvalidTagColorError({color});
@@ -160,6 +172,14 @@ export class Library extends DurableObject<Env> {
 	}
 
 	async updateTag(id: string, updates: {name?: string; color?: string}) {
+		// Validate tag name if provided
+		if (updates.name) {
+			const nameValidation = validateTagName(updates.name);
+			if (!nameValidation.valid) {
+				throw new InvalidTagNameError({name: updates.name, reason: nameValidation.reason});
+			}
+		}
+
 		// Validate color format if provided
 		if (updates.color && !isValidHexColor(updates.color)) {
 			throw new InvalidTagColorError({color: updates.color});
@@ -292,6 +312,60 @@ export class Library extends DurableObject<Env> {
 			.all();
 
 		return results;
+	}
+
+	async getStoriesByTagName(tagName: string, options?: {first?: number; after?: string}) {
+		const limit = options?.first ?? 20;
+
+		// Find tag by name (case-insensitive)
+		const tag = await this.db
+			.select()
+			.from(schema.tag)
+			.where(sql`lower(${schema.tag.name}) = lower(${tagName})`)
+			.get();
+
+		if (!tag) {
+			// Tag doesn't exist - return empty result
+			return {
+				edges: [],
+				hasNextPage: false,
+				endCursor: null,
+			};
+		}
+
+		// Build where condition
+		const whereCondition = options?.after
+			? and(eq(schema.storyTag.tagId, tag.id), lt(schema.story.id, options.after))
+			: eq(schema.storyTag.tagId, tag.id);
+
+		// Query for stories with this tag, ordered by ID (ULIDx IDs are time-sortable)
+		const dbStories = await this.db
+			.select({
+				id: schema.story.id,
+				url: schema.story.url,
+				normalizedUrl: schema.story.normalizedUrl,
+				title: schema.story.title,
+				description: schema.story.description,
+				createdAt: schema.story.createdAt,
+			})
+			.from(schema.storyTag)
+			.innerJoin(schema.story, eq(schema.storyTag.storyId, schema.story.id))
+			.where(whereCondition)
+			.orderBy(desc(schema.story.id))
+			.limit(limit + 1)
+			.all();
+
+		const hasNextPage = dbStories.length > limit;
+		const edges = dbStories.slice(0, limit);
+
+		return {
+			edges: edges.map((s) => ({
+				...s,
+				createdAt: s.createdAt.toISOString(),
+			})),
+			hasNextPage,
+			endCursor: edges.length > 0 ? edges[edges.length - 1].id : null,
+		};
 	}
 
 	/**

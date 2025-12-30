@@ -20,6 +20,7 @@ type DeleteStoryPayload {
 
 type Library {
   stories(after: String, first: Float): StoryConnection!
+  storiesByTag(after: String, first: Float, tagName: String!): StoryConnection!
 }
 
 type Mutation {

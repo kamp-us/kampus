@@ -36,4 +36,17 @@
 	max-width: 120px;
 	overflow: hidden;
 	text-overflow: ellipsis;
+	text-decoration: none;
+	color: inherit;
+}
+
+/* Link hover state */
+a.Name:hover {
+	text-decoration: underline;
+}
+
+a.Name:focus-visible {
+	outline: 2px solid var(--sky-8);
+	outline-offset: 1px;
+	border-radius: var(--radius-1);
 }

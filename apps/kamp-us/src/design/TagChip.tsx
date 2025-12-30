@@ -1,4 +1,5 @@
 import type {ComponentProps, ReactNode} from "react";
+import {Link} from "react-router";
 
 import styles from "./TagChip.module.css";
 
@@ -7,11 +8,13 @@ type TagChipProps = {
 	name: string;
 	/** 6-digit hex color (without #) */
 	color: string;
+	/** Link destination for the tag name (makes name clickable) */
+	to?: string;
 	/** Additional content (e.g., remove button) rendered after name */
 	children?: ReactNode;
 } & Omit<ComponentProps<"span">, "className" | "style" | "children">;
 
-export function TagChip({name, color, children, ...props}: TagChipProps) {
+export function TagChip({name, color, to, children, ...props}: TagChipProps) {
 	return (
 		<span
 			{...props}
@@ -19,7 +22,13 @@ export function TagChip({name, color, children, ...props}: TagChipProps) {
 			style={{"--tag-color": `#${color}`} as React.CSSProperties}
 		>
 			<span className={styles.ColorDot} />
-			<span className={styles.Name}>{name}</span>
+			{to ? (
+				<Link to={to} className={styles.Name}>
+					{name}
+				</Link>
+			) : (
+				<span className={styles.Name}>{name}</span>
+			)}
 			{children}
 		</span>
 	);

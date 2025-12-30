@@ -29,13 +29,17 @@ Add filtering functionality to the library page so users can filter their story 
 
 ## GraphQL
 
-- `storiesByTag(tagId: String!)` query returning StoryConnection
+- `Library.storiesByTag(tagName: String!)` field returning `StoryConnection`
+- Uses tag name (not ID) for URL-friendly routing: `/me/library/my-awesome-tag`
+- Reuses existing `StoryConnection` type with cursor-based pagination
 
 ## Design Decisions (from original planning session)
 
 - **Single-tag filtering only** for MVP (no multi-tag AND/OR)
 - **Inline filter row** (not sidebar - sidebar is a separate future feature)
-- Filter state could optionally persist in URL query params
+- **URL query param** for filter state: `/me/library?tag=my-awesome-tag`
+  - Enables bookmarking and sharing filtered views
+  - Tag name in URL (not ID) for readability
 
 ## UX Notes
 
@@ -43,6 +47,24 @@ From product-design-advisor:
 - Click-to-filter creates a nice "pivot" interaction
 - When filtered, header could show context: "12 stories tagged productivity"
 - Clicking a different tag while filtering should replace the current filter
+
+## Empty State
+
+When filtering returns zero stories:
+- Show message: "No stories tagged '[tag-name]'"
+- Provide clear action to remove filter and return to all stories
+
+## Acceptance Criteria
+
+- [ ] User can click any tag on a story row to filter by that tag
+- [ ] Filter state is reflected in URL query param (`?tag=tag-name`)
+- [ ] TagFilterRow shows active filter with tag name and dismissible chip
+- [ ] TagFilterRow displays count of filtered results (e.g., "5 stories")
+- [ ] User can clear filter via dismiss button or "All stories" action
+- [ ] Clicking a different tag replaces the current filter
+- [ ] Empty state shows helpful message when no stories match filter
+- [ ] Direct navigation to filtered URL (`/me/library?tag=foo`) works correctly
+- [ ] Page loads all stories when no tag param is present
 
 ## Related Specs
 

@@ -11,7 +11,10 @@ import {
 } from "graphql";
 import {createYoga} from "graphql-yoga";
 import {Hono} from "hono";
-import {TagNameExistsError as TagNameExistsErrorRuntime} from "./features/library/schema";
+import {
+	InvalidTagNameError as InvalidTagNameErrorRuntime,
+	TagNameExistsError as TagNameExistsErrorRuntime,
+} from "./features/library/schema";
 import type {Session} from "./features/pasaport/auth";
 import {decodeGlobalId, encodeGlobalId, NodeType} from "./graphql/relay";
 
@@ -173,9 +176,19 @@ const TagNameExistsError = Schema.Struct({
 	tagName: Schema.String,
 }).annotations({title: "TagNameExistsError"});
 
+const InvalidTagNameError = Schema.Struct({
+	code: Schema.Literal("INVALID_TAG_NAME"),
+	message: Schema.String,
+	tagName: Schema.String,
+}).annotations({title: "InvalidTagNameError"});
+
+const TagError = Schema.Union(TagNameExistsError, InvalidTagNameError).annotations({
+	title: "TagError",
+});
+
 const CreateTagPayload = Schema.Struct({
 	tag: Schema.NullOr(Tag),
-	error: Schema.NullOr(TagNameExistsError),
+	error: Schema.NullOr(TagError),
 }).annotations({title: "CreateTagPayload"});
 
 // --- Library Resolvers ---
@@ -200,6 +213,44 @@ const libraryResolver = resolver.of(standard(Library), {
 			const libraryId = ctx.env.LIBRARY.idFromName(ctx.pasaport.user.id);
 			const lib = ctx.env.LIBRARY.get(libraryId);
 			const result = await lib.listStories({
+				first: input.first ?? 20,
+				after: afterLocalId,
+			});
+
+			return {
+				edges: result.edges.map((story) => ({
+					node: toStoryNode(story),
+					cursor: encodeGlobalId(NodeType.Story, story.id),
+				})),
+				pageInfo: {
+					hasNextPage: result.hasNextPage,
+					hasPreviousPage: false,
+					startCursor: result.edges[0] ? encodeGlobalId(NodeType.Story, result.edges[0].id) : null,
+					endCursor: result.endCursor ? encodeGlobalId(NodeType.Story, result.endCursor) : null,
+				},
+			};
+		}),
+
+	storiesByTag: field(standard(StoryConnection))
+		.input({
+			tagName: standard(Schema.String),
+			first: standard(Schema.NullOr(Schema.Number)),
+			after: standard(Schema.NullOr(Schema.String)),
+		})
+		.resolve(async (_parent, input) => {
+			const ctx = useContext<GQLContext>();
+			if (!ctx.pasaport.user?.id) throw new Error("Unauthorized");
+
+			// Decode cursor if provided (it's a global ID)
+			let afterLocalId: string | undefined;
+			if (input.after) {
+				const decoded = decodeGlobalId(input.after);
+				afterLocalId = decoded?.id;
+			}
+
+			const libraryId = ctx.env.LIBRARY.idFromName(ctx.pasaport.user.id);
+			const lib = ctx.env.LIBRARY.get(libraryId);
+			const result = await lib.getStoriesByTagName(input.tagName, {
 				first: input.first ?? 20,
 				after: afterLocalId,
 			});
@@ -403,6 +454,16 @@ const tagResolver = resolver({
 						tag: null,
 						error: {
 							code: "TAG_NAME_EXISTS" as const,
+							message: e.message,
+							tagName: name,
+						},
+					};
+				}
+				if (e instanceof InvalidTagNameErrorRuntime) {
+					return {
+						tag: null,
+						error: {
+							code: "INVALID_TAG_NAME" as const,
 							message: e.message,
 							tagName: name,
 						},
