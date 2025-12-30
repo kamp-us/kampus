@@ -84,10 +84,11 @@
 }
 
 .storyTags {
-	display: inline-flex;
+	display: flex;
 	align-items: center;
+	flex-wrap: wrap;
 	gap: var(--space-4);
-	margin-left: var(--space-8);
+	margin-top: var(--space-4);
 }
 
 .moreTags {

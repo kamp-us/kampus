@@ -579,17 +579,17 @@ function StoryRow({
 					</a>
 					<div className={styles.storyMeta}>
 						{domain} · {relativeDate}
-						{story.tags.length > 0 && (
-							<span className={styles.storyTags}>
-								{story.tags.slice(0, 3).map((tag) => (
-									<TagChip key={tag.id} name={tag.name} color={tag.color} size="sm" />
-								))}
-								{story.tags.length > 3 && (
-									<span className={styles.moreTags}>+{story.tags.length - 3} more</span>
-								)}
-							</span>
-						)}
 					</div>
+					{story.tags.length > 0 && (
+						<div className={styles.storyTags}>
+							{story.tags.slice(0, 3).map((tag) => (
+								<TagChip key={tag.id} name={tag.name} color={tag.color} size="sm" />
+							))}
+							{story.tags.length > 3 && (
+								<span className={styles.moreTags}>+{story.tags.length - 3} more</span>
+							)}
+						</div>
+					)}
 				</div>
 				<Menu.Root>
 					<Menu.Trigger aria-label={`Options for ${story.title}`}>
