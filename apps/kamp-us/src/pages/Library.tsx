@@ -1,5 +1,5 @@
-import {Component, type ReactNode, Suspense, useState} from "react";
-import {graphql, type RecordSourceSelectorProxy, useLazyLoadQuery, useMutation} from "react-relay";
+import {Component, type ReactNode, Suspense, useCallback, useState} from "react";
+import {fetchQuery, graphql, useLazyLoadQuery, useMutation, useRelayEnvironment} from "react-relay";
 import {Navigate} from "react-router";
 import type {LibraryCreateStoryMutation} from "../__generated__/LibraryCreateStoryMutation.graphql";
 import type {LibraryDeleteStoryMutation} from "../__generated__/LibraryDeleteStoryMutation.graphql";
@@ -14,6 +14,8 @@ import {Input} from "../design/Input";
 import {MoreHorizontalIcon} from "../design/icons/MoreHorizontalIcon";
 import {Menu} from "../design/Menu";
 import styles from "./Library.module.css";
+
+const DEFAULT_PAGE_SIZE = 20;
 
 const LibraryQuery = graphql`
 	query LibraryQuery($first: Float!, $after: String) {
@@ -168,10 +170,12 @@ function CreateStoryForm({
 	isExpanded,
 	onExpand,
 	onCollapse,
+	onStoryCreated,
 }: {
 	isExpanded: boolean;
 	onExpand: () => void;
 	onCollapse: () => void;
+	onStoryCreated: () => void;
 }) {
 	const [url, setUrl] = useState("");
 	const [title, setTitle] = useState("");
@@ -185,30 +189,12 @@ function CreateStoryForm({
 
 		commit({
 			variables: {url, title},
-			updater: (store: RecordSourceSelectorProxy) => {
-				const payload = store.getRootField("createStory");
-				const newStory = payload?.getLinkedRecord("story");
-				if (!newStory) return;
-
-				const root = store.getRoot();
-				const me = root.getLinkedRecord("me");
-				const library = me?.getLinkedRecord("library");
-				const connection = library?.getLinkedRecord("stories", {first: 20});
-				if (!connection) return;
-
-				const storyId = newStory.getValue("id") as string;
-				const newEdge = store.create(`client:newEdge:${storyId}`, "StoryEdge");
-				newEdge.setLinkedRecord(newStory, "node");
-				newEdge.setValue(storyId, "cursor");
-
-				const edges = connection.getLinkedRecords("edges") || [];
-				connection.setLinkedRecords([newEdge, ...edges], "edges");
-			},
 			onCompleted: (response) => {
 				if (response.createStory.story) {
 					setUrl("");
 					setTitle("");
 					onCollapse();
+					onStoryCreated();
 				}
 			},
 			onError: (err) => setError(err.message),
@@ -270,7 +256,13 @@ function CreateStoryForm({
 	);
 }
 
-function StoryRow({story}: {story: {id: string; url: string; title: string; createdAt: string}}) {
+function StoryRow({
+	story,
+	onStoryDeleted,
+}: {
+	story: {id: string; url: string; title: string; createdAt: string};
+	onStoryDeleted: () => void;
+}) {
 	const domain = extractDomain(story.url);
 	const relativeDate = formatRelativeDate(story.createdAt);
 
@@ -283,6 +275,7 @@ function StoryRow({story}: {story: {id: string; url: string; title: string; crea
 	const [commitDelete, isDeleting] = useMutation<LibraryDeleteStoryMutation>(DeleteStoryMutation);
 
 	const handleEdit = () => {
+		setError(null);
 		setEditTitle(story.title);
 		setIsEditing(true);
 	};
@@ -301,6 +294,7 @@ function StoryRow({story}: {story: {id: string; url: string; title: string; crea
 			return;
 		}
 
+		setError(null);
 		commitUpdate({
 			variables: {id: story.id, title: trimmedTitle},
 			onCompleted: (response) => {
@@ -308,7 +302,6 @@ function StoryRow({story}: {story: {id: string; url: string; title: string; crea
 					setError(response.updateStory.error.message);
 				} else {
 					setIsEditing(false);
-					setError(null);
 				}
 			},
 			onError: (err) => setError(err.message),
@@ -325,20 +318,16 @@ function StoryRow({story}: {story: {id: string; url: string; title: string; crea
 	};
 
 	const handleDelete = () => {
+		setError(null);
 		commitDelete({
 			variables: {id: story.id},
-			updater: (store: RecordSourceSelectorProxy) => {
-				const payload = store.getRootField("deleteStory");
-				const deletedId = payload?.getValue("deletedStoryId") as string | undefined;
-				if (deletedId) {
-					store.delete(deletedId);
-				}
-			},
 			onCompleted: (response) => {
+				setDeleteDialogOpen(false);
 				if (response.deleteStory.error) {
 					setError(response.deleteStory.error.message);
+				} else if (response.deleteStory.success) {
+					onStoryDeleted();
 				}
-				setDeleteDialogOpen(false);
 			},
 			onError: (err) => {
 				setError(err.message);
@@ -395,7 +384,7 @@ function StoryRow({story}: {story: {id: string; url: string; title: string; crea
 					</div>
 				</div>
 				<Menu.Root>
-					<Menu.Trigger aria-label="Story options">
+					<Menu.Trigger aria-label={`Options for ${story.title}`}>
 						<MoreHorizontalIcon />
 					</Menu.Trigger>
 					<Menu.Portal>
@@ -434,14 +423,22 @@ function StoryRow({story}: {story: {id: string; url: string; title: string; crea
 }
 
 function AuthenticatedLibrary() {
+	const environment = useRelayEnvironment();
 	const [isFormExpanded, setIsFormExpanded] = useState(false);
-	const data = useLazyLoadQuery<LibraryQueryType>(LibraryQuery, {first: 20});
+	const [, setRefetchKey] = useState(0);
+	const data = useLazyLoadQuery<LibraryQueryType>(LibraryQuery, {first: DEFAULT_PAGE_SIZE});
 
 	const stories = data.me.library.stories.edges;
 	const hasStories = stories.length > 0;
 
 	const handleExpand = () => setIsFormExpanded(true);
 	const handleCollapse = () => setIsFormExpanded(false);
+
+	const handleRefetch = useCallback(() => {
+		fetchQuery(environment, LibraryQuery, {first: DEFAULT_PAGE_SIZE}).subscribe({
+			complete: () => setRefetchKey((k) => k + 1),
+		});
+	}, [environment]);
 
 	return (
 		<div className={styles.container}>
@@ -453,12 +450,13 @@ function AuthenticatedLibrary() {
 				isExpanded={isFormExpanded}
 				onExpand={handleExpand}
 				onCollapse={handleCollapse}
+				onStoryCreated={handleRefetch}
 			/>
 
 			{hasStories ? (
 				<div className={styles.storyList}>
 					{stories.map(({node}) => (
-						<StoryRow key={node.id} story={node} />
+						<StoryRow key={node.id} story={node} onStoryDeleted={handleRefetch} />
 					))}
 				</div>
 			) : (

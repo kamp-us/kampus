@@ -25,6 +25,13 @@ export class Library extends DurableObject<Env> {
 	async createStory(options: {url: string; title: string; description?: string}) {
 		const {url, title, description} = options;
 
+		// Validate URL format
+		try {
+			new URL(url);
+		} catch {
+			throw new Error("Invalid URL format");
+		}
+
 		const [story] = await this.db
 			.insert(schema.story)
 			.values({url, normalizedUrl: getNormalizedUrl(url), title, description})
@@ -77,34 +84,48 @@ export class Library extends DurableObject<Env> {
 	}
 
 	async updateStory(id: string, updates: {title?: string}) {
-		const existing = await this.getStory(id);
-		if (!existing) return null;
+		if (!updates.title) {
+			return await this.getStory(id);
+		}
 
-		if (!updates.title) return existing; // Nothing to update (already has ISO date)
+		return await this.db.transaction(async (tx) => {
+			const existing = await tx
+				.select()
+				.from(schema.story)
+				.where(eq(schema.story.id, id))
+				.get();
+			if (!existing) return null;
 
-		const [story] = await this.db
-			.update(schema.story)
-			.set({title: updates.title})
-			.where(eq(schema.story.id, id))
-			.returning();
+			const [story] = await tx
+				.update(schema.story)
+				.set({title: updates.title})
+				.where(eq(schema.story.id, id))
+				.returning();
 
-		// Convert Date to ISO string for RPC
-		return {
-			...story,
-			createdAt: story.createdAt.toISOString(),
-		};
+			// Convert Date to ISO string for RPC
+			return {
+				...story,
+				createdAt: story.createdAt.toISOString(),
+			};
+		});
 	}
 
 	async deleteStory(id: string) {
-		const existing = await this.getStory(id);
-		if (!existing) return false;
+		return await this.db.transaction(async (tx) => {
+			const existing = await tx
+				.select()
+				.from(schema.story)
+				.where(eq(schema.story.id, id))
+				.get();
+			if (!existing) return false;
 
-		// Delete tag associations first (cascade)
-		await this.db.delete(schema.storyTag).where(eq(schema.storyTag.storyId, id));
-		// Then delete story
-		await this.db.delete(schema.story).where(eq(schema.story.id, id));
+			// Delete tag associations first (cascade)
+			await tx.delete(schema.storyTag).where(eq(schema.storyTag.storyId, id));
+			// Then delete story
+			await tx.delete(schema.story).where(eq(schema.story.id, id));
 
-		return true;
+			return true;
+		});
 	}
 
 	// Tag CRUD methods
@@ -221,20 +242,23 @@ export class Library extends DurableObject<Env> {
 		const existingTagIds = new Set(existingTags.map((t) => t.id));
 		const validTagIds = tagIds.filter((id) => existingTagIds.has(id));
 
-		// Insert with ON CONFLICT DO NOTHING for idempotency
-		for (const tagId of validTagIds) {
-			await this.db.insert(schema.storyTag).values({storyId, tagId}).onConflictDoNothing();
+		// Batch insert with ON CONFLICT DO NOTHING for idempotency
+		if (validTagIds.length > 0) {
+			await this.db
+				.insert(schema.storyTag)
+				.values(validTagIds.map((tagId) => ({storyId, tagId})))
+				.onConflictDoNothing();
 		}
 	}
 
 	async untagStory(storyId: string, tagIds: string[]) {
-		for (const tagId of tagIds) {
-			await this.db
-				.delete(schema.storyTag)
-				.where(
-					sql`${schema.storyTag.storyId} = ${storyId} AND ${schema.storyTag.tagId} = ${tagId}`,
-				);
-		}
+		if (tagIds.length === 0) return;
+
+		await this.db
+			.delete(schema.storyTag)
+			.where(
+				sql`${schema.storyTag.storyId} = ${storyId} AND ${schema.storyTag.tagId} IN ${tagIds}`,
+			);
 	}
 
 	async getTagsForStory(storyId: string) {
