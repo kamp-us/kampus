@@ -1,5 +1,5 @@
 import {DurableObject} from "cloudflare:workers";
-import {eq, inArray, sql} from "drizzle-orm";
+import {desc, eq, inArray, lt, sql} from "drizzle-orm";
 import {drizzle} from "drizzle-orm/durable-sqlite";
 import {migrate} from "drizzle-orm/durable-sqlite/migrator";
 import * as schema from "./drizzle/drizzle.schema";
@@ -30,7 +30,81 @@ export class Library extends DurableObject<Env> {
 			.values({url, normalizedUrl: getNormalizedUrl(url), title, description})
 			.returning();
 
-		return story;
+		return {
+			...story,
+			createdAt: story.createdAt.toISOString(),
+		};
+	}
+
+	// Story CRUD methods
+
+	async listStories(options?: {first?: number; after?: string}) {
+		const limit = options?.first ?? 20;
+
+		// Build base query - order by ID (ULIDx IDs are time-sortable)
+		let query = this.db.select().from(schema.story).orderBy(desc(schema.story.id));
+
+		// Apply cursor if provided
+		if (options?.after) {
+			query = query.where(lt(schema.story.id, options.after)) as typeof query;
+		}
+
+		const dbStories = await query.limit(limit + 1).all();
+		const hasNextPage = dbStories.length > limit;
+		const edges = dbStories.slice(0, limit);
+
+		// Convert Date objects to ISO strings for RPC serialization
+		return {
+			edges: edges.map((s) => ({
+				...s,
+				createdAt: s.createdAt.toISOString(),
+			})),
+			hasNextPage,
+			endCursor: edges.length > 0 ? edges[edges.length - 1].id : null,
+		};
+	}
+
+	async getStory(id: string) {
+		const story = await this.db.select().from(schema.story).where(eq(schema.story.id, id)).get();
+
+		if (!story) return null;
+
+		// Convert Date to ISO string for RPC
+		return {
+			...story,
+			createdAt: story.createdAt.toISOString(),
+		};
+	}
+
+	async updateStory(id: string, updates: {title?: string}) {
+		const existing = await this.getStory(id);
+		if (!existing) return null;
+
+		if (!updates.title) return existing; // Nothing to update (already has ISO date)
+
+		const [story] = await this.db
+			.update(schema.story)
+			.set({title: updates.title})
+			.where(eq(schema.story.id, id))
+			.returning();
+
+		// Convert Date to ISO string for RPC
+		return {
+			...story,
+			createdAt: story.createdAt.toISOString(),
+		};
+	}
+
+	async deleteStory(id: string) {
+		const existing = await this.getStory(id);
+		if (!existing) return false;
+
+		// Delete tag associations first (cascade)
+		await this.db.delete(schema.storyTag).where(eq(schema.storyTag.storyId, id));
+		// Then delete story
+		await this.db.delete(schema.story).where(eq(schema.story.id, id));
+
+		return true;
 	}
 
 	// Tag CRUD methods
