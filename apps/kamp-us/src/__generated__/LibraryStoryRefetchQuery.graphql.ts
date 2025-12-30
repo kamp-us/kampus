@@ -1,5 +1,5 @@
 /**
- * @generated SignedSource<<d98e792e822dec097dcb86e5dbf4f757>>
+ * @generated SignedSource<<5d254ebf449b213abd85ee65505355c5>>
  * @lightSyntaxTransform
  * @nogrep
  */
@@ -87,10 +87,6 @@ return {
             "storageKey": null
           },
           {
-            "kind": "TypeDiscriminator",
-            "abstractKey": "__isNode"
-          },
-          {
             "alias": null,
             "args": null,
             "kind": "ScalarField",
@@ -131,12 +127,12 @@ return {
     ]
   },
   "params": {
-    "cacheID": "85da00ab58d3dc0f96c226c5f726b80c",
+    "cacheID": "755a80e62c86c15302a5821fa1ecdacb",
     "id": null,
     "metadata": {},
     "name": "LibraryStoryRefetchQuery",
     "operationKind": "query",
-    "text": "query LibraryStoryRefetchQuery(\n  $id: String!\n) {\n  node(id: $id) {\n    __typename\n    ...LibraryStoryFragment\n    __isNode: __typename\n    id\n  }\n}\n\nfragment LibraryStoryFragment on Story {\n  id\n  url\n  title\n  createdAt\n}\n"
+    "text": "query LibraryStoryRefetchQuery(\n  $id: String!\n) {\n  node(id: $id) {\n    __typename\n    ...LibraryStoryFragment\n    id\n  }\n}\n\nfragment LibraryStoryFragment on Story {\n  id\n  url\n  title\n  createdAt\n}\n"
   }
 };
 })();

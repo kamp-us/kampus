@@ -1,5 +1,5 @@
 /**
- * @generated SignedSource<<954d7bb0bc7cdfeb182d67b5911810a0>>
+ * @generated SignedSource<<801a395314224cbd39deadafe305acbd>>
  * @lightSyntaxTransform
  * @nogrep
  */
@@ -9,6 +9,7 @@
 // @ts-nocheck
 
 import { ConcreteRequest } from 'relay-runtime';
+import { FragmentRefs } from "relay-runtime";
 export type LibraryQuery$variables = {
   after?: string | null | undefined;
   first: number;
@@ -20,10 +21,7 @@ export type LibraryQuery$data = {
         readonly edges: ReadonlyArray<{
           readonly cursor: string;
           readonly node: {
-            readonly createdAt: string;
-            readonly id: string;
-            readonly title: string;
-            readonly url: string;
+            readonly " $fragmentSpreads": FragmentRefs<"LibraryStoryFragment">;
           };
         }>;
         readonly pageInfo: {
@@ -52,119 +50,111 @@ v1 = {
 },
 v2 = [
   {
-    "alias": null,
-    "args": null,
-    "concreteType": "User",
-    "kind": "LinkedField",
-    "name": "me",
-    "plural": false,
+    "kind": "Variable",
+    "name": "after",
+    "variableName": "after"
+  },
+  {
+    "kind": "Variable",
+    "name": "first",
+    "variableName": "first"
+  }
+],
+v3 = {
+  "alias": null,
+  "args": null,
+  "kind": "ScalarField",
+  "name": "cursor",
+  "storageKey": null
+},
+v4 = {
+  "alias": null,
+  "args": null,
+  "concreteType": "PageInfo",
+  "kind": "LinkedField",
+  "name": "pageInfo",
+  "plural": false,
+  "selections": [
+    {
+      "alias": null,
+      "args": null,
+      "kind": "ScalarField",
+      "name": "hasNextPage",
+      "storageKey": null
+    },
+    {
+      "alias": null,
+      "args": null,
+      "kind": "ScalarField",
+      "name": "endCursor",
+      "storageKey": null
+    }
+  ],
+  "storageKey": null
+};
+return {
+  "fragment": {
+    "argumentDefinitions": [
+      (v0/*: any*/),
+      (v1/*: any*/)
+    ],
+    "kind": "Fragment",
+    "metadata": null,
+    "name": "LibraryQuery",
     "selections": [
       {
         "alias": null,
         "args": null,
-        "concreteType": "Library",
+        "concreteType": "User",
         "kind": "LinkedField",
-        "name": "library",
+        "name": "me",
         "plural": false,
         "selections": [
           {
             "alias": null,
-            "args": [
-              {
-                "kind": "Variable",
-                "name": "after",
-                "variableName": "after"
-              },
-              {
-                "kind": "Variable",
-                "name": "first",
-                "variableName": "first"
-              }
-            ],
-            "concreteType": "StoryConnection",
+            "args": null,
+            "concreteType": "Library",
             "kind": "LinkedField",
-            "name": "stories",
+            "name": "library",
             "plural": false,
             "selections": [
               {
                 "alias": null,
-                "args": null,
-                "concreteType": "StoryEdge",
+                "args": (v2/*: any*/),
+                "concreteType": "StoryConnection",
                 "kind": "LinkedField",
-                "name": "edges",
-                "plural": true,
-                "selections": [
-                  {
-                    "alias": null,
-                    "args": null,
-                    "concreteType": "Story",
-                    "kind": "LinkedField",
-                    "name": "node",
-                    "plural": false,
-                    "selections": [
-                      {
-                        "alias": null,
-                        "args": null,
-                        "kind": "ScalarField",
-                        "name": "id",
-                        "storageKey": null
-                      },
-                      {
-                        "alias": null,
-                        "args": null,
-                        "kind": "ScalarField",
-                        "name": "url",
-                        "storageKey": null
-                      },
-                      {
-                        "alias": null,
-                        "args": null,
-                        "kind": "ScalarField",
-                        "name": "title",
-                        "storageKey": null
-                      },
-                      {
-                        "alias": null,
-                        "args": null,
-                        "kind": "ScalarField",
-                        "name": "createdAt",
-                        "storageKey": null
-                      }
-                    ],
-                    "storageKey": null
-                  },
-                  {
-                    "alias": null,
-                    "args": null,
-                    "kind": "ScalarField",
-                    "name": "cursor",
-                    "storageKey": null
-                  }
-                ],
-                "storageKey": null
-              },
-              {
-                "alias": null,
-                "args": null,
-                "concreteType": "PageInfo",
-                "kind": "LinkedField",
-                "name": "pageInfo",
+                "name": "stories",
                 "plural": false,
                 "selections": [
                   {
                     "alias": null,
                     "args": null,
-                    "kind": "ScalarField",
-                    "name": "hasNextPage",
+                    "concreteType": "StoryEdge",
+                    "kind": "LinkedField",
+                    "name": "edges",
+                    "plural": true,
+                    "selections": [
+                      {
+                        "alias": null,
+                        "args": null,
+                        "concreteType": "Story",
+                        "kind": "LinkedField",
+                        "name": "node",
+                        "plural": false,
+                        "selections": [
+                          {
+                            "args": null,
+                            "kind": "FragmentSpread",
+                            "name": "LibraryStoryFragment"
+                          }
+                        ],
+                        "storageKey": null
+                      },
+                      (v3/*: any*/)
+                    ],
                     "storageKey": null
                   },
-                  {
-                    "alias": null,
-                    "args": null,
-                    "kind": "ScalarField",
-                    "name": "endCursor",
-                    "storageKey": null
-                  }
+                  (v4/*: any*/)
                 ],
                 "storageKey": null
               }
@@ -175,19 +165,6 @@ v2 = [
         "storageKey": null
       }
     ],
-    "storageKey": null
-  }
-];
-return {
-  "fragment": {
-    "argumentDefinitions": [
-      (v0/*: any*/),
-      (v1/*: any*/)
-    ],
-    "kind": "Fragment",
-    "metadata": null,
-    "name": "LibraryQuery",
-    "selections": (v2/*: any*/),
     "type": "Query",
     "abstractKey": null
   },
@@ -199,19 +176,105 @@ return {
     ],
     "kind": "Operation",
     "name": "LibraryQuery",
-    "selections": (v2/*: any*/)
+    "selections": [
+      {
+        "alias": null,
+        "args": null,
+        "concreteType": "User",
+        "kind": "LinkedField",
+        "name": "me",
+        "plural": false,
+        "selections": [
+          {
+            "alias": null,
+            "args": null,
+            "concreteType": "Library",
+            "kind": "LinkedField",
+            "name": "library",
+            "plural": false,
+            "selections": [
+              {
+                "alias": null,
+                "args": (v2/*: any*/),
+                "concreteType": "StoryConnection",
+                "kind": "LinkedField",
+                "name": "stories",
+                "plural": false,
+                "selections": [
+                  {
+                    "alias": null,
+                    "args": null,
+                    "concreteType": "StoryEdge",
+                    "kind": "LinkedField",
+                    "name": "edges",
+                    "plural": true,
+                    "selections": [
+                      {
+                        "alias": null,
+                        "args": null,
+                        "concreteType": "Story",
+                        "kind": "LinkedField",
+                        "name": "node",
+                        "plural": false,
+                        "selections": [
+                          {
+                            "alias": null,
+                            "args": null,
+                            "kind": "ScalarField",
+                            "name": "id",
+                            "storageKey": null
+                          },
+                          {
+                            "alias": null,
+                            "args": null,
+                            "kind": "ScalarField",
+                            "name": "url",
+                            "storageKey": null
+                          },
+                          {
+                            "alias": null,
+                            "args": null,
+                            "kind": "ScalarField",
+                            "name": "title",
+                            "storageKey": null
+                          },
+                          {
+                            "alias": null,
+                            "args": null,
+                            "kind": "ScalarField",
+                            "name": "createdAt",
+                            "storageKey": null
+                          }
+                        ],
+                        "storageKey": null
+                      },
+                      (v3/*: any*/)
+                    ],
+                    "storageKey": null
+                  },
+                  (v4/*: any*/)
+                ],
+                "storageKey": null
+              }
+            ],
+            "storageKey": null
+          }
+        ],
+        "storageKey": null
+      }
+    ]
   },
   "params": {
-    "cacheID": "d7d4b7b63225985aae2cc3c22eddbefb",
+    "cacheID": "ad8384cc8c1d36b4acb6e563d2428b0a",
     "id": null,
     "metadata": {},
     "name": "LibraryQuery",
     "operationKind": "query",
-    "text": "query LibraryQuery(\n  $first: Float!\n  $after: String\n) {\n  me {\n    library {\n      stories(first: $first, after: $after) {\n        edges {\n          node {\n            id\n            url\n            title\n            createdAt\n          }\n          cursor\n        }\n        pageInfo {\n          hasNextPage\n          endCursor\n        }\n      }\n    }\n  }\n}\n"
+    "text": "query LibraryQuery(\n  $first: Float!\n  $after: String\n) {\n  me {\n    library {\n      stories(first: $first, after: $after) {\n        edges {\n          node {\n            ...LibraryStoryFragment\n            id\n          }\n          cursor\n        }\n        pageInfo {\n          hasNextPage\n          endCursor\n        }\n      }\n    }\n  }\n}\n\nfragment LibraryStoryFragment on Story {\n  id\n  url\n  title\n  createdAt\n}\n"
   }
 };
 })();
 
-(node as any).hash = "8f4a219f6da202fa1361839d1bbc5068";
+(node as any).hash = "c180cf27000508c4348cbf33cdd7d28b";
 
 export default node;
