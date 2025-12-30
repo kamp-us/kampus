@@ -1,32 +1,78 @@
-type Query {
-  node(id: String!): Node
-  me: User!
+type ApiKey {
+  key: String!
+  name: String!
 }
 
-type Node {
-  id: String!
-  email: String!
-  name: String
+type CreateStoryPayload {
+  story: Story!
 }
 
-type User {
-  id: String!
-  email: String!
-  name: String
+type DeleteStoryPayload {
+  deletedStoryId: String
+  error: StoryNotFoundError
+  success: Boolean!
+}
+
+type Library {
+  stories(after: String, first: Float): StoryConnection!
 }
 
 type Mutation {
-  signIn(email: String!, password: String!): SignInResponse!
-  bootstrap(email: String!, password: String!, name: String!): User!
+  bootstrap(email: String!, name: String!, password: String!): User!
   createApiKey(name: String!): ApiKey!
+  createStory(title: String!, url: String!): CreateStoryPayload!
+  deleteStory(id: String!): DeleteStoryPayload!
+  signIn(email: String!, password: String!): SignInResponse!
+  updateStory(id: String!, title: String): UpdateStoryPayload!
+}
+
+type PageInfo {
+  endCursor: String
+  hasNextPage: Boolean!
+  hasPreviousPage: Boolean!
+  startCursor: String
+}
+
+type Query {
+  me: User!
 }
 
 type SignInResponse {
-  user: User!
   token: String!
+  user: User!
 }
 
-type ApiKey {
-  name: String!
-  key: String!
+type Story {
+  createdAt: String!
+  id: String!
+  title: String!
+  url: String!
+}
+
+type StoryConnection {
+  edges: [StoryEdge!]!
+  pageInfo: PageInfo!
+}
+
+type StoryEdge {
+  cursor: String!
+  node: Story!
+}
+
+type StoryNotFoundError {
+  code: String!
+  message: String!
+  storyId: String!
+}
+
+type UpdateStoryPayload {
+  error: StoryNotFoundError
+  story: Story
+}
+
+type User {
+  email: String!
+  id: String!
+  library: Library!
+  name: String
 }
