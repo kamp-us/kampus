@@ -46,8 +46,12 @@ export const tag = sqliteTable(
 export const storyTag = sqliteTable(
 	"story_tag",
 	{
-		storyId: text("story_id").notNull(),
-		tagId: text("tag_id").notNull(),
+		storyId: text("story_id")
+			.notNull()
+			.references(() => story.id, {onDelete: "cascade"}),
+		tagId: text("tag_id")
+			.notNull()
+			.references(() => tag.id, {onDelete: "cascade"}),
 	},
 	(table) => [
 		primaryKey({columns: [table.storyId, table.tagId]}),

@@ -5,7 +5,7 @@ import {migrate} from "drizzle-orm/durable-sqlite/migrator";
 import * as schema from "./drizzle/drizzle.schema";
 import migrations from "./drizzle/migrations/migrations";
 import {getNormalizedUrl} from "./getNormalizedUrl";
-import {TagNameExistsError} from "./schema";
+import {InvalidTagColorError, isValidHexColor, TagNameExistsError} from "./schema";
 
 // keyed by user id
 export class Library extends DurableObject<Env> {
@@ -123,6 +123,11 @@ export class Library extends DurableObject<Env> {
 	// Tag CRUD methods
 
 	async createTag(name: string, color: string) {
+		// Validate color format
+		if (!isValidHexColor(color)) {
+			throw new InvalidTagColorError({color});
+		}
+
 		// Check uniqueness (case-insensitive)
 		const existing = await this.db
 			.select()
@@ -155,6 +160,11 @@ export class Library extends DurableObject<Env> {
 	}
 
 	async updateTag(id: string, updates: {name?: string; color?: string}) {
+		// Validate color format if provided
+		if (updates.color && !isValidHexColor(updates.color)) {
+			throw new InvalidTagColorError({color: updates.color});
+		}
+
 		const existing = await this.getTag(id);
 
 		if (!existing) {
@@ -201,8 +211,7 @@ export class Library extends DurableObject<Env> {
 			return;
 		}
 
-		// Delete associations first, then tag
-		await this.db.delete(schema.storyTag).where(eq(schema.storyTag.tagId, id));
+		// FK cascade will automatically delete storyTag associations
 		await this.db.delete(schema.tag).where(eq(schema.tag.id, id));
 	}
 
@@ -283,5 +292,28 @@ export class Library extends DurableObject<Env> {
 			.all();
 
 		return results;
+	}
+
+	/**
+	 * Atomically sets the tags for a story by computing the diff
+	 * and using tagStory/untagStory internally.
+	 */
+	async setStoryTags(storyId: string, tagIds: string[]) {
+		// Get current tags for this story
+		const currentTags = await this.getTagsForStory(storyId);
+		const currentIds = new Set(currentTags.map((t) => t.id));
+		const newIds = new Set(tagIds);
+
+		// Compute diff
+		const toRemove = currentTags.filter((t) => !newIds.has(t.id)).map((t) => t.id);
+		const toAdd = tagIds.filter((id) => !currentIds.has(id));
+
+		// Apply changes using existing methods
+		if (toRemove.length > 0) {
+			await this.untagStory(storyId, toRemove);
+		}
+		if (toAdd.length > 0) {
+			await this.tagStory(storyId, toAdd);
+		}
 	}
 }

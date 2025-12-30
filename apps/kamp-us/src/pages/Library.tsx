@@ -1,10 +1,12 @@
-import {Component, type ReactNode, Suspense, useCallback, useState} from "react";
+import {Component, type ReactNode, Suspense, useCallback, useMemo, useState} from "react";
 import {graphql, useLazyLoadQuery, useMutation, useRefetchableFragment} from "react-relay";
 import {Navigate} from "react-router";
 import type {LibraryCreateStoryMutation} from "../__generated__/LibraryCreateStoryMutation.graphql";
+import type {LibraryCreateTagMutation} from "../__generated__/LibraryCreateTagMutation.graphql";
 import type {LibraryDeleteStoryMutation} from "../__generated__/LibraryDeleteStoryMutation.graphql";
 import type {LibraryQuery as LibraryQueryType} from "../__generated__/LibraryQuery.graphql";
 import type {LibraryStoryFragment$key} from "../__generated__/LibraryStoryFragment.graphql";
+import type {LibraryTagsQuery as LibraryTagsQueryType} from "../__generated__/LibraryTagsQuery.graphql";
 import type {LibraryUpdateStoryMutation} from "../__generated__/LibraryUpdateStoryMutation.graphql";
 import {useAuth} from "../auth/AuthContext";
 import {AlertDialog} from "../design/AlertDialog";
@@ -14,6 +16,8 @@ import {Fieldset} from "../design/Fieldset";
 import {Input} from "../design/Input";
 import {MoreHorizontalIcon} from "../design/icons/MoreHorizontalIcon";
 import {Menu} from "../design/Menu";
+import {TagChip} from "../design/TagChip";
+import {type Tag, TagInput} from "../design/TagInput";
 import styles from "./Library.module.css";
 
 const DEFAULT_PAGE_SIZE = 20;
@@ -24,6 +28,11 @@ const StoryFragment = graphql`
 		url
 		title
 		createdAt
+		tags {
+			id
+			name
+			color
+		}
 	}
 `;
 
@@ -48,25 +57,63 @@ const LibraryQuery = graphql`
 	}
 `;
 
+const ListTagsQuery = graphql`
+	query LibraryTagsQuery {
+		listTags {
+			id
+			name
+			color
+		}
+	}
+`;
+
+const CreateTagMutation = graphql`
+	mutation LibraryCreateTagMutation($name: String!, $color: String!) {
+		createTag(name: $name, color: $color) {
+			tag {
+				id
+				name
+				color
+			}
+			error {
+				code
+				message
+			}
+		}
+	}
+`;
+
 const CreateStoryMutation = graphql`
-	mutation LibraryCreateStoryMutation($url: String!, $title: String!) {
-		createStory(url: $url, title: $title) {
+	mutation LibraryCreateStoryMutation($url: String!, $title: String!, $tagIds: [String!]) {
+		createStory(url: $url, title: $title, tagIds: $tagIds) {
 			story {
 				id
 				url
 				title
 				createdAt
+				tags {
+					id
+					name
+					color
+				}
 			}
 		}
 	}
 `;
 
 const UpdateStoryMutation = graphql`
-	mutation LibraryUpdateStoryMutation($id: String!, $title: String) {
-		updateStory(id: $id, title: $title) {
+	mutation LibraryUpdateStoryMutation($id: String!, $title: String, $tagIds: [String!]) {
+		updateStory(id: $id, title: $title, tagIds: $tagIds) {
 			story {
 				id
+				url
 				title
+				createdAt
+				tags {
+					id
+					name
+					color
+				}
 			}
 			error {
 				code
@@ -162,6 +209,45 @@ function extractDomain(url: string): string {
 	}
 }
 
+// Default color palette for new tags
+const TAG_COLORS = [
+	"FF6B6B", // red
+	"4ECDC4", // teal
+	"45B7D1", // blue
+	"FFA07A", // orange
+	"98D8C8", // mint
+	"F7DC6F", // yellow
+	"BB8FCE", // purple
+	"85C1E2", // sky
+];
+
+function getNextTagColor(existingTags: Tag[]): string {
+	const index = existingTags.length % TAG_COLORS.length;
+	return TAG_COLORS[index];
+}
+
+// Hook to manage available tags state
+function useAvailableTags() {
+	const data = useLazyLoadQuery<LibraryTagsQueryType>(ListTagsQuery, {});
+	const [localTags, setLocalTags] = useState<Tag[]>([]);
+
+	const allTags = useMemo(() => {
+		const combined = [...data.listTags, ...localTags];
+		const seen = new Set<string>();
+		return combined.filter((t) => {
+			if (seen.has(t.id)) return false;
+			seen.add(t.id);
+			return true;
+		});
+	}, [data.listTags, localTags]);
+
+	const addTag = useCallback((tag: Tag) => {
+		setLocalTags((prev) => [...prev, tag]);
+	}, []);
+
+	return {tags: allTags, addTag};
+}
+
 function EmptyState({onAddClick}: {onAddClick: () => void}) {
 	return (
 		<div className={styles.emptyState}>
@@ -177,40 +263,84 @@ function CreateStoryForm({
 	isExpanded,
 	onExpand,
 	onCollapse,
-	onStoryCreated,
+	availableTags,
+	onTagCreate,
 }: {
 	isExpanded: boolean;
 	onExpand: () => void;
 	onCollapse: () => void;
-	onStoryCreated: () => void;
+	availableTags: Tag[];
+	onTagCreate: (tag: Tag) => void;
 }) {
 	const [url, setUrl] = useState("");
 	const [title, setTitle] = useState("");
+	const [selectedTags, setSelectedTags] = useState<Tag[]>([]);
 	const [error, setError] = useState<string | null>(null);
 
-	const [commit, isCreating] = useMutation<LibraryCreateStoryMutation>(CreateStoryMutation);
+	const [commitStory, isCreating] = useMutation<LibraryCreateStoryMutation>(CreateStoryMutation);
+	const [commitTag] = useMutation<LibraryCreateTagMutation>(CreateTagMutation);
+
+	const handleCreateTag = async (name: string): Promise<Tag> => {
+		const color = getNextTagColor(availableTags);
+
+		return new Promise((resolve, reject) => {
+			commitTag({
+				variables: {name, color},
+				onCompleted: (response) => {
+					if (response.createTag.error) {
+						reject(new Error(response.createTag.error.message));
+					} else if (response.createTag.tag) {
+						const newTag = response.createTag.tag;
+						onTagCreate(newTag);
+						resolve(newTag);
+					}
+				},
+				onError: reject,
+			});
+		});
+	};
 
 	const handleSubmit = (e: React.FormEvent) => {
 		e.preventDefault();
 		setError(null);
 
-		commit({
-			variables: {url, title},
+		const tagIds = selectedTags.length > 0 ? selectedTags.map((t) => t.id) : null;
+
+		commitStory({
+			variables: {url, title, tagIds},
 			onCompleted: (response) => {
 				if (response.createStory.story) {
 					setUrl("");
 					setTitle("");
+					setSelectedTags([]);
 					onCollapse();
-					onStoryCreated();
 				}
 			},
 			onError: (err) => setError(err.message),
+			updater: (store) => {
+				const payload = store.getRootField("createStory");
+				const newStory = payload?.getLinkedRecord("story");
+				if (!newStory) return;
+
+				const root = store.getRoot();
+				const me = root.getLinkedRecord("me");
+				const library = me?.getLinkedRecord("library");
+				const connection = library?.getLinkedRecord("stories", {first: DEFAULT_PAGE_SIZE});
+				if (!connection) return;
+
+				const edges = connection.getLinkedRecords("edges") ?? [];
+				const newEdge = store.create(`edge:${newStory.getDataID()}`, "StoryEdge");
+				newEdge.setLinkedRecord(newStory, "node");
+				newEdge.setValue(newStory.getDataID(), "cursor");
+				connection.setLinkedRecords([newEdge, ...edges], "edges");
+			},
 		});
 	};
 
 	const handleCancel = () => {
 		setUrl("");
 		setTitle("");
+		setSelectedTags([]);
 		setError(null);
 		onCollapse();
 	};
@@ -249,6 +379,19 @@ function CreateStoryForm({
 						<Input type="text" value={title} onChange={(e) => setTitle(e.target.value)} required />
 					}
 				/>
+
+				<Field
+					label="Tags"
+					control={
+						<TagInput
+							selectedTags={selectedTags}
+							availableTags={availableTags}
+							onChange={setSelectedTags}
+							onCreate={handleCreateTag}
+							placeholder="Add tags..."
+						/>
+					}
+				/>
 			</Fieldset.Root>
 
 			<div className={styles.formActions}>
@@ -266,31 +409,59 @@ function CreateStoryForm({
 function StoryRow({
 	storyRef,
 	onStoryDeleted,
+	availableTags,
+	onTagCreate,
 }: {
 	storyRef: LibraryStoryFragment$key;
 	onStoryDeleted: () => void;
+	availableTags: Tag[];
+	onTagCreate: (tag: Tag) => void;
 }) {
-	const [story, refetch] = useRefetchableFragment(StoryFragment, storyRef);
+	const [story] = useRefetchableFragment(StoryFragment, storyRef);
 
 	const domain = extractDomain(story.url);
 	const relativeDate = formatRelativeDate(story.createdAt);
 
 	const [isEditing, setIsEditing] = useState(false);
 	const [editTitle, setEditTitle] = useState(story.title);
+	const [editTags, setEditTags] = useState<Tag[]>([]);
 	const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 
 	const [commitUpdate, isUpdating] = useMutation<LibraryUpdateStoryMutation>(UpdateStoryMutation);
 	const [commitDelete, isDeleting] = useMutation<LibraryDeleteStoryMutation>(DeleteStoryMutation);
+	const [commitTag] = useMutation<LibraryCreateTagMutation>(CreateTagMutation);
+
+	const handleCreateTag = async (name: string): Promise<Tag> => {
+		const color = getNextTagColor(availableTags);
+
+		return new Promise((resolve, reject) => {
+			commitTag({
+				variables: {name, color},
+				onCompleted: (response) => {
+					if (response.createTag.error) {
+						reject(new Error(response.createTag.error.message));
+					} else if (response.createTag.tag) {
+						const newTag = response.createTag.tag;
+						onTagCreate(newTag);
+						resolve(newTag);
+					}
+				},
+				onError: reject,
+			});
+		});
+	};
 
 	const handleEdit = () => {
 		setError(null);
 		setEditTitle(story.title);
+		setEditTags(story.tags.map((t) => ({id: t.id, name: t.name, color: t.color})));
 		setIsEditing(true);
 	};
 
 	const handleCancelEdit = () => {
 		setEditTitle(story.title);
+		setEditTags([]);
 		setIsEditing(false);
 		setError(null);
 	};
@@ -298,21 +469,30 @@ function StoryRow({
 	const handleSaveEdit = () => {
 		const trimmedTitle = editTitle.trim();
 		if (trimmedTitle === "") return;
-		if (trimmedTitle === story.title) {
+
+		// Check if anything changed
+		const titleChanged = trimmedTitle !== story.title;
+		const currentTagIds = story.tags.map((t) => t.id).sort();
+		const newTagIds = editTags.map((t) => t.id).sort();
+		const tagsChanged = JSON.stringify(currentTagIds) !== JSON.stringify(newTagIds);
+
+		if (!titleChanged && !tagsChanged) {
 			setIsEditing(false);
 			return;
 		}
 
 		setError(null);
 		commitUpdate({
-			variables: {id: story.id, title: trimmedTitle},
+			variables: {
+				id: story.id,
+				title: titleChanged ? trimmedTitle : null,
+				tagIds: tagsChanged ? editTags.map((t) => t.id) : null,
+			},
 			onCompleted: (response) => {
 				if (response.updateStory.error) {
 					setError(response.updateStory.error.message);
 				} else {
 					setIsEditing(false);
-					// Refetch the story using the Node interface
-					refetch({}, {fetchPolicy: "network-only"});
 				}
 			},
 			onError: (err) => setError(err.message),
@@ -361,6 +541,13 @@ function StoryRow({
 						// biome-ignore lint/a11y/noAutofocus: Focus is intentional when user clicks Edit
 						autoFocus
 					/>
+					<TagInput
+						selectedTags={editTags}
+						availableTags={availableTags}
+						onChange={setEditTags}
+						onCreate={handleCreateTag}
+						placeholder="Add tags..."
+					/>
 					<div className={styles.editActions}>
 						<Button type="button" onClick={handleCancelEdit} disabled={isUpdating}>
 							Cancel
@@ -393,6 +580,16 @@ function StoryRow({
 					<div className={styles.storyMeta}>
 						{domain} · {relativeDate}
 					</div>
+					{story.tags.length > 0 && (
+						<div className={styles.storyTags}>
+							{story.tags.slice(0, 3).map((tag) => (
+								<TagChip key={tag.id} name={tag.name} color={tag.color} />
+							))}
+							{story.tags.length > 3 && (
+								<span className={styles.moreTags}>+{story.tags.length - 3} more</span>
+							)}
+						</div>
+					)}
 				</div>
 				<Menu.Root>
 					<Menu.Trigger aria-label={`Options for ${story.title}`}>
@@ -422,7 +619,7 @@ function StoryRow({
 						</AlertDialog.Description>
 						<div className={styles.dialogActions}>
 							<AlertDialog.Close render={<Button />}>Cancel</AlertDialog.Close>
-							<Button type="button" onClick={handleDelete} disabled={isDeleting}>
+							<Button onClick={handleDelete} disabled={isDeleting}>
 								{isDeleting ? "Deleting..." : "Delete"}
 							</Button>
 						</div>
@@ -441,6 +638,8 @@ function AuthenticatedLibrary() {
 		{first: DEFAULT_PAGE_SIZE},
 		{fetchKey, fetchPolicy: fetchKey > 0 ? "network-only" : "store-or-network"},
 	);
+
+	const {tags: availableTags, addTag} = useAvailableTags();
 
 	const stories = data.me.library.stories.edges;
 	const hasStories = stories.length > 0;
@@ -462,13 +661,20 @@ function AuthenticatedLibrary() {
 				isExpanded={isFormExpanded}
 				onExpand={handleExpand}
 				onCollapse={handleCollapse}
-				onStoryCreated={handleRefetch}
+				availableTags={availableTags}
+				onTagCreate={addTag}
 			/>
 
 			{hasStories ? (
 				<div className={styles.storyList}>
 					{stories.map(({node, cursor}) => (
-						<StoryRow key={cursor} storyRef={node} onStoryDeleted={handleRefetch} />
+						<StoryRow
+							key={cursor}
+							storyRef={node}
+							onStoryDeleted={handleRefetch}
+							availableTags={availableTags}
+							onTagCreate={addTag}
+						/>
 					))}
 				</div>
 			) : (

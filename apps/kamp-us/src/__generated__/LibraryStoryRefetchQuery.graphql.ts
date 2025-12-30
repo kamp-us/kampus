@@ -1,5 +1,5 @@
 /**
- * @generated SignedSource<<5d254ebf449b213abd85ee65505355c5>>
+ * @generated SignedSource<<e82a059e3469b1ff0203bbc8375f0858>>
  * @lightSyntaxTransform
  * @nogrep
  */
@@ -37,7 +37,14 @@ v1 = [
     "name": "id",
     "variableName": "id"
   }
-];
+],
+v2 = {
+  "alias": null,
+  "args": null,
+  "kind": "ScalarField",
+  "name": "id",
+  "storageKey": null
+};
 return {
   "fragment": {
     "argumentDefinitions": (v0/*: any*/),
@@ -86,13 +93,7 @@ return {
             "name": "__typename",
             "storageKey": null
           },
-          {
-            "alias": null,
-            "args": null,
-            "kind": "ScalarField",
-            "name": "id",
-            "storageKey": null
-          },
+          (v2/*: any*/),
           {
             "kind": "InlineFragment",
             "selections": [
@@ -116,6 +117,32 @@ return {
                 "kind": "ScalarField",
                 "name": "createdAt",
                 "storageKey": null
+              },
+              {
+                "alias": null,
+                "args": null,
+                "concreteType": "Tag",
+                "kind": "LinkedField",
+                "name": "tags",
+                "plural": true,
+                "selections": [
+                  (v2/*: any*/),
+                  {
+                    "alias": null,
+                    "args": null,
+                    "kind": "ScalarField",
+                    "name": "name",
+                    "storageKey": null
+                  },
+                  {
+                    "alias": null,
+                    "args": null,
+                    "kind": "ScalarField",
+                    "name": "color",
+                    "storageKey": null
+                  }
+                ],
+                "storageKey": null
               }
             ],
             "type": "Story",
@@ -127,16 +154,16 @@ return {
     ]
   },
   "params": {
-    "cacheID": "755a80e62c86c15302a5821fa1ecdacb",
+    "cacheID": "f336e0021f12dd59ca3efce2c29b6fda",
     "id": null,
     "metadata": {},
     "name": "LibraryStoryRefetchQuery",
     "operationKind": "query",
-    "text": "query LibraryStoryRefetchQuery(\n  $id: String!\n) {\n  node(id: $id) {\n    __typename\n    ...LibraryStoryFragment\n    id\n  }\n}\n\nfragment LibraryStoryFragment on Story {\n  id\n  url\n  title\n  createdAt\n}\n"
+    "text": "query LibraryStoryRefetchQuery(\n  $id: String!\n) {\n  node(id: $id) {\n    __typename\n    ...LibraryStoryFragment\n    id\n  }\n}\n\nfragment LibraryStoryFragment on Story {\n  id\n  url\n  title\n  createdAt\n  tags {\n    id\n    name\n    color\n  }\n}\n"
   }
 };
 })();
 
-(node as any).hash = "e1df41c7bfa3f37f00a3f23d308d2941";
+(node as any).hash = "28abdebeb7f99719612ff4baea16109d";
 
 export default node;

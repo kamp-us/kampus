@@ -77,6 +77,24 @@
 .storyMeta {
 	font-size: var(--font-size-2);
 	color: var(--gray-10);
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: var(--space-4);
+}
+
+.storyTags {
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: var(--space-4);
+	margin-top: var(--space-4);
+}
+
+.moreTags {
+	font-size: 11px;
+	color: var(--gray-9);
+	white-space: nowrap;
 }
 
 /* Edit mode */

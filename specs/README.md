@@ -7,3 +7,6 @@ Feature directory with completion status. Each feature follows the [spec-driven 
 - [ ] **[user-library-page](./user-library-page/)** - User-facing library page with story CRUD operations
 - [ ] **[library-tags](./library-tags/)** - Add per-user tags with name and color to organize library stories
 - [ ] **[relay-node-interface](./relay-node-interface/)** - Implement Relay Node interface for @refetchable fragment support
+- [ ] **[frontend-story-tagging](./frontend-story-tagging/)** - Frontend UI for tagging stories (core MVP)
+- [ ] **[frontend-tag-filtering](./frontend-tag-filtering/)** - Filter stories by clicking tags (planned)
+- [ ] **[frontend-tag-management](./frontend-tag-management/)** - Rename, recolor, delete tags (planned)

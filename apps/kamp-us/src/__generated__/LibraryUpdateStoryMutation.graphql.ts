@@ -1,5 +1,5 @@
 /**
- * @generated SignedSource<<b2b284694e5cc112232fa3989e95690b>>
+ * @generated SignedSource<<5276b31eb8bd1e72847dd14396058d91>>
  * @lightSyntaxTransform
  * @nogrep
  */
@@ -11,6 +11,7 @@
 import { ConcreteRequest } from 'relay-runtime';
 export type LibraryUpdateStoryMutation$variables = {
   id: string;
+  tagIds?: ReadonlyArray<string> | null | undefined;
   title?: string | null | undefined;
 };
 export type LibraryUpdateStoryMutation$data = {
@@ -20,8 +21,15 @@ export type LibraryUpdateStoryMutation$data = {
       readonly message: string;
     } | null | undefined;
     readonly story: {
+      readonly createdAt: string;
       readonly id: string;
+      readonly tags: ReadonlyArray<{
+        readonly color: string;
+        readonly id: string;
+        readonly name: string;
+      }>;
       readonly title: string;
+      readonly url: string;
     } | null | undefined;
   };
 };
@@ -31,19 +39,29 @@ export type LibraryUpdateStoryMutation = {
 };
 
 const node: ConcreteRequest = (function(){
-var v0 = [
-  {
-    "defaultValue": null,
-    "kind": "LocalArgument",
-    "name": "id"
-  },
-  {
-    "defaultValue": null,
-    "kind": "LocalArgument",
-    "name": "title"
-  }
-],
-v1 = [
+var v0 = {
+  "defaultValue": null,
+  "kind": "LocalArgument",
+  "name": "id"
+},
+v1 = {
+  "defaultValue": null,
+  "kind": "LocalArgument",
+  "name": "tagIds"
+},
+v2 = {
+  "defaultValue": null,
+  "kind": "LocalArgument",
+  "name": "title"
+},
+v3 = {
+  "alias": null,
+  "args": null,
+  "kind": "ScalarField",
+  "name": "id",
+  "storageKey": null
+},
+v4 = [
   {
     "alias": null,
     "args": [
@@ -51,6 +69,11 @@ v1 = [
         "kind": "Variable",
         "name": "id",
         "variableName": "id"
+      },
+      {
+        "kind": "Variable",
+        "name": "tagIds",
+        "variableName": "tagIds"
       },
       {
         "kind": "Variable",
@@ -71,11 +94,12 @@ v1 = [
         "name": "story",
         "plural": false,
         "selections": [
+          (v3/*: any*/),
           {
             "alias": null,
             "args": null,
             "kind": "ScalarField",
-            "name": "id",
+            "name": "url",
             "storageKey": null
           },
           {
@@ -83,6 +107,39 @@ v1 = [
             "args": null,
             "kind": "ScalarField",
             "name": "title",
+            "storageKey": null
+          },
+          {
+            "alias": null,
+            "args": null,
+            "kind": "ScalarField",
+            "name": "createdAt",
+            "storageKey": null
+          },
+          {
+            "alias": null,
+            "args": null,
+            "concreteType": "Tag",
+            "kind": "LinkedField",
+            "name": "tags",
+            "plural": true,
+            "selections": [
+              (v3/*: any*/),
+              {
+                "alias": null,
+                "args": null,
+                "kind": "ScalarField",
+                "name": "name",
+                "storageKey": null
+              },
+              {
+                "alias": null,
+                "args": null,
+                "kind": "ScalarField",
+                "name": "color",
+                "storageKey": null
+              }
+            ],
             "storageKey": null
           }
         ],
@@ -119,32 +176,40 @@ v1 = [
 ];
 return {
   "fragment": {
-    "argumentDefinitions": (v0/*: any*/),
+    "argumentDefinitions": [
+      (v0/*: any*/),
+      (v1/*: any*/),
+      (v2/*: any*/)
+    ],
     "kind": "Fragment",
     "metadata": null,
     "name": "LibraryUpdateStoryMutation",
-    "selections": (v1/*: any*/),
+    "selections": (v4/*: any*/),
     "type": "Mutation",
     "abstractKey": null
   },
   "kind": "Request",
   "operation": {
-    "argumentDefinitions": (v0/*: any*/),
+    "argumentDefinitions": [
+      (v0/*: any*/),
+      (v2/*: any*/),
+      (v1/*: any*/)
+    ],
     "kind": "Operation",
     "name": "LibraryUpdateStoryMutation",
-    "selections": (v1/*: any*/)
+    "selections": (v4/*: any*/)
   },
   "params": {
-    "cacheID": "758d07b65261671ba669b84a8c742e45",
+    "cacheID": "9a9907425c554e2c4fa618818423e8a4",
     "id": null,
     "metadata": {},
     "name": "LibraryUpdateStoryMutation",
     "operationKind": "mutation",
-    "text": "mutation LibraryUpdateStoryMutation(\n  $id: String!\n  $title: String\n) {\n  updateStory(id: $id, title: $title) {\n    story {\n      id\n      title\n    }\n    error {\n      code\n      message\n    }\n  }\n}\n"
+    "text": "mutation LibraryUpdateStoryMutation(\n  $id: String!\n  $title: String\n  $tagIds: [String!]\n) {\n  updateStory(id: $id, title: $title, tagIds: $tagIds) {\n    story {\n      id\n      url\n      title\n      createdAt\n      tags {\n        id\n        name\n        color\n      }\n    }\n    error {\n      code\n      message\n    }\n  }\n}\n"
   }
 };
 })();
 
-(node as any).hash = "434202fc2393b076f75b569e808dc8e9";
+(node as any).hash = "ea5e71b390ca1a86f0bba4afb4134440";
 
 export default node;

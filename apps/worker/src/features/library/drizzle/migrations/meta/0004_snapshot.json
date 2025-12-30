@@ -1,8 +1,8 @@
 {
 	"version": "6",
 	"dialect": "sqlite",
-	"id": "2745d05b-2fbb-4f50-9471-16b12ef4cb16",
-	"prevId": "a7b3c4d5-e6f7-48ab-9cde-123456789012",
+	"id": "7e489f03-58cc-4297-b52d-5f780ffdd151",
+	"prevId": "2745d05b-2fbb-4f50-9471-16b12ef4cb16",
 	"tables": {
 		"story": {
 			"name": "story",
@@ -97,7 +97,26 @@
 					"isUnique": false
 				}
 			},
-			"foreignKeys": {},
+			"foreignKeys": {
+				"story_tag_story_id_story_id_fk": {
+					"name": "story_tag_story_id_story_id_fk",
+					"tableFrom": "story_tag",
+					"tableTo": "story",
+					"columnsFrom": ["story_id"],
+					"columnsTo": ["id"],
+					"onDelete": "cascade",
+					"onUpdate": "no action"
+				},
+				"story_tag_tag_id_tag_id_fk": {
+					"name": "story_tag_tag_id_tag_id_fk",
+					"tableFrom": "story_tag",
+					"tableTo": "tag",
+					"columnsFrom": ["tag_id"],
+					"columnsTo": ["id"],
+					"onDelete": "cascade",
+					"onUpdate": "no action"
+				}
+			},
 			"compositePrimaryKeys": {
 				"story_tag_story_id_tag_id_pk": {
 					"columns": ["story_id", "tag_id"],

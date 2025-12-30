@@ -6,12 +6,12 @@ import {
 	GraphQLID,
 	GraphQLInterfaceType,
 	GraphQLNonNull,
-	GraphQLString,
 	lexicographicSortSchema,
 	printSchema,
 } from "graphql";
 import {createYoga} from "graphql-yoga";
 import {Hono} from "hono";
+import {TagNameExistsError as TagNameExistsErrorRuntime} from "./features/library/schema";
 import type {Session} from "./features/pasaport/auth";
 import {decodeGlobalId, encodeGlobalId, NodeType} from "./graphql/relay";
 
@@ -101,6 +101,30 @@ function toStoryNode(story: {id: string; url: string; title: string; createdAt: 
 	};
 }
 
+// --- Tag GraphQL Types ---
+
+const Tag = Schema.Struct({
+	__typename: Schema.optional(Schema.Literal("Tag")),
+	id: Schema.String.annotations({identifier: "ulid"}),
+	name: Schema.String,
+	color: Schema.String,
+	createdAt: Schema.String,
+}).annotations({
+	title: "Tag",
+	[asObjectType]: {interfaces: [NodeInterface]},
+});
+
+// Helper to transform tag with global ID
+function toTagNode(tag: {id: string; name: string; color: string; createdAt: Date}) {
+	return {
+		__typename: "Tag" as const,
+		id: encodeGlobalId(NodeType.Tag, tag.id),
+		name: tag.name,
+		color: tag.color,
+		createdAt: tag.createdAt.toISOString(),
+	};
+}
+
 const StoryEdge = Schema.Struct({
 	node: Story,
 	cursor: Schema.String,
@@ -141,6 +165,18 @@ const DeleteStoryPayload = Schema.Struct({
 	deletedStoryId: Schema.NullOr(Schema.String),
 	error: Schema.NullOr(StoryNotFoundError),
 }).annotations({title: "DeleteStoryPayload"});
+
+// Tag mutation payloads
+const TagNameExistsError = Schema.Struct({
+	code: Schema.Literal("TAG_NAME_EXISTS"),
+	message: Schema.String,
+	tagName: Schema.String,
+}).annotations({title: "TagNameExistsError"});
+
+const CreateTagPayload = Schema.Struct({
+	tag: Schema.NullOr(Tag),
+	error: Schema.NullOr(TagNameExistsError),
+}).annotations({title: "CreateTagPayload"});
 
 // --- Library Resolvers ---
 
@@ -188,18 +224,43 @@ const userResolver = resolver.of(standard(User), {
 });
 
 const storyResolver = resolver.of(standard(Story), {
+	// Field resolver: tags on Story
+	tags: field(standard(Schema.Array(Tag))).resolve(async (story) => {
+		const ctx = useContext<GQLContext>();
+		if (!ctx.pasaport.user?.id) return [];
+
+		const decoded = decodeGlobalId(story.id);
+		if (!decoded) return [];
+
+		const libraryId = ctx.env.LIBRARY.idFromName(ctx.pasaport.user.id);
+		const lib = ctx.env.LIBRARY.get(libraryId);
+		const tags = await lib.getTagsForStory(decoded.id);
+
+		return tags.map(toTagNode);
+	}),
+
 	createStory: mutation(standard(CreateStoryPayload))
 		.input({
 			url: standard(Schema.String),
 			title: standard(Schema.String),
+			tagIds: standard(Schema.NullOr(Schema.Array(Schema.String))),
 		})
-		.resolve(async ({url, title}) => {
+		.resolve(async ({url, title, tagIds}) => {
 			const ctx = useContext<GQLContext>();
 			if (!ctx.pasaport.user?.id) throw new Error("Unauthorized");
 
 			const libraryId = ctx.env.LIBRARY.idFromName(ctx.pasaport.user.id);
 			const lib = ctx.env.LIBRARY.get(libraryId);
 			const story = await lib.createStory({url, title});
+
+			// Tag the story if tagIds provided
+			if (tagIds && tagIds.length > 0) {
+				const localTagIds = tagIds
+					.map((id) => decodeGlobalId(id))
+					.filter((d): d is {type: string; id: string} => d?.type === NodeType.Tag)
+					.map((d) => d.id);
+				await lib.setStoryTags(story.id, localTagIds);
+			}
 
 			return {
 				story: toStoryNode(story),
@@ -210,8 +271,9 @@ const storyResolver = resolver.of(standard(Story), {
 		.input({
 			id: standard(Schema.String),
 			title: standard(Schema.NullOr(Schema.String)),
+			tagIds: standard(Schema.NullOr(Schema.Array(Schema.String))),
 		})
-		.resolve(async ({id: globalId, title}) => {
+		.resolve(async ({id: globalId, title, tagIds}) => {
 			const ctx = useContext<GQLContext>();
 			if (!ctx.pasaport.user?.id) throw new Error("Unauthorized");
 
@@ -241,6 +303,15 @@ const storyResolver = resolver.of(standard(Story), {
 						storyId: globalId,
 					},
 				};
+			}
+
+			// Update tags if tagIds provided (null means no change, [] means remove all)
+			if (tagIds !== null && tagIds !== undefined) {
+				const localTagIds = tagIds
+					.map((id) => decodeGlobalId(id))
+					.filter((d): d is {type: string; id: string} => d?.type === NodeType.Tag)
+					.map((d) => d.id);
+				await lib.setStoryTags(decoded.id, localTagIds);
 			}
 
 			return {
@@ -292,6 +363,53 @@ const storyResolver = resolver.of(standard(Story), {
 				deletedStoryId: globalId,
 				error: null,
 			};
+		}),
+});
+
+// --- Tag Resolvers ---
+
+const tagResolver = resolver({
+	// Query: List all tags for the user
+	listTags: query(standard(Schema.Array(Tag))).resolve(async () => {
+		const ctx = useContext<GQLContext>();
+		if (!ctx.pasaport.user?.id) throw new Error("Unauthorized");
+
+		const libraryId = ctx.env.LIBRARY.idFromName(ctx.pasaport.user.id);
+		const lib = ctx.env.LIBRARY.get(libraryId);
+		const tags = await lib.listTags();
+
+		return tags.map(toTagNode);
+	}),
+
+	// Mutation: Create a new tag
+	createTag: mutation(standard(CreateTagPayload))
+		.input({
+			name: standard(Schema.String),
+			color: standard(Schema.String),
+		})
+		.resolve(async ({name, color}) => {
+			const ctx = useContext<GQLContext>();
+			if (!ctx.pasaport.user?.id) throw new Error("Unauthorized");
+
+			const libraryId = ctx.env.LIBRARY.idFromName(ctx.pasaport.user.id);
+			const lib = ctx.env.LIBRARY.get(libraryId);
+
+			try {
+				const tag = await lib.createTag(name, color);
+				return {tag: toTagNode(tag), error: null};
+			} catch (e) {
+				if (e instanceof TagNameExistsErrorRuntime) {
+					return {
+						tag: null,
+						error: {
+							code: "TAG_NAME_EXISTS" as const,
+							message: e.message,
+							tagName: name,
+						},
+					};
+				}
+				throw e;
+			}
 		}),
 });
 
@@ -418,6 +536,18 @@ const nodeResolver = resolver({
 						createdAt: story.createdAt,
 					};
 				}
+				case NodeType.Tag: {
+					const tag = await lib.getTag(decoded.id);
+					if (!tag) return null;
+
+					return {
+						__typename: "Tag" as const,
+						id: globalId,
+						name: tag.name,
+						color: tag.color,
+						createdAt: tag.createdAt.toISOString(),
+					};
+				}
 				default:
 					return null;
 			}
@@ -431,6 +561,7 @@ const schema = weave(
 	userResolver,
 	libraryResolver,
 	storyResolver,
+	tagResolver,
 	nodeResolver,
 );
 
