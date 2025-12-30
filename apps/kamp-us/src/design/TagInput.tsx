@@ -79,7 +79,7 @@ export function TagInput({
 
 		const lowered = trimmed.toLowerCase();
 
-		// Check if it already exists
+		// Check if it already exists in available tags
 		const existing = availableTags.find((t) => t.name.toLowerCase() === lowered);
 		if (existing) {
 			if (!selectedTags.some((t) => t.id === existing.id)) {
@@ -89,10 +89,21 @@ export function TagInput({
 			return;
 		}
 
-		// Create new tag
-		const newTag = await onCreate(trimmed);
-		onChange([...selectedTags, newTag]);
-		setQuery("");
+		// Create new tag - wrap in try-catch to handle race conditions
+		// (e.g., another request created the same tag name)
+		try {
+			const newTag = await onCreate(trimmed);
+			onChange([...selectedTags, newTag]);
+			setQuery("");
+		} catch {
+			// Tag creation failed (likely TagNameExistsError from race condition)
+			// Re-check availableTags in case it was updated
+			const nowExisting = availableTags.find((t) => t.name.toLowerCase() === lowered);
+			if (nowExisting && !selectedTags.some((t) => t.id === nowExisting.id)) {
+				onChange([...selectedTags, nowExisting]);
+			}
+			setQuery("");
+		}
 	}
 
 	function handleInputKeyDown(event: React.KeyboardEvent<HTMLInputElement>) {
