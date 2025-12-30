@@ -10,8 +10,8 @@ export const story = sqliteTable(
 			.primaryKey()
 			.$defaultFn(() => id("story")),
 
-		url: text("string"),
-		normalizedUrl: text("string"),
+		url: text("url").notNull(),
+		normalizedUrl: text("normalized_url").notNull(),
 
 		title: text("title").notNull(),
 		description: text("description"),

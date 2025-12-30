@@ -131,7 +131,7 @@ const libraryResolver = resolver.of(standard(Library), {
 				edges: result.edges.map((story) => ({
 					node: {
 						id: story.id,
-						url: story.url ?? "",
+						url: story.url,
 						title: story.title,
 						createdAt: story.createdAt,
 					},
@@ -168,7 +168,7 @@ const storyResolver = resolver.of(standard(Story), {
 			return {
 				story: {
 					id: story.id,
-					url: story.url ?? "",
+					url: story.url,
 					title: story.title,
 					createdAt: story.createdAt,
 				},
@@ -202,7 +202,7 @@ const storyResolver = resolver.of(standard(Story), {
 			return {
 				story: {
 					id: story.id,
-					url: story.url ?? "",
+					url: story.url,
 					title: story.title,
 					createdAt: story.createdAt,
 				},

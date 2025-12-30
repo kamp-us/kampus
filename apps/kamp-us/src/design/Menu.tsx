@@ -6,7 +6,9 @@ function Root(props: ComponentProps<typeof BaseMenu.Root>) {
 	return <BaseMenu.Root {...props} />;
 }
 
-function Trigger({className, ...props}: ComponentProps<typeof BaseMenu.Trigger>) {
+type TriggerProps = Omit<ComponentProps<typeof BaseMenu.Trigger>, "className">;
+
+function Trigger(props: TriggerProps) {
 	return <BaseMenu.Trigger className={styles.Trigger} {...props} />;
 }
 

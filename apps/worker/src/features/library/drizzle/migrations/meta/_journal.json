@@ -15,6 +15,13 @@
 			"when": 1766992098130,
 			"tag": "0001_skinny_mariko_yashida",
 			"breakpoints": true
+		},
+		{
+			"idx": 2,
+			"version": "6",
+			"when": 1767035000000,
+			"tag": "0002_fix_story_columns",
+			"breakpoints": true
 		}
 	]
 }
