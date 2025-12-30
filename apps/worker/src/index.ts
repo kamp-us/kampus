@@ -217,6 +217,44 @@ const libraryResolver = resolver.of(standard(Library), {
 				},
 			};
 		}),
+
+	storiesByTag: field(standard(StoryConnection))
+		.input({
+			tagName: standard(Schema.String),
+			first: standard(Schema.NullOr(Schema.Number)),
+			after: standard(Schema.NullOr(Schema.String)),
+		})
+		.resolve(async (_parent, input) => {
+			const ctx = useContext<GQLContext>();
+			if (!ctx.pasaport.user?.id) throw new Error("Unauthorized");
+
+			// Decode cursor if provided (it's a global ID)
+			let afterLocalId: string | undefined;
+			if (input.after) {
+				const decoded = decodeGlobalId(input.after);
+				afterLocalId = decoded?.id;
+			}
+
+			const libraryId = ctx.env.LIBRARY.idFromName(ctx.pasaport.user.id);
+			const lib = ctx.env.LIBRARY.get(libraryId);
+			const result = await lib.getStoriesByTagName(input.tagName, {
+				first: input.first ?? 20,
+				after: afterLocalId,
+			});
+
+			return {
+				edges: result.edges.map((story) => ({
+					node: toStoryNode(story),
+					cursor: encodeGlobalId(NodeType.Story, story.id),
+				})),
+				pageInfo: {
+					hasNextPage: result.hasNextPage,
+					hasPreviousPage: false,
+					startCursor: result.edges[0] ? encodeGlobalId(NodeType.Story, result.edges[0].id) : null,
+					endCursor: result.endCursor ? encodeGlobalId(NodeType.Story, result.endCursor) : null,
+				},
+			};
+		}),
 });
 
 const userResolver = resolver.of(standard(User), {
