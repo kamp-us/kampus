@@ -2,12 +2,17 @@ import {Component, type ReactNode, Suspense, useState} from "react";
 import {graphql, useLazyLoadQuery, useMutation} from "react-relay";
 import {Navigate} from "react-router";
 import type {LibraryCreateStoryMutation} from "../__generated__/LibraryCreateStoryMutation.graphql";
+import type {LibraryDeleteStoryMutation} from "../__generated__/LibraryDeleteStoryMutation.graphql";
 import type {LibraryQuery as LibraryQueryType} from "../__generated__/LibraryQuery.graphql";
+import type {LibraryUpdateStoryMutation} from "../__generated__/LibraryUpdateStoryMutation.graphql";
 import {useAuth} from "../auth/AuthContext";
+import {AlertDialog} from "../design/AlertDialog";
 import {Button} from "../design/Button";
 import {Field} from "../design/Field";
 import {Fieldset} from "../design/Fieldset";
 import {Input} from "../design/Input";
+import {MoreHorizontalIcon} from "../design/icons/MoreHorizontalIcon";
+import {Menu} from "../design/Menu";
 import styles from "./Library.module.css";
 
 const LibraryQuery = graphql`
@@ -42,6 +47,34 @@ const CreateStoryMutation = graphql`
 				url
 				title
 				createdAt
+			}
+		}
+	}
+`;
+
+const UpdateStoryMutation = graphql`
+	mutation LibraryUpdateStoryMutation($id: String!, $title: String) {
+		updateStory(id: $id, title: $title) {
+			story {
+				id
+				title
+			}
+			error {
+				code
+				message
+			}
+		}
+	}
+`;
+
+const DeleteStoryMutation = graphql`
+	mutation LibraryDeleteStoryMutation($id: String!) {
+		deleteStory(id: $id) {
+			success
+			deletedStoryId
+			error {
+				code
+				message
 			}
 		}
 	}
@@ -224,14 +257,155 @@ function StoryRow({story}: {story: {id: string; url: string; title: string; crea
 	const domain = extractDomain(story.url);
 	const relativeDate = formatRelativeDate(story.createdAt);
 
+	const [isEditing, setIsEditing] = useState(false);
+	const [editTitle, setEditTitle] = useState(story.title);
+	const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+	const [error, setError] = useState<string | null>(null);
+
+	const [commitUpdate, isUpdating] = useMutation<LibraryUpdateStoryMutation>(UpdateStoryMutation);
+	const [commitDelete, isDeleting] = useMutation<LibraryDeleteStoryMutation>(DeleteStoryMutation);
+
+	const handleEdit = () => {
+		setEditTitle(story.title);
+		setIsEditing(true);
+	};
+
+	const handleCancelEdit = () => {
+		setEditTitle(story.title);
+		setIsEditing(false);
+		setError(null);
+	};
+
+	const handleSaveEdit = () => {
+		if (editTitle.trim() === "") return;
+		if (editTitle === story.title) {
+			setIsEditing(false);
+			return;
+		}
+
+		commitUpdate({
+			variables: {id: story.id, title: editTitle},
+			onCompleted: (response) => {
+				if (response.updateStory.error) {
+					setError(response.updateStory.error.message);
+				} else {
+					setIsEditing(false);
+					setError(null);
+				}
+			},
+			onError: (err) => setError(err.message),
+		});
+	};
+
+	const handleKeyDown = (e: React.KeyboardEvent) => {
+		if (e.key === "Enter") {
+			e.preventDefault();
+			handleSaveEdit();
+		} else if (e.key === "Escape") {
+			handleCancelEdit();
+		}
+	};
+
+	const handleDelete = () => {
+		commitDelete({
+			variables: {id: story.id},
+			onCompleted: (response) => {
+				if (response.deleteStory.error) {
+					setError(response.deleteStory.error.message);
+					setDeleteDialogOpen(false);
+				} else if (response.deleteStory.success) {
+					window.location.reload();
+				}
+			},
+			onError: (err) => {
+				setError(err.message);
+				setDeleteDialogOpen(false);
+			},
+		});
+	};
+
+	if (isEditing) {
+		return (
+			<article className={styles.storyRow}>
+				{error && <div className={styles.rowError}>{error}</div>}
+				<div className={styles.editRow}>
+					<input
+						type="text"
+						value={editTitle}
+						onChange={(e) => setEditTitle(e.target.value)}
+						onKeyDown={handleKeyDown}
+						className={styles.editInput}
+						// biome-ignore lint/a11y/noAutofocus: Focus is intentional when user clicks Edit
+						autoFocus
+					/>
+					<div className={styles.editActions}>
+						<Button type="button" onClick={handleCancelEdit} disabled={isUpdating}>
+							Cancel
+						</Button>
+						<Button type="button" onClick={handleSaveEdit} disabled={isUpdating}>
+							{isUpdating ? "Saving..." : "Save"}
+						</Button>
+					</div>
+				</div>
+				<div className={styles.storyMeta}>
+					{domain} · {relativeDate}
+				</div>
+			</article>
+		);
+	}
+
 	return (
 		<article className={styles.storyRow}>
-			<a href={story.url} target="_blank" rel="noopener noreferrer" className={styles.storyTitle}>
-				{story.title}
-			</a>
-			<div className={styles.storyMeta}>
-				{domain} · {relativeDate}
+			{error && <div className={styles.rowError}>{error}</div>}
+			<div className={styles.storyContent}>
+				<div className={styles.storyMain}>
+					<a
+						href={story.url}
+						target="_blank"
+						rel="noopener noreferrer"
+						className={styles.storyTitle}
+					>
+						{story.title}
+					</a>
+					<div className={styles.storyMeta}>
+						{domain} · {relativeDate}
+					</div>
+				</div>
+				<Menu.Root>
+					<Menu.Trigger>
+						<MoreHorizontalIcon />
+					</Menu.Trigger>
+					<Menu.Portal>
+						<Menu.Positioner>
+							<Menu.Popup>
+								<Menu.Item onClick={handleEdit}>Edit</Menu.Item>
+								<Menu.Separator />
+								<Menu.Item data-danger onClick={() => setDeleteDialogOpen(true)}>
+									Delete
+								</Menu.Item>
+							</Menu.Popup>
+						</Menu.Positioner>
+					</Menu.Portal>
+				</Menu.Root>
 			</div>
+
+			<AlertDialog.Root open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+				<AlertDialog.Portal>
+					<AlertDialog.Backdrop />
+					<AlertDialog.Popup>
+						<AlertDialog.Title>Delete story?</AlertDialog.Title>
+						<AlertDialog.Description>
+							This will permanently delete "{story.title}". This action cannot be undone.
+						</AlertDialog.Description>
+						<div className={styles.dialogActions}>
+							<AlertDialog.Close render={<Button />}>Cancel</AlertDialog.Close>
+							<Button type="button" onClick={handleDelete} disabled={isDeleting}>
+								{isDeleting ? "Deleting..." : "Delete"}
+							</Button>
+						</div>
+					</AlertDialog.Popup>
+				</AlertDialog.Portal>
+			</AlertDialog.Root>
 		</article>
 	);
 }
