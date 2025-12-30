@@ -1,5 +1,5 @@
 import {Component, type ReactNode, Suspense, useCallback, useState} from "react";
-import {fetchQuery, graphql, useLazyLoadQuery, useMutation, useRelayEnvironment} from "react-relay";
+import {graphql, useLazyLoadQuery, useMutation} from "react-relay";
 import {Navigate} from "react-router";
 import type {LibraryCreateStoryMutation} from "../__generated__/LibraryCreateStoryMutation.graphql";
 import type {LibraryDeleteStoryMutation} from "../__generated__/LibraryDeleteStoryMutation.graphql";
@@ -423,10 +423,13 @@ function StoryRow({
 }
 
 function AuthenticatedLibrary() {
-	const environment = useRelayEnvironment();
 	const [isFormExpanded, setIsFormExpanded] = useState(false);
-	const [, setRefetchKey] = useState(0);
-	const data = useLazyLoadQuery<LibraryQueryType>(LibraryQuery, {first: DEFAULT_PAGE_SIZE});
+	const [fetchKey, setFetchKey] = useState(0);
+	const data = useLazyLoadQuery<LibraryQueryType>(
+		LibraryQuery,
+		{first: DEFAULT_PAGE_SIZE},
+		{fetchKey, fetchPolicy: fetchKey > 0 ? "network-only" : "store-or-network"},
+	);
 
 	const stories = data.me.library.stories.edges;
 	const hasStories = stories.length > 0;
@@ -435,10 +438,8 @@ function AuthenticatedLibrary() {
 	const handleCollapse = () => setIsFormExpanded(false);
 
 	const handleRefetch = useCallback(() => {
-		fetchQuery(environment, LibraryQuery, {first: DEFAULT_PAGE_SIZE}).subscribe({
-			complete: () => setRefetchKey((k) => k + 1),
-		});
-	}, [environment]);
+		setFetchKey((k) => k + 1);
+	}, []);
 
 	return (
 		<div className={styles.container}>

@@ -1,5 +1,5 @@
 import {DurableObject} from "cloudflare:workers";
-import {desc, eq, inArray, lt, sql} from "drizzle-orm";
+import {and, desc, eq, inArray, lt, sql} from "drizzle-orm";
 import {drizzle} from "drizzle-orm/durable-sqlite";
 import {migrate} from "drizzle-orm/durable-sqlite/migrator";
 import * as schema from "./drizzle/drizzle.schema";
@@ -89,11 +89,7 @@ export class Library extends DurableObject<Env> {
 		}
 
 		return await this.db.transaction(async (tx) => {
-			const existing = await tx
-				.select()
-				.from(schema.story)
-				.where(eq(schema.story.id, id))
-				.get();
+			const existing = await tx.select().from(schema.story).where(eq(schema.story.id, id)).get();
 			if (!existing) return null;
 
 			const [story] = await tx
@@ -112,11 +108,7 @@ export class Library extends DurableObject<Env> {
 
 	async deleteStory(id: string) {
 		return await this.db.transaction(async (tx) => {
-			const existing = await tx
-				.select()
-				.from(schema.story)
-				.where(eq(schema.story.id, id))
-				.get();
+			const existing = await tx.select().from(schema.story).where(eq(schema.story.id, id)).get();
 			if (!existing) return false;
 
 			// Delete tag associations first (cascade)
@@ -256,9 +248,7 @@ export class Library extends DurableObject<Env> {
 
 		await this.db
 			.delete(schema.storyTag)
-			.where(
-				sql`${schema.storyTag.storyId} = ${storyId} AND ${schema.storyTag.tagId} IN ${tagIds}`,
-			);
+			.where(and(eq(schema.storyTag.storyId, storyId), inArray(schema.storyTag.tagId, tagIds)));
 	}
 
 	async getTagsForStory(storyId: string) {
