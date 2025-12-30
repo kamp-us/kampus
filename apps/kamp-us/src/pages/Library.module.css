@@ -222,3 +222,49 @@
 	margin: 0;
 	max-width: 280px;
 }
+
+/* Tag filter row */
+.tagFilterRow {
+	display: flex;
+	align-items: center;
+	gap: var(--space-8);
+	padding: var(--space-12) 0;
+	border-bottom: 1px solid var(--gray-6);
+	margin-bottom: var(--space-8);
+}
+
+.filterLabel {
+	font-size: var(--font-size-2);
+	color: var(--gray-11);
+}
+
+.storyCount {
+	font-size: var(--font-size-2);
+	color: var(--gray-9);
+	margin-left: auto;
+}
+
+.dismissButton {
+	all: unset;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 14px;
+	height: 14px;
+	margin-left: var(--space-4);
+	border-radius: 50%;
+	cursor: pointer;
+	color: var(--gray-9);
+	font-size: 12px;
+	line-height: 1;
+}
+
+.dismissButton:hover {
+	background: var(--gray-a4);
+	color: var(--gray-12);
+}
+
+.dismissButton:focus-visible {
+	outline: 2px solid var(--sky-8);
+	outline-offset: 1px;
+}
