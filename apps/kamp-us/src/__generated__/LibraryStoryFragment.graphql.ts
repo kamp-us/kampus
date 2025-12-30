@@ -1,5 +1,5 @@
 /**
- * @generated SignedSource<<85d46bb7c0a008b16e5d55be4ed0a0b2>>
+ * @generated SignedSource<<956635489e7cc6d2cf53a9eecad5974c>>
  * @lightSyntaxTransform
  * @nogrep
  */
@@ -13,6 +13,11 @@ import { FragmentRefs } from "relay-runtime";
 export type LibraryStoryFragment$data = {
   readonly createdAt: string;
   readonly id: string;
+  readonly tags: ReadonlyArray<{
+    readonly color: string;
+    readonly id: string;
+    readonly name: string;
+  }>;
   readonly title: string;
   readonly url: string;
   readonly " $fragmentType": "LibraryStoryFragment";
@@ -24,7 +29,15 @@ export type LibraryStoryFragment$key = {
 
 import LibraryStoryRefetchQuery_graphql from './LibraryStoryRefetchQuery.graphql';
 
-const node: ReaderFragment = {
+const node: ReaderFragment = (function(){
+var v0 = {
+  "alias": null,
+  "args": null,
+  "kind": "ScalarField",
+  "name": "id",
+  "storageKey": null
+};
+return {
   "argumentDefinitions": [],
   "kind": "Fragment",
   "metadata": {
@@ -42,13 +55,7 @@ const node: ReaderFragment = {
   },
   "name": "LibraryStoryFragment",
   "selections": [
-    {
-      "alias": null,
-      "args": null,
-      "kind": "ScalarField",
-      "name": "id",
-      "storageKey": null
-    },
+    (v0/*: any*/),
     {
       "alias": null,
       "args": null,
@@ -69,12 +76,39 @@ const node: ReaderFragment = {
       "kind": "ScalarField",
       "name": "createdAt",
       "storageKey": null
+    },
+    {
+      "alias": null,
+      "args": null,
+      "concreteType": "Tag",
+      "kind": "LinkedField",
+      "name": "tags",
+      "plural": true,
+      "selections": [
+        (v0/*: any*/),
+        {
+          "alias": null,
+          "args": null,
+          "kind": "ScalarField",
+          "name": "name",
+          "storageKey": null
+        },
+        {
+          "alias": null,
+          "args": null,
+          "kind": "ScalarField",
+          "name": "color",
+          "storageKey": null
+        }
+      ],
+      "storageKey": null
     }
   ],
   "type": "Story",
   "abstractKey": null
 };
+})();
 
-(node as any).hash = "e1df41c7bfa3f37f00a3f23d308d2941";
+(node as any).hash = "28abdebeb7f99719612ff4baea16109d";
 
 export default node;
