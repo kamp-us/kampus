@@ -1,0 +1,53 @@
+.Backdrop {
+	position: fixed;
+	inset: 0;
+	background: rgba(0, 0, 0, 0.4);
+	transition:
+		opacity 0.15s,
+		backdrop-filter 0.15s;
+
+	&[data-starting-style],
+	&[data-ending-style] {
+		opacity: 0;
+	}
+}
+
+.Popup {
+	position: fixed;
+	top: 50%;
+	left: 50%;
+	transform: translate(-50%, -50%);
+	width: 90%;
+	max-width: 400px;
+	padding: var(--space-24);
+	background: var(--gray-1);
+	border: 1px solid var(--gray-6);
+	border-radius: var(--radius-4);
+	box-shadow:
+		0 10px 38px -10px rgba(22, 23, 24, 0.35),
+		0 10px 20px -15px rgba(22, 23, 24, 0.2);
+
+	transition:
+		transform 0.15s,
+		opacity 0.15s;
+
+	&[data-starting-style],
+	&[data-ending-style] {
+		opacity: 0;
+		transform: translate(-50%, -50%) scale(0.95);
+	}
+}
+
+.Title {
+	margin: 0 0 var(--space-8);
+	font-size: var(--font-size-5);
+	font-weight: var(--font-weight-semibold);
+	color: var(--gray-12);
+}
+
+.Description {
+	margin: 0 0 var(--space-24);
+	font-size: var(--font-size-3);
+	color: var(--gray-11);
+	line-height: 1.5;
+}

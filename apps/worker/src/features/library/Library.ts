@@ -1,5 +1,5 @@
 import {DurableObject} from "cloudflare:workers";
-import {eq, inArray, sql} from "drizzle-orm";
+import {and, desc, eq, inArray, lt, sql} from "drizzle-orm";
 import {drizzle} from "drizzle-orm/durable-sqlite";
 import {migrate} from "drizzle-orm/durable-sqlite/migrator";
 import * as schema from "./drizzle/drizzle.schema";
@@ -25,12 +25,99 @@ export class Library extends DurableObject<Env> {
 	async createStory(options: {url: string; title: string; description?: string}) {
 		const {url, title, description} = options;
 
+		// Validate URL format
+		try {
+			new URL(url);
+		} catch {
+			throw new Error("Invalid URL format");
+		}
+
 		const [story] = await this.db
 			.insert(schema.story)
 			.values({url, normalizedUrl: getNormalizedUrl(url), title, description})
 			.returning();
 
-		return story;
+		return {
+			...story,
+			createdAt: story.createdAt.toISOString(),
+		};
+	}
+
+	// Story CRUD methods
+
+	async listStories(options?: {first?: number; after?: string}) {
+		const limit = options?.first ?? 20;
+
+		// Build base query - order by ID (ULIDx IDs are time-sortable)
+		let query = this.db.select().from(schema.story).orderBy(desc(schema.story.id));
+
+		// Apply cursor if provided
+		if (options?.after) {
+			query = query.where(lt(schema.story.id, options.after)) as typeof query;
+		}
+
+		const dbStories = await query.limit(limit + 1).all();
+		const hasNextPage = dbStories.length > limit;
+		const edges = dbStories.slice(0, limit);
+
+		// Convert Date objects to ISO strings for RPC serialization
+		return {
+			edges: edges.map((s) => ({
+				...s,
+				createdAt: s.createdAt.toISOString(),
+			})),
+			hasNextPage,
+			endCursor: edges.length > 0 ? edges[edges.length - 1].id : null,
+		};
+	}
+
+	async getStory(id: string) {
+		const story = await this.db.select().from(schema.story).where(eq(schema.story.id, id)).get();
+
+		if (!story) return null;
+
+		// Convert Date to ISO string for RPC
+		return {
+			...story,
+			createdAt: story.createdAt.toISOString(),
+		};
+	}
+
+	async updateStory(id: string, updates: {title?: string}) {
+		if (!updates.title) {
+			return await this.getStory(id);
+		}
+
+		return await this.db.transaction(async (tx) => {
+			const existing = await tx.select().from(schema.story).where(eq(schema.story.id, id)).get();
+			if (!existing) return null;
+
+			const [story] = await tx
+				.update(schema.story)
+				.set({title: updates.title})
+				.where(eq(schema.story.id, id))
+				.returning();
+
+			// Convert Date to ISO string for RPC
+			return {
+				...story,
+				createdAt: story.createdAt.toISOString(),
+			};
+		});
+	}
+
+	async deleteStory(id: string) {
+		return await this.db.transaction(async (tx) => {
+			const existing = await tx.select().from(schema.story).where(eq(schema.story.id, id)).get();
+			if (!existing) return false;
+
+			// Delete tag associations first (cascade)
+			await tx.delete(schema.storyTag).where(eq(schema.storyTag.storyId, id));
+			// Then delete story
+			await tx.delete(schema.story).where(eq(schema.story.id, id));
+
+			return true;
+		});
 	}
 
 	// Tag CRUD methods
@@ -147,20 +234,21 @@ export class Library extends DurableObject<Env> {
 		const existingTagIds = new Set(existingTags.map((t) => t.id));
 		const validTagIds = tagIds.filter((id) => existingTagIds.has(id));
 
-		// Insert with ON CONFLICT DO NOTHING for idempotency
-		for (const tagId of validTagIds) {
-			await this.db.insert(schema.storyTag).values({storyId, tagId}).onConflictDoNothing();
+		// Batch insert with ON CONFLICT DO NOTHING for idempotency
+		if (validTagIds.length > 0) {
+			await this.db
+				.insert(schema.storyTag)
+				.values(validTagIds.map((tagId) => ({storyId, tagId})))
+				.onConflictDoNothing();
 		}
 	}
 
 	async untagStory(storyId: string, tagIds: string[]) {
-		for (const tagId of tagIds) {
-			await this.db
-				.delete(schema.storyTag)
-				.where(
-					sql`${schema.storyTag.storyId} = ${storyId} AND ${schema.storyTag.tagId} = ${tagId}`,
-				);
-		}
+		if (tagIds.length === 0) return;
+
+		await this.db
+			.delete(schema.storyTag)
+			.where(and(eq(schema.storyTag.storyId, storyId), inArray(schema.storyTag.tagId, tagIds)));
 	}
 
 	async getTagsForStory(storyId: string) {

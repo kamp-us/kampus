@@ -1,14 +1,15 @@
-import {mutation, query, resolver, weave} from "@gqloom/core";
+import {field, mutation, query, resolver, weave} from "@gqloom/core";
 import {asyncContextProvider, useContext} from "@gqloom/core/context";
 import {EffectWeaver} from "@gqloom/effect";
 import {Schema} from "effect";
+import {lexicographicSortSchema, printSchema} from "graphql";
 import {createYoga} from "graphql-yoga";
 import {Hono} from "hono";
 import type {Session} from "./features/pasaport/auth";
 
+export {Library} from "./features/library/Library";
 export {Pasaport} from "./features/pasaport/pasaport";
 export {WebPageParser} from "./features/web-page-parser/WebPageParser";
-export {Library} from "./features/library/Library";
 
 const standard = Schema.standardSchemaV1;
 
@@ -55,6 +56,190 @@ export const SignInResponse = Schema.Struct({
 	token: Schema.String,
 }).annotations({
 	title: "SignInResponse",
+});
+
+// --- Library GraphQL Types ---
+
+const Story = Schema.Struct({
+	id: Schema.String,
+	url: Schema.String,
+	title: Schema.String,
+	createdAt: Schema.String,
+}).annotations({title: "Story"});
+
+const StoryEdge = Schema.Struct({
+	node: Story,
+	cursor: Schema.String,
+}).annotations({title: "StoryEdge"});
+
+const PageInfo = Schema.Struct({
+	hasNextPage: Schema.Boolean,
+	hasPreviousPage: Schema.Boolean,
+	startCursor: Schema.NullOr(Schema.String),
+	endCursor: Schema.NullOr(Schema.String),
+}).annotations({title: "PageInfo"});
+
+const StoryConnection = Schema.Struct({
+	edges: Schema.Array(StoryEdge),
+	pageInfo: PageInfo,
+}).annotations({title: "StoryConnection"});
+
+const Library = Schema.Struct({}).annotations({title: "Library"});
+
+// Mutation payloads
+const StoryNotFoundError = Schema.Struct({
+	code: Schema.Literal("STORY_NOT_FOUND"),
+	message: Schema.String,
+	storyId: Schema.String,
+}).annotations({title: "StoryNotFoundError"});
+
+const CreateStoryPayload = Schema.Struct({
+	story: Story,
+}).annotations({title: "CreateStoryPayload"});
+
+const UpdateStoryPayload = Schema.Struct({
+	story: Schema.NullOr(Story),
+	error: Schema.NullOr(StoryNotFoundError),
+}).annotations({title: "UpdateStoryPayload"});
+
+const DeleteStoryPayload = Schema.Struct({
+	success: Schema.Boolean,
+	deletedStoryId: Schema.NullOr(Schema.String),
+	error: Schema.NullOr(StoryNotFoundError),
+}).annotations({title: "DeleteStoryPayload"});
+
+// --- Library Resolvers ---
+
+const libraryResolver = resolver.of(standard(Library), {
+	stories: field(standard(StoryConnection))
+		.input({
+			first: standard(Schema.NullOr(Schema.Number)),
+			after: standard(Schema.NullOr(Schema.String)),
+		})
+		.resolve(async (_parent, input) => {
+			const ctx = useContext<GQLContext>();
+			if (!ctx.pasaport.user?.id) throw new Error("Unauthorized");
+
+			const libraryId = ctx.env.LIBRARY.idFromName(ctx.pasaport.user.id);
+			const lib = ctx.env.LIBRARY.get(libraryId);
+			const result = await lib.listStories({
+				first: input.first ?? 20,
+				after: input.after ?? undefined,
+			});
+
+			return {
+				edges: result.edges.map((story) => ({
+					node: {
+						id: story.id,
+						url: story.url,
+						title: story.title,
+						createdAt: story.createdAt,
+					},
+					cursor: story.id,
+				})),
+				pageInfo: {
+					hasNextPage: result.hasNextPage,
+					hasPreviousPage: false,
+					startCursor: result.edges[0]?.id ?? null,
+					endCursor: result.endCursor,
+				},
+			};
+		}),
+});
+
+const userResolver = resolver.of(standard(User), {
+	library: field(standard(Library)).resolve(() => ({})),
+});
+
+const storyResolver = resolver.of(standard(Story), {
+	createStory: mutation(standard(CreateStoryPayload))
+		.input({
+			url: standard(Schema.String),
+			title: standard(Schema.String),
+		})
+		.resolve(async ({url, title}) => {
+			const ctx = useContext<GQLContext>();
+			if (!ctx.pasaport.user?.id) throw new Error("Unauthorized");
+
+			const libraryId = ctx.env.LIBRARY.idFromName(ctx.pasaport.user.id);
+			const lib = ctx.env.LIBRARY.get(libraryId);
+			const story = await lib.createStory({url, title});
+
+			return {
+				story: {
+					id: story.id,
+					url: story.url,
+					title: story.title,
+					createdAt: story.createdAt,
+				},
+			};
+		}),
+
+	updateStory: mutation(standard(UpdateStoryPayload))
+		.input({
+			id: standard(Schema.String),
+			title: standard(Schema.NullOr(Schema.String)),
+		})
+		.resolve(async ({id, title}) => {
+			const ctx = useContext<GQLContext>();
+			if (!ctx.pasaport.user?.id) throw new Error("Unauthorized");
+
+			const libraryId = ctx.env.LIBRARY.idFromName(ctx.pasaport.user.id);
+			const lib = ctx.env.LIBRARY.get(libraryId);
+			const story = await lib.updateStory(id, {title: title ?? undefined});
+
+			if (!story) {
+				return {
+					story: null,
+					error: {
+						code: "STORY_NOT_FOUND" as const,
+						message: `Story with id "${id}" not found`,
+						storyId: id,
+					},
+				};
+			}
+
+			return {
+				story: {
+					id: story.id,
+					url: story.url,
+					title: story.title,
+					createdAt: story.createdAt,
+				},
+				error: null,
+			};
+		}),
+
+	deleteStory: mutation(standard(DeleteStoryPayload))
+		.input({
+			id: standard(Schema.String),
+		})
+		.resolve(async ({id}) => {
+			const ctx = useContext<GQLContext>();
+			if (!ctx.pasaport.user?.id) throw new Error("Unauthorized");
+
+			const libraryId = ctx.env.LIBRARY.idFromName(ctx.pasaport.user.id);
+			const lib = ctx.env.LIBRARY.get(libraryId);
+
+			const deleted = await lib.deleteStory(id);
+			if (!deleted) {
+				return {
+					success: false,
+					deletedStoryId: null,
+					error: {
+						code: "STORY_NOT_FOUND" as const,
+						message: `Story with id "${id}" not found`,
+						storyId: id,
+					},
+				};
+			}
+
+			return {
+				success: true,
+				deletedStoryId: id,
+				error: null,
+			};
+		}),
 });
 
 const helloResolver = resolver({
@@ -142,7 +327,20 @@ const helloResolver = resolver({
 		}),
 });
 
-const schema = weave(EffectWeaver, asyncContextProvider, helloResolver);
+const schema = weave(
+	EffectWeaver,
+	asyncContextProvider,
+	helloResolver,
+	userResolver,
+	libraryResolver,
+	storyResolver,
+);
+
+// Endpoint to fetch GraphQL schema SDL
+app.get("/graphql/schema", (c) => {
+	const schemaText = printSchema(lexicographicSortSchema(schema));
+	return c.text(schemaText);
+});
 
 app.use("/graphql", async (c) => {
 	const forwardedHeaders = new Headers(c.req.raw.headers);
@@ -168,19 +366,6 @@ app.use("/graphql", async (c) => {
 			return context;
 		},
 	}).fetch(c.req.raw);
-});
-
-app.get("/parse-url", async (c) => {
-	const stub = c.env.WEB_PAGE_PARSER.getByName(
-		"https://nesbitt.io/2025/12/26/how-uv-got-so-fast.html",
-	);
-
-	await stub.init("https://nesbitt.io/2025/12/26/how-uv-got-so-fast.html");
-
-	const result = await stub.getMetadata();
-	console.log("URL Metadata:", result);
-
-	return c.json(result);
 });
 
 export default {

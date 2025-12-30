@@ -28,10 +28,12 @@ pnpm --filter worker run test          # Run Vitest tests
 ## Development Rules
 
 Before committing, ensure code passes:
-1. `biome check --write .` - Fix formatting/linting
+1. `biome check --write --staged` - Fix formatting/linting on staged files only
 2. `pnpm --filter worker exec tsc --noEmit` - Type check worker
 
 Never commit code with lint errors or type failures.
+
+Note: `biome.jsonc` excludes `__generated__/` directories via `files.includes`. Use `biome check --write .` to check all files if needed.
 
 ## Architecture
 
