@@ -25,18 +25,15 @@ describe("Library Tags", () => {
 			expect(tag.color).toBe("3178c6");
 		});
 
+		// Skipped: Cloudflare vitest-pool-workers has isolated storage issues
+		// when DOs throw exceptions. The functionality works correctly - verified
+		// manually and via GraphQL layer which catches TagNameExistsError.
+		// See: https://developers.cloudflare.com/workers/testing/vitest-integration/known-issues/#isolated-storage
 		it.skip("rejects duplicate tag names (case-insensitive)", async () => {
 			const library = getLibrary("test-user-3");
 			await library.createTag("react", "61dafb");
 
-			let error: Error | null = null;
-			try {
-				await library.createTag("React", "000000");
-			} catch (e) {
-				error = e as Error;
-			}
-			expect(error).not.toBeNull();
-			expect(error?.message).toContain("Tag name already exists");
+			await expect(library.createTag("React", "000000")).rejects.toThrow("Tag name already exists");
 		});
 
 		it("gets a tag by id", async () => {
@@ -84,19 +81,16 @@ describe("Library Tags", () => {
 			expect(updated?.color).toBe("bbbbbb");
 		});
 
+		// Skipped: Cloudflare vitest-pool-workers has isolated storage issues
+		// when DOs throw exceptions. See comment above "rejects duplicate tag names".
 		it.skip("rejects update with duplicate name", async () => {
 			const library = getLibrary("test-user-9");
 			await library.createTag("existing", "111111");
 			const second = await library.createTag("another", "222222");
 
-			let error: Error | null = null;
-			try {
-				await library.updateTag(second.id, {name: "existing"});
-			} catch (e) {
-				error = e as Error;
-			}
-			expect(error).not.toBeNull();
-			expect(error?.message).toContain("Tag name already exists");
+			await expect(library.updateTag(second.id, {name: "existing"})).rejects.toThrow(
+				"Tag name already exists",
+			);
 		});
 
 		it("returns null when updating non-existent tag", async () => {
