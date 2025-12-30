@@ -1,5 +1,5 @@
 /**
- * @generated SignedSource<<7c6266e712f3d8f5ecfa570696a820ef>>
+ * @generated SignedSource<<5276b31eb8bd1e72847dd14396058d91>>
  * @lightSyntaxTransform
  * @nogrep
  */
@@ -21,6 +21,7 @@ export type LibraryUpdateStoryMutation$data = {
       readonly message: string;
     } | null | undefined;
     readonly story: {
+      readonly createdAt: string;
       readonly id: string;
       readonly tags: ReadonlyArray<{
         readonly color: string;
@@ -28,6 +29,7 @@ export type LibraryUpdateStoryMutation$data = {
         readonly name: string;
       }>;
       readonly title: string;
+      readonly url: string;
     } | null | undefined;
   };
 };
@@ -97,7 +99,21 @@ v4 = [
             "alias": null,
             "args": null,
             "kind": "ScalarField",
+            "name": "url",
+            "storageKey": null
+          },
+          {
+            "alias": null,
+            "args": null,
+            "kind": "ScalarField",
             "name": "title",
+            "storageKey": null
+          },
+          {
+            "alias": null,
+            "args": null,
+            "kind": "ScalarField",
+            "name": "createdAt",
             "storageKey": null
           },
           {
@@ -184,16 +200,16 @@ return {
     "selections": (v4/*: any*/)
   },
   "params": {
-    "cacheID": "cdcc43c5ee38d0ffa7780a905c5eac93",
+    "cacheID": "9a9907425c554e2c4fa618818423e8a4",
     "id": null,
     "metadata": {},
     "name": "LibraryUpdateStoryMutation",
     "operationKind": "mutation",
-    "text": "mutation LibraryUpdateStoryMutation(\n  $id: String!\n  $title: String\n  $tagIds: [String!]\n) {\n  updateStory(id: $id, title: $title, tagIds: $tagIds) {\n    story {\n      id\n      title\n      tags {\n        id\n        name\n        color\n      }\n    }\n    error {\n      code\n      message\n    }\n  }\n}\n"
+    "text": "mutation LibraryUpdateStoryMutation(\n  $id: String!\n  $title: String\n  $tagIds: [String!]\n) {\n  updateStory(id: $id, title: $title, tagIds: $tagIds) {\n    story {\n      id\n      url\n      title\n      createdAt\n      tags {\n        id\n        name\n        color\n      }\n    }\n    error {\n      code\n      message\n    }\n  }\n}\n"
   }
 };
 })();
 
-(node as any).hash = "956f663b4e8d2176de2dd6c0c26386a6";
+(node as any).hash = "ea5e71b390ca1a86f0bba4afb4134440";
 
 export default node;

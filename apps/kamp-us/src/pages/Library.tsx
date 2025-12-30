@@ -106,7 +106,9 @@ const UpdateStoryMutation = graphql`
 		updateStory(id: $id, title: $title, tagIds: $tagIds) {
 			story {
 				id
+				url
 				title
+				createdAt
 				tags {
 					id
 					name
@@ -261,14 +263,12 @@ function CreateStoryForm({
 	isExpanded,
 	onExpand,
 	onCollapse,
-	onStoryCreated,
 	availableTags,
 	onTagCreate,
 }: {
 	isExpanded: boolean;
 	onExpand: () => void;
 	onCollapse: () => void;
-	onStoryCreated: () => void;
 	availableTags: Tag[];
 	onTagCreate: (tag: Tag) => void;
 }) {
@@ -314,10 +314,26 @@ function CreateStoryForm({
 					setTitle("");
 					setSelectedTags([]);
 					onCollapse();
-					onStoryCreated();
 				}
 			},
 			onError: (err) => setError(err.message),
+			updater: (store) => {
+				const payload = store.getRootField("createStory");
+				const newStory = payload?.getLinkedRecord("story");
+				if (!newStory) return;
+
+				const root = store.getRoot();
+				const me = root.getLinkedRecord("me");
+				const library = me?.getLinkedRecord("library");
+				const connection = library?.getLinkedRecord("stories", {first: DEFAULT_PAGE_SIZE});
+				if (!connection) return;
+
+				const edges = connection.getLinkedRecords("edges") ?? [];
+				const newEdge = store.create(`edge:${newStory.getDataID()}`, "StoryEdge");
+				newEdge.setLinkedRecord(newStory, "node");
+				newEdge.setValue(newStory.getDataID(), "cursor");
+				connection.setLinkedRecords([newEdge, ...edges], "edges");
+			},
 		});
 	};
 
@@ -401,7 +417,7 @@ function StoryRow({
 	availableTags: Tag[];
 	onTagCreate: (tag: Tag) => void;
 }) {
-	const [story, refetch] = useRefetchableFragment(StoryFragment, storyRef);
+	const [story] = useRefetchableFragment(StoryFragment, storyRef);
 
 	const domain = extractDomain(story.url);
 	const relativeDate = formatRelativeDate(story.createdAt);
@@ -477,8 +493,6 @@ function StoryRow({
 					setError(response.updateStory.error.message);
 				} else {
 					setIsEditing(false);
-					// Refetch the story using the Node interface
-					refetch({}, {fetchPolicy: "network-only"});
 				}
 			},
 			onError: (err) => setError(err.message),
@@ -647,7 +661,6 @@ function AuthenticatedLibrary() {
 				isExpanded={isFormExpanded}
 				onExpand={handleExpand}
 				onCollapse={handleCollapse}
-				onStoryCreated={handleRefetch}
 				availableTags={availableTags}
 				onTagCreate={addTag}
 			/>
