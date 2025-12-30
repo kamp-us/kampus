@@ -284,4 +284,27 @@ export class Library extends DurableObject<Env> {
 
 		return results;
 	}
+
+	/**
+	 * Atomically sets the tags for a story by computing the diff
+	 * and using tagStory/untagStory internally.
+	 */
+	async setStoryTags(storyId: string, tagIds: string[]) {
+		// Get current tags for this story
+		const currentTags = await this.getTagsForStory(storyId);
+		const currentIds = new Set(currentTags.map((t) => t.id));
+		const newIds = new Set(tagIds);
+
+		// Compute diff
+		const toRemove = currentTags.filter((t) => !newIds.has(t.id)).map((t) => t.id);
+		const toAdd = tagIds.filter((id) => !currentIds.has(id));
+
+		// Apply changes using existing methods
+		if (toRemove.length > 0) {
+			await this.untagStory(storyId, toRemove);
+		}
+		if (toAdd.length > 0) {
+			await this.tagStory(storyId, toAdd);
+		}
+	}
 }
