@@ -37,3 +37,17 @@ export class TagNameExistsError extends Data.TaggedError("TagNameExistsError")<{
 		return `Tag name already exists: ${this.tagName}`;
 	}
 }
+
+export class InvalidTagColorError extends Data.TaggedError("InvalidTagColorError")<{
+	readonly color: string;
+}> {
+	get message() {
+		return `Invalid color format: ${this.color}. Expected 6-digit hex code (e.g., "ff5733").`;
+	}
+}
+
+// Validation helpers
+const HEX_COLOR_REGEX = /^[0-9a-fA-F]{6}$/;
+export function isValidHexColor(color: string): boolean {
+	return HEX_COLOR_REGEX.test(color);
+}
