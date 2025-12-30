@@ -1,9 +1,10 @@
 import {Component, type ReactNode, Suspense, useCallback, useState} from "react";
-import {graphql, useLazyLoadQuery, useMutation} from "react-relay";
+import {graphql, useLazyLoadQuery, useMutation, useRefetchableFragment} from "react-relay";
 import {Navigate} from "react-router";
 import type {LibraryCreateStoryMutation} from "../__generated__/LibraryCreateStoryMutation.graphql";
 import type {LibraryDeleteStoryMutation} from "../__generated__/LibraryDeleteStoryMutation.graphql";
 import type {LibraryQuery as LibraryQueryType} from "../__generated__/LibraryQuery.graphql";
+import type {LibraryStoryFragment$key} from "../__generated__/LibraryStoryFragment.graphql";
 import type {LibraryUpdateStoryMutation} from "../__generated__/LibraryUpdateStoryMutation.graphql";
 import {useAuth} from "../auth/AuthContext";
 import {AlertDialog} from "../design/AlertDialog";
@@ -17,6 +18,15 @@ import styles from "./Library.module.css";
 
 const DEFAULT_PAGE_SIZE = 20;
 
+const StoryFragment = graphql`
+	fragment LibraryStoryFragment on Story @refetchable(queryName: "LibraryStoryRefetchQuery") {
+		id
+		url
+		title
+		createdAt
+	}
+`;
+
 const LibraryQuery = graphql`
 	query LibraryQuery($first: Float!, $after: String) {
 		me {
@@ -24,10 +34,7 @@ const LibraryQuery = graphql`
 				stories(first: $first, after: $after) {
 					edges {
 						node {
-							id
-							url
-							title
-							createdAt
+							...LibraryStoryFragment
 						}
 						cursor
 					}
@@ -257,12 +264,14 @@ function CreateStoryForm({
 }
 
 function StoryRow({
-	story,
+	storyRef,
 	onStoryDeleted,
 }: {
-	story: {id: string; url: string; title: string; createdAt: string};
+	storyRef: LibraryStoryFragment$key;
 	onStoryDeleted: () => void;
 }) {
+	const [story, refetch] = useRefetchableFragment(StoryFragment, storyRef);
+
 	const domain = extractDomain(story.url);
 	const relativeDate = formatRelativeDate(story.createdAt);
 
@@ -302,6 +311,8 @@ function StoryRow({
 					setError(response.updateStory.error.message);
 				} else {
 					setIsEditing(false);
+					// Refetch the story using the Node interface
+					refetch({}, {fetchPolicy: "network-only"});
 				}
 			},
 			onError: (err) => setError(err.message),
@@ -456,8 +467,8 @@ function AuthenticatedLibrary() {
 
 			{hasStories ? (
 				<div className={styles.storyList}>
-					{stories.map(({node}) => (
-						<StoryRow key={node.id} story={node} onStoryDeleted={handleRefetch} />
+					{stories.map(({node, cursor}) => (
+						<StoryRow key={cursor} storyRef={node} onStoryDeleted={handleRefetch} />
 					))}
 				</div>
 			) : (

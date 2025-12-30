@@ -9,7 +9,7 @@
 	"keywords": [],
 	"author": "",
 	"license": "ISC",
-	"packageManager": "pnpm@10.26.1",
+	"packageManager": "pnpm@10.26.2",
 	"devDependencies": {
 		"@biomejs/biome": "catalog:",
 		"@effect/language-service": "catalog:",

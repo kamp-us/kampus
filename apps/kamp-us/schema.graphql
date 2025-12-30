@@ -26,6 +26,11 @@ type Mutation {
   updateStory(id: String!, title: String): UpdateStoryPayload!
 }
 
+"""An object with a globally unique ID"""
+interface Node {
+  id: ID!
+}
+
 type PageInfo {
   endCursor: String
   hasNextPage: Boolean!
@@ -35,6 +40,7 @@ type PageInfo {
 
 type Query {
   me: User!
+  node(id: String!): Node
 }
 
 type SignInResponse {
@@ -42,9 +48,9 @@ type SignInResponse {
   user: User!
 }
 
-type Story {
+type Story implements Node {
   createdAt: String!
-  id: String!
+  id: ID!
   title: String!
   url: String!
 }

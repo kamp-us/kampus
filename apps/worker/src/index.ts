@@ -1,11 +1,19 @@
-import {field, mutation, query, resolver, weave} from "@gqloom/core";
+import {field, mutation, query, resolver, silk, weave} from "@gqloom/core";
 import {asyncContextProvider, useContext} from "@gqloom/core/context";
-import {EffectWeaver} from "@gqloom/effect";
+import {asObjectType, EffectWeaver} from "@gqloom/effect";
 import {Schema} from "effect";
-import {lexicographicSortSchema, printSchema} from "graphql";
+import {
+	GraphQLID,
+	GraphQLInterfaceType,
+	GraphQLNonNull,
+	GraphQLString,
+	lexicographicSortSchema,
+	printSchema,
+} from "graphql";
 import {createYoga} from "graphql-yoga";
 import {Hono} from "hono";
 import type {Session} from "./features/pasaport/auth";
+import {decodeGlobalId, encodeGlobalId, NodeType} from "./graphql/relay";
 
 export {Library} from "./features/library/Library";
 export {Pasaport} from "./features/pasaport/pasaport";
@@ -60,12 +68,38 @@ export const SignInResponse = Schema.Struct({
 
 // --- Library GraphQL Types ---
 
+// Node interface - using native GraphQL to avoid duplicate type errors
+// GQLoom creates duplicates when Effect Schema is used for both interface
+// declaration (in interfaces: []) and return type (Schema.NullOr(Node))
+const NodeInterface = new GraphQLInterfaceType({
+	name: "Node",
+	description: "An object with a globally unique ID",
+	fields: () => ({
+		id: {type: new GraphQLNonNull(GraphQLID)},
+	}),
+});
+
 const Story = Schema.Struct({
-	id: Schema.String,
+	__typename: Schema.optional(Schema.Literal("Story")),
+	id: Schema.String.annotations({identifier: "ulid"}),
 	url: Schema.String,
 	title: Schema.String,
 	createdAt: Schema.String,
-}).annotations({title: "Story"});
+}).annotations({
+	title: "Story",
+	[asObjectType]: {interfaces: [NodeInterface]},
+});
+
+// Helper to transform story with global ID
+function toStoryNode(story: {id: string; url: string; title: string; createdAt: string}) {
+	return {
+		__typename: "Story" as const,
+		id: encodeGlobalId(NodeType.Story, story.id),
+		url: story.url,
+		title: story.title,
+		createdAt: story.createdAt,
+	};
+}
 
 const StoryEdge = Schema.Struct({
 	node: Story,
@@ -120,28 +154,30 @@ const libraryResolver = resolver.of(standard(Library), {
 			const ctx = useContext<GQLContext>();
 			if (!ctx.pasaport.user?.id) throw new Error("Unauthorized");
 
+			// Decode cursor if provided (it's a global ID)
+			let afterLocalId: string | undefined;
+			if (input.after) {
+				const decoded = decodeGlobalId(input.after);
+				afterLocalId = decoded?.id;
+			}
+
 			const libraryId = ctx.env.LIBRARY.idFromName(ctx.pasaport.user.id);
 			const lib = ctx.env.LIBRARY.get(libraryId);
 			const result = await lib.listStories({
 				first: input.first ?? 20,
-				after: input.after ?? undefined,
+				after: afterLocalId,
 			});
 
 			return {
 				edges: result.edges.map((story) => ({
-					node: {
-						id: story.id,
-						url: story.url,
-						title: story.title,
-						createdAt: story.createdAt,
-					},
-					cursor: story.id,
+					node: toStoryNode(story),
+					cursor: encodeGlobalId(NodeType.Story, story.id),
 				})),
 				pageInfo: {
 					hasNextPage: result.hasNextPage,
 					hasPreviousPage: false,
-					startCursor: result.edges[0]?.id ?? null,
-					endCursor: result.endCursor,
+					startCursor: result.edges[0] ? encodeGlobalId(NodeType.Story, result.edges[0].id) : null,
+					endCursor: result.endCursor ? encodeGlobalId(NodeType.Story, result.endCursor) : null,
 				},
 			};
 		}),
@@ -166,12 +202,7 @@ const storyResolver = resolver.of(standard(Story), {
 			const story = await lib.createStory({url, title});
 
 			return {
-				story: {
-					id: story.id,
-					url: story.url,
-					title: story.title,
-					createdAt: story.createdAt,
-				},
+				story: toStoryNode(story),
 			};
 		}),
 
@@ -180,32 +211,40 @@ const storyResolver = resolver.of(standard(Story), {
 			id: standard(Schema.String),
 			title: standard(Schema.NullOr(Schema.String)),
 		})
-		.resolve(async ({id, title}) => {
+		.resolve(async ({id: globalId, title}) => {
 			const ctx = useContext<GQLContext>();
 			if (!ctx.pasaport.user?.id) throw new Error("Unauthorized");
 
+			// Decode global ID
+			const decoded = decodeGlobalId(globalId);
+			if (!decoded || decoded.type !== NodeType.Story) {
+				return {
+					story: null,
+					error: {
+						code: "STORY_NOT_FOUND" as const,
+						message: `Invalid story ID: "${globalId}"`,
+						storyId: globalId,
+					},
+				};
+			}
+
 			const libraryId = ctx.env.LIBRARY.idFromName(ctx.pasaport.user.id);
 			const lib = ctx.env.LIBRARY.get(libraryId);
-			const story = await lib.updateStory(id, {title: title ?? undefined});
+			const story = await lib.updateStory(decoded.id, {title: title ?? undefined});
 
 			if (!story) {
 				return {
 					story: null,
 					error: {
 						code: "STORY_NOT_FOUND" as const,
-						message: `Story with id "${id}" not found`,
-						storyId: id,
+						message: `Story with id "${globalId}" not found`,
+						storyId: globalId,
 					},
 				};
 			}
 
 			return {
-				story: {
-					id: story.id,
-					url: story.url,
-					title: story.title,
-					createdAt: story.createdAt,
-				},
+				story: toStoryNode(story),
 				error: null,
 			};
 		}),
@@ -214,29 +253,43 @@ const storyResolver = resolver.of(standard(Story), {
 		.input({
 			id: standard(Schema.String),
 		})
-		.resolve(async ({id}) => {
+		.resolve(async ({id: globalId}) => {
 			const ctx = useContext<GQLContext>();
 			if (!ctx.pasaport.user?.id) throw new Error("Unauthorized");
+
+			// Decode global ID
+			const decoded = decodeGlobalId(globalId);
+			if (!decoded || decoded.type !== NodeType.Story) {
+				return {
+					success: false,
+					deletedStoryId: null,
+					error: {
+						code: "STORY_NOT_FOUND" as const,
+						message: `Invalid story ID: "${globalId}"`,
+						storyId: globalId,
+					},
+				};
+			}
 
 			const libraryId = ctx.env.LIBRARY.idFromName(ctx.pasaport.user.id);
 			const lib = ctx.env.LIBRARY.get(libraryId);
 
-			const deleted = await lib.deleteStory(id);
+			const deleted = await lib.deleteStory(decoded.id);
 			if (!deleted) {
 				return {
 					success: false,
 					deletedStoryId: null,
 					error: {
 						code: "STORY_NOT_FOUND" as const,
-						message: `Story with id "${id}" not found`,
-						storyId: id,
+						message: `Story with id "${globalId}" not found`,
+						storyId: globalId,
 					},
 				};
 			}
 
 			return {
 				success: true,
-				deletedStoryId: id,
+				deletedStoryId: globalId,
 				error: null,
 			};
 		}),
@@ -327,6 +380,50 @@ const helloResolver = resolver({
 		}),
 });
 
+// Node query resolver for Relay refetching
+const nodeResolver = resolver({
+	node: query(silk.nullable(silk<{__typename: string; id: string}>(NodeInterface)))
+		.input({
+			id: standard(Schema.String),
+		})
+		.resolve(async ({id: globalId}) => {
+			const ctx = useContext<GQLContext>();
+
+			// Require authentication
+			if (!ctx.pasaport.user?.id) {
+				return null;
+			}
+
+			// Decode global ID
+			const decoded = decodeGlobalId(globalId);
+			if (!decoded) {
+				return null;
+			}
+
+			// Get user's library
+			const libraryId = ctx.env.LIBRARY.idFromName(ctx.pasaport.user.id);
+			const lib = ctx.env.LIBRARY.get(libraryId);
+
+			// Route to appropriate fetcher based on type
+			switch (decoded.type) {
+				case NodeType.Story: {
+					const story = await lib.getStory(decoded.id);
+					if (!story) return null;
+
+					return {
+						__typename: "Story" as const,
+						id: globalId,
+						url: story.url,
+						title: story.title,
+						createdAt: story.createdAt,
+					};
+				}
+				default:
+					return null;
+			}
+		}),
+});
+
 const schema = weave(
 	EffectWeaver,
 	asyncContextProvider,
@@ -334,6 +431,7 @@ const schema = weave(
 	userResolver,
 	libraryResolver,
 	storyResolver,
+	nodeResolver,
 );
 
 // Endpoint to fetch GraphQL schema SDL
