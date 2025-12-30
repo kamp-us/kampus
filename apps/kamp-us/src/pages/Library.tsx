@@ -583,7 +583,7 @@ function StoryRow({
 					{story.tags.length > 0 && (
 						<div className={styles.storyTags}>
 							{story.tags.slice(0, 3).map((tag) => (
-								<TagChip key={tag.id} name={tag.name} color={tag.color} size="sm" />
+								<TagChip key={tag.id} name={tag.name} color={tag.color} />
 							))}
 							{story.tags.length > 3 && (
 								<span className={styles.moreTags}>+{story.tags.length - 3} more</span>
@@ -619,7 +619,7 @@ function StoryRow({
 						</AlertDialog.Description>
 						<div className={styles.dialogActions}>
 							<AlertDialog.Close render={<Button />}>Cancel</AlertDialog.Close>
-							<Button type="button" onClick={handleDelete} disabled={isDeleting}>
+							<Button onClick={handleDelete} disabled={isDeleting}>
 								{isDeleting ? "Deleting..." : "Delete"}
 							</Button>
 						</div>

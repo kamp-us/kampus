@@ -13,12 +13,6 @@
 	white-space: nowrap;
 }
 
-.TagChip[data-size="sm"] {
-	padding: var(--space-2) var(--space-4);
-	font-size: 11px;
-	gap: var(--space-2);
-}
-
 /* Support for Combobox.Chip keyboard navigation */
 .TagChip[data-highlighted] {
 	outline: 2px solid var(--sky-8);
