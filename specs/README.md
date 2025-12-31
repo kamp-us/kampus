@@ -10,3 +10,4 @@ Feature directory with completion status. Each feature follows the [spec-driven 
 - [ ] **[frontend-story-tagging](./frontend-story-tagging/)** - Frontend UI for tagging stories (core MVP)
 - [ ] **[frontend-tag-filtering](./frontend-tag-filtering/)** - Filter stories by clicking tags (planned)
 - [x] **[frontend-tag-management](./frontend-tag-management/)** - Rename, recolor, delete tags
+- [ ] **[fetch-title-from-url](./fetch-title-from-url/)** - Auto-fetch title and description from URL when submitting stories
