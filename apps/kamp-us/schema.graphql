@@ -1,137 +1,151 @@
 type ApiKey {
-  key: String!
-  name: String!
+	key: String!
+	name: String!
 }
 
 type CreateStoryPayload {
-  story: Story!
+	story: Story!
 }
 
 type CreateTagPayload {
-  error: TagError
-  tag: Tag
+	error: TagError
+	tag: Tag
 }
 
 type DeleteStoryPayload {
-  deletedStoryId: String
-  error: StoryNotFoundError
-  success: Boolean!
+	deletedStoryId: String
+	error: StoryNotFoundError
+	success: Boolean!
 }
 
 type DeleteTagPayload {
-  deletedTagId: String
-  error: TagNotFoundError
-  success: Boolean!
+	deletedTagId: String
+	error: TagNotFoundError
+	success: Boolean!
 }
 
 type InvalidTagNameError {
-  code: String!
-  message: String!
-  tagName: String!
+	code: String!
+	message: String!
+	tagName: String!
 }
 
 type Library {
-  stories(after: String, first: Float): StoryConnection!
-  storiesByTag(after: String, first: Float, tagName: String!): StoryConnection!
-  tags: [Tag!]!
+	stories(after: String, first: Float): StoryConnection!
+	storiesByTag(after: String, first: Float, tagName: String!): StoryConnection!
+	tags: [Tag!]!
 }
 
 type Mutation {
-  bootstrap(email: String!, name: String!, password: String!): User!
-  createApiKey(name: String!): ApiKey!
-  createStory(tagIds: [String!], title: String!, url: String!): CreateStoryPayload!
-  createTag(color: String!, name: String!): CreateTagPayload!
-  deleteStory(id: String!): DeleteStoryPayload!
-  deleteTag(id: String!): DeleteTagPayload!
-  signIn(email: String!, password: String!): SignInResponse!
-  updateStory(id: String!, tagIds: [String!], title: String): UpdateStoryPayload!
-  updateTag(color: String, id: String!, name: String): UpdateTagPayload!
+	bootstrap(email: String!, name: String!, password: String!): User!
+	createApiKey(name: String!): ApiKey!
+	createStory(
+		description: String
+		tagIds: [String!]
+		title: String!
+		url: String!
+	): CreateStoryPayload!
+	createTag(color: String!, name: String!): CreateTagPayload!
+	deleteStory(id: String!): DeleteStoryPayload!
+	deleteTag(id: String!): DeleteTagPayload!
+	signIn(email: String!, password: String!): SignInResponse!
+	updateStory(id: String!, tagIds: [String!], title: String): UpdateStoryPayload!
+	updateTag(color: String, id: String!, name: String): UpdateTagPayload!
 }
 
-"""An object with a globally unique ID"""
+"""
+An object with a globally unique ID
+"""
 interface Node {
-  id: ID!
+	id: ID!
 }
 
 type PageInfo {
-  endCursor: String
-  hasNextPage: Boolean!
-  hasPreviousPage: Boolean!
-  startCursor: String
+	endCursor: String
+	hasNextPage: Boolean!
+	hasPreviousPage: Boolean!
+	startCursor: String
 }
 
 type Query {
-  me: User!
-  node(id: String!): Node
+	fetchUrlMetadata(url: String!): UrlMetadata!
+	me: User!
+	node(id: String!): Node
 }
 
 type SignInResponse {
-  token: String!
-  user: User!
+	token: String!
+	user: User!
 }
 
 type Story implements Node {
-  createdAt: String!
-  id: ID!
-  tags: [Tag!]!
-  title: String!
-  url: String!
+	createdAt: String!
+	id: ID!
+	tags: [Tag!]!
+	title: String!
+	url: String!
 }
 
 type StoryConnection {
-  edges: [StoryEdge!]!
-  pageInfo: PageInfo!
-  totalCount: Float!
+	edges: [StoryEdge!]!
+	pageInfo: PageInfo!
+	totalCount: Float!
 }
 
 type StoryEdge {
-  cursor: String!
-  node: Story!
+	cursor: String!
+	node: Story!
 }
 
 type StoryNotFoundError {
-  code: String!
-  message: String!
-  storyId: String!
+	code: String!
+	message: String!
+	storyId: String!
 }
 
 type Tag implements Node {
-  color: String!
-  createdAt: String!
-  id: ID!
-  name: String!
-  stories(after: String, first: Float): StoryConnection!
+	color: String!
+	createdAt: String!
+	id: ID!
+	name: String!
+	stories(after: String, first: Float): StoryConnection!
 }
 
 union TagError = InvalidTagNameError | TagNameExistsError
 
 type TagNameExistsError {
-  code: String!
-  message: String!
-  tagName: String!
+	code: String!
+	message: String!
+	tagName: String!
 }
 
 type TagNotFoundError {
-  code: String!
-  message: String!
-  tagId: String!
+	code: String!
+	message: String!
+	tagId: String!
 }
 
 type UpdateStoryPayload {
-  error: StoryNotFoundError
-  story: Story
+	error: StoryNotFoundError
+	story: Story
 }
 
 union UpdateTagError = InvalidTagNameError | TagNameExistsError | TagNotFoundError
 
 type UpdateTagPayload {
-  error: UpdateTagError
-  tag: Tag
+	error: UpdateTagError
+	tag: Tag
+}
+
+type UrlMetadata {
+	description: String
+	error: String
+	title: String
 }
 
 type User {
-  email: String!
-  id: String!
-  library: Library!
-  name: String
+	email: String!
+	id: String!
+	library: Library!
+	name: String
 }
