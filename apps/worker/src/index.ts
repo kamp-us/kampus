@@ -88,6 +88,7 @@ const Story = Schema.Struct({
 	id: Schema.String.annotations({identifier: "ulid"}),
 	url: Schema.String,
 	title: Schema.String,
+	description: Schema.NullOr(Schema.String),
 	createdAt: Schema.String,
 }).annotations({
 	title: "Story",
@@ -95,12 +96,19 @@ const Story = Schema.Struct({
 });
 
 // Helper to transform story with global ID
-function toStoryNode(story: {id: string; url: string; title: string; createdAt: string}) {
+function toStoryNode(story: {
+	id: string;
+	url: string;
+	title: string;
+	description?: string | null;
+	createdAt: string;
+}) {
 	return {
 		__typename: "Story" as const,
 		id: encodeGlobalId(NodeType.Story, story.id),
 		url: story.url,
 		title: story.title,
+		description: story.description ?? null,
 		createdAt: story.createdAt,
 	};
 }
@@ -371,9 +379,10 @@ const storyResolver = resolver.of(standard(Story), {
 		.input({
 			id: standard(Schema.String),
 			title: standard(Schema.NullOr(Schema.String)),
+			description: standard(Schema.NullOr(Schema.String)),
 			tagIds: standard(Schema.NullOr(Schema.Array(Schema.String))),
 		})
-		.resolve(async ({id: globalId, title, tagIds}) => {
+		.resolve(async ({id: globalId, title, description, tagIds}) => {
 			const ctx = useContext<GQLContext>();
 			if (!ctx.pasaport.user?.id) throw new Error("Unauthorized");
 
@@ -392,7 +401,11 @@ const storyResolver = resolver.of(standard(Story), {
 
 			const libraryId = ctx.env.LIBRARY.idFromName(ctx.pasaport.user.id);
 			const lib = ctx.env.LIBRARY.get(libraryId);
-			const story = await lib.updateStory(decoded.id, {title: title ?? undefined});
+			// null means "don't change", empty string means "clear", other string means "set to value"
+			const story = await lib.updateStory(decoded.id, {
+				title: title ?? undefined,
+				description: description === null ? undefined : description === "" ? null : description,
+			});
 
 			if (!story) {
 				return {
