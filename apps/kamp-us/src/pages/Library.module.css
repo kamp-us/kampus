@@ -18,6 +18,17 @@
 	margin: 0;
 }
 
+.manageTagsLink {
+	font-size: var(--font-size-2);
+	color: var(--gray-10);
+	text-decoration: none;
+}
+
+.manageTagsLink:hover {
+	color: var(--gray-12);
+	text-decoration: underline;
+}
+
 .card {
 	background: var(--gray-2);
 	border: 1px solid var(--gray-6);
