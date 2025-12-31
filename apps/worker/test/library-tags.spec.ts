@@ -348,4 +348,72 @@ describe("Library Tags", () => {
 			expect(tags).toEqual([]);
 		});
 	});
+
+	describe("totalCount on connections", () => {
+		it("getStoriesByTagName returns totalCount", async () => {
+			const library = getLibrary("test-user-totalcount-1");
+			const tag = await library.createTag("countable", "aabbcc");
+
+			// Create 5 stories and tag them
+			for (let i = 1; i <= 5; i++) {
+				const story = await library.createStory({
+					url: `https://example.com/count-${i}`,
+					title: `Count Story ${i}`,
+				});
+				await library.tagStory(story.id, [tag.id]);
+			}
+
+			// Request only first 2 but check totalCount reflects all 5
+			const result = await library.getStoriesByTagName("countable", {first: 2});
+			expect(result.edges).toHaveLength(2);
+			expect(result.totalCount).toBe(5);
+		});
+
+		it("getStoriesByTagName returns 0 totalCount for non-existent tag", async () => {
+			const library = getLibrary("test-user-totalcount-2");
+
+			const result = await library.getStoriesByTagName("nonexistent");
+			expect(result.edges).toEqual([]);
+			expect(result.totalCount).toBe(0);
+		});
+
+		it("getStoriesByTagName totalCount stays constant across pages", async () => {
+			const library = getLibrary("test-user-totalcount-3");
+			const tag = await library.createTag("paged", "112233");
+
+			// Create 5 stories
+			for (let i = 1; i <= 5; i++) {
+				const story = await library.createStory({
+					url: `https://example.com/paged-${i}`,
+					title: `Paged Story ${i}`,
+				});
+				await library.tagStory(story.id, [tag.id]);
+			}
+
+			// Page 1
+			const page1 = await library.getStoriesByTagName("paged", {first: 2});
+			expect(page1.totalCount).toBe(5);
+
+			// Page 2
+			const page2 = await library.getStoriesByTagName("paged", {first: 2, after: page1.endCursor!});
+			expect(page2.totalCount).toBe(5);
+		});
+
+		it("listStories returns totalCount", async () => {
+			const library = getLibrary("test-user-totalcount-4");
+
+			// Create 4 stories
+			for (let i = 1; i <= 4; i++) {
+				await library.createStory({
+					url: `https://example.com/list-${i}`,
+					title: `List Story ${i}`,
+				});
+			}
+
+			// Request only first 2 but check totalCount reflects all 4
+			const result = await library.listStories({first: 2});
+			expect(result.edges).toHaveLength(2);
+			expect(result.totalCount).toBe(4);
+		});
+	});
 });

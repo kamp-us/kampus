@@ -143,6 +143,7 @@ const PageInfo = Schema.Struct({
 const StoryConnection = Schema.Struct({
 	edges: Schema.Array(StoryEdge),
 	pageInfo: PageInfo,
+	totalCount: Schema.Number,
 }).annotations({title: "StoryConnection"});
 
 const Library = Schema.Struct({}).annotations({title: "Library"});
@@ -191,6 +192,31 @@ const CreateTagPayload = Schema.Struct({
 	error: Schema.NullOr(TagError),
 }).annotations({title: "CreateTagPayload"});
 
+const TagNotFoundError = Schema.Struct({
+	code: Schema.Literal("TAG_NOT_FOUND"),
+	message: Schema.String,
+	tagId: Schema.String,
+}).annotations({title: "TagNotFoundError"});
+
+const UpdateTagError = Schema.Union(
+	TagNameExistsError,
+	InvalidTagNameError,
+	TagNotFoundError,
+).annotations({
+	title: "UpdateTagError",
+});
+
+const UpdateTagPayload = Schema.Struct({
+	tag: Schema.NullOr(Tag),
+	error: Schema.NullOr(UpdateTagError),
+}).annotations({title: "UpdateTagPayload"});
+
+const DeleteTagPayload = Schema.Struct({
+	success: Schema.Boolean,
+	deletedTagId: Schema.NullOr(Schema.String),
+	error: Schema.NullOr(TagNotFoundError),
+}).annotations({title: "DeleteTagPayload"});
+
 // --- Library Resolvers ---
 
 const libraryResolver = resolver.of(standard(Library), {
@@ -228,6 +254,7 @@ const libraryResolver = resolver.of(standard(Library), {
 					startCursor: result.edges[0] ? encodeGlobalId(NodeType.Story, result.edges[0].id) : null,
 					endCursor: result.endCursor ? encodeGlobalId(NodeType.Story, result.endCursor) : null,
 				},
+				totalCount: result.totalCount,
 			};
 		}),
 
@@ -266,8 +293,20 @@ const libraryResolver = resolver.of(standard(Library), {
 					startCursor: result.edges[0] ? encodeGlobalId(NodeType.Story, result.edges[0].id) : null,
 					endCursor: result.endCursor ? encodeGlobalId(NodeType.Story, result.endCursor) : null,
 				},
+				totalCount: result.totalCount,
 			};
 		}),
+
+	tags: field(standard(Schema.Array(Tag))).resolve(async () => {
+		const ctx = useContext<GQLContext>();
+		if (!ctx.pasaport.user?.id) throw new Error("Unauthorized");
+
+		const libraryId = ctx.env.LIBRARY.idFromName(ctx.pasaport.user.id);
+		const lib = ctx.env.LIBRARY.get(libraryId);
+		const tags = await lib.listTags();
+
+		return tags.map(toTagNode);
+	}),
 });
 
 const userResolver = resolver.of(standard(User), {
@@ -417,20 +456,62 @@ const storyResolver = resolver.of(standard(Story), {
 		}),
 });
 
-// --- Tag Resolvers ---
+// --- Tag Resolver ---
 
-const tagResolver = resolver({
-	// Query: List all tags for the user
-	listTags: query(standard(Schema.Array(Tag))).resolve(async () => {
-		const ctx = useContext<GQLContext>();
-		if (!ctx.pasaport.user?.id) throw new Error("Unauthorized");
+const tagResolver = resolver.of(standard(Tag), {
+	stories: field(standard(StoryConnection))
+		.input({
+			first: standard(Schema.NullishOr(Schema.Number)),
+			after: standard(Schema.NullishOr(Schema.String)),
+		})
+		.resolve(async (tag, input) => {
+			const ctx = useContext<GQLContext>();
+			if (!ctx.pasaport.user?.id) throw new Error("Unauthorized");
 
-		const libraryId = ctx.env.LIBRARY.idFromName(ctx.pasaport.user.id);
-		const lib = ctx.env.LIBRARY.get(libraryId);
-		const tags = await lib.listTags();
+			// Defensive check for tag.name
+			if (!tag.name) {
+				return {
+					edges: [],
+					pageInfo: {
+						hasNextPage: false,
+						hasPreviousPage: false,
+						startCursor: null,
+						endCursor: null,
+					},
+					totalCount: 0,
+				};
+			}
 
-		return tags.map(toTagNode);
-	}),
+			// Decode cursor if provided
+			let afterLocalId: string | undefined;
+			if (input.after) {
+				const decoded = decodeGlobalId(input.after);
+				afterLocalId = decoded?.id;
+			}
+
+			const libraryId = ctx.env.LIBRARY.idFromName(ctx.pasaport.user.id);
+			const lib = ctx.env.LIBRARY.get(libraryId);
+			const result = await lib.getStoriesByTagName(tag.name, {
+				first: input.first ?? 0,
+				after: afterLocalId,
+			});
+
+			return {
+				edges: result.edges.map((story) => ({
+					node: toStoryNode(story),
+					cursor: encodeGlobalId(NodeType.Story, story.id),
+				})),
+				pageInfo: {
+					hasNextPage: result.hasNextPage ?? false,
+					hasPreviousPage: false,
+					startCursor: (result.edges ?? [])[0]
+						? encodeGlobalId(NodeType.Story, result.edges[0].id)
+						: null,
+					endCursor: result.endCursor ? encodeGlobalId(NodeType.Story, result.endCursor) : null,
+				},
+				totalCount: result.totalCount ?? 0,
+			};
+		}),
 
 	// Mutation: Create a new tag
 	createTag: mutation(standard(CreateTagPayload))
@@ -471,6 +552,124 @@ const tagResolver = resolver({
 				}
 				throw e;
 			}
+		}),
+
+	// Mutation: Update a tag
+	updateTag: mutation(standard(UpdateTagPayload))
+		.input({
+			id: standard(Schema.String),
+			name: standard(Schema.NullOr(Schema.String)),
+			color: standard(Schema.NullOr(Schema.String)),
+		})
+		.resolve(async ({id: globalId, name, color}) => {
+			const ctx = useContext<GQLContext>();
+			if (!ctx.pasaport.user?.id) throw new Error("Unauthorized");
+
+			// Decode global ID
+			const decoded = decodeGlobalId(globalId);
+			if (!decoded || decoded.type !== NodeType.Tag) {
+				return {
+					tag: null,
+					error: {
+						code: "TAG_NOT_FOUND" as const,
+						message: `Invalid tag ID: "${globalId}"`,
+						tagId: globalId,
+					},
+				};
+			}
+
+			const libraryId = ctx.env.LIBRARY.idFromName(ctx.pasaport.user.id);
+			const lib = ctx.env.LIBRARY.get(libraryId);
+
+			try {
+				const tag = await lib.updateTag(decoded.id, {
+					name: name ?? undefined,
+					color: color ?? undefined,
+				});
+
+				if (!tag) {
+					return {
+						tag: null,
+						error: {
+							code: "TAG_NOT_FOUND" as const,
+							message: `Tag with id "${globalId}" not found`,
+							tagId: globalId,
+						},
+					};
+				}
+
+				return {tag: toTagNode(tag), error: null};
+			} catch (e) {
+				if (e instanceof TagNameExistsErrorRuntime) {
+					return {
+						tag: null,
+						error: {
+							code: "TAG_NAME_EXISTS" as const,
+							message: e.message,
+							tagName: name ?? "",
+						},
+					};
+				}
+				if (e instanceof InvalidTagNameErrorRuntime) {
+					return {
+						tag: null,
+						error: {
+							code: "INVALID_TAG_NAME" as const,
+							message: e.message,
+							tagName: name ?? "",
+						},
+					};
+				}
+				throw e;
+			}
+		}),
+
+	// Mutation: Delete a tag
+	deleteTag: mutation(standard(DeleteTagPayload))
+		.input({
+			id: standard(Schema.String),
+		})
+		.resolve(async ({id: globalId}) => {
+			const ctx = useContext<GQLContext>();
+			if (!ctx.pasaport.user?.id) throw new Error("Unauthorized");
+
+			// Decode global ID
+			const decoded = decodeGlobalId(globalId);
+			if (!decoded || decoded.type !== NodeType.Tag) {
+				return {
+					success: false,
+					deletedTagId: null,
+					error: {
+						code: "TAG_NOT_FOUND" as const,
+						message: `Invalid tag ID: "${globalId}"`,
+						tagId: globalId,
+					},
+				};
+			}
+
+			const libraryId = ctx.env.LIBRARY.idFromName(ctx.pasaport.user.id);
+			const lib = ctx.env.LIBRARY.get(libraryId);
+
+			const existing = await lib.getTag(decoded.id);
+			if (!existing) {
+				return {
+					success: false,
+					deletedTagId: null,
+					error: {
+						code: "TAG_NOT_FOUND" as const,
+						message: `Tag with id "${globalId}" not found`,
+						tagId: globalId,
+					},
+				};
+			}
+
+			await lib.deleteTag(decoded.id);
+
+			return {
+				success: true,
+				deletedTagId: globalId,
+				error: null,
+			};
 		}),
 });
 
