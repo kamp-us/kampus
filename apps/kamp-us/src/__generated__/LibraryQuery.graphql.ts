@@ -1,5 +1,5 @@
 /**
- * @generated SignedSource<<aeccf6e169d9f5262f4c70b63205409a>>
+ * @generated SignedSource<<76033b4d4ffbc48af2923dfc375e5b08>>
  * @lightSyntaxTransform
  * @nogrep
  */
@@ -243,6 +243,13 @@ return {
                             "alias": null,
                             "args": null,
                             "kind": "ScalarField",
+                            "name": "description",
+                            "storageKey": null
+                          },
+                          {
+                            "alias": null,
+                            "args": null,
+                            "kind": "ScalarField",
                             "name": "createdAt",
                             "storageKey": null
                           },
@@ -292,12 +299,12 @@ return {
     ]
   },
   "params": {
-    "cacheID": "fcac6180b61d3a097f4073fd685f5346",
+    "cacheID": "051a76da34461fe10f14fb1f34802ea3",
     "id": null,
     "metadata": {},
     "name": "LibraryQuery",
     "operationKind": "query",
-    "text": "query LibraryQuery(\n  $first: Float!\n  $after: String\n) {\n  me {\n    library {\n      stories(first: $first, after: $after) {\n        edges {\n          node {\n            ...LibraryStoryFragment\n            id\n          }\n          cursor\n        }\n        pageInfo {\n          hasNextPage\n          endCursor\n        }\n      }\n    }\n  }\n}\n\nfragment LibraryStoryFragment on Story {\n  id\n  url\n  title\n  createdAt\n  tags {\n    id\n    name\n    color\n  }\n}\n"
+    "text": "query LibraryQuery(\n  $first: Float!\n  $after: String\n) {\n  me {\n    library {\n      stories(first: $first, after: $after) {\n        edges {\n          node {\n            ...LibraryStoryFragment\n            id\n          }\n          cursor\n        }\n        pageInfo {\n          hasNextPage\n          endCursor\n        }\n      }\n    }\n  }\n}\n\nfragment LibraryStoryFragment on Story {\n  id\n  url\n  title\n  description\n  createdAt\n  tags {\n    id\n    name\n    color\n  }\n}\n"
   }
 };
 })();

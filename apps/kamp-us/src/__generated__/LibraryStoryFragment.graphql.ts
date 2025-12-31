@@ -1,5 +1,5 @@
 /**
- * @generated SignedSource<<956635489e7cc6d2cf53a9eecad5974c>>
+ * @generated SignedSource<<d92b64c632bb76b5b2f8a082cdc29978>>
  * @lightSyntaxTransform
  * @nogrep
  */
@@ -12,6 +12,7 @@ import { ReaderFragment } from 'relay-runtime';
 import { FragmentRefs } from "relay-runtime";
 export type LibraryStoryFragment$data = {
   readonly createdAt: string;
+  readonly description: string | null | undefined;
   readonly id: string;
   readonly tags: ReadonlyArray<{
     readonly color: string;
@@ -74,6 +75,13 @@ return {
       "alias": null,
       "args": null,
       "kind": "ScalarField",
+      "name": "description",
+      "storageKey": null
+    },
+    {
+      "alias": null,
+      "args": null,
+      "kind": "ScalarField",
       "name": "createdAt",
       "storageKey": null
     },
@@ -109,6 +117,6 @@ return {
 };
 })();
 
-(node as any).hash = "28abdebeb7f99719612ff4baea16109d";
+(node as any).hash = "4c4e1ed3d82e94c7b8b35a1334ab6cd5";
 
 export default node;

@@ -1,5 +1,5 @@
 /**
- * @generated SignedSource<<5276b31eb8bd1e72847dd14396058d91>>
+ * @generated SignedSource<<bc2c1799732315445f93695bdcee0acf>>
  * @lightSyntaxTransform
  * @nogrep
  */
@@ -10,6 +10,7 @@
 
 import { ConcreteRequest } from 'relay-runtime';
 export type LibraryUpdateStoryMutation$variables = {
+  description?: string | null | undefined;
   id: string;
   tagIds?: ReadonlyArray<string> | null | undefined;
   title?: string | null | undefined;
@@ -22,6 +23,7 @@ export type LibraryUpdateStoryMutation$data = {
     } | null | undefined;
     readonly story: {
       readonly createdAt: string;
+      readonly description: string | null | undefined;
       readonly id: string;
       readonly tags: ReadonlyArray<{
         readonly color: string;
@@ -42,29 +44,39 @@ const node: ConcreteRequest = (function(){
 var v0 = {
   "defaultValue": null,
   "kind": "LocalArgument",
-  "name": "id"
+  "name": "description"
 },
 v1 = {
   "defaultValue": null,
   "kind": "LocalArgument",
-  "name": "tagIds"
+  "name": "id"
 },
 v2 = {
   "defaultValue": null,
   "kind": "LocalArgument",
-  "name": "title"
+  "name": "tagIds"
 },
 v3 = {
+  "defaultValue": null,
+  "kind": "LocalArgument",
+  "name": "title"
+},
+v4 = {
   "alias": null,
   "args": null,
   "kind": "ScalarField",
   "name": "id",
   "storageKey": null
 },
-v4 = [
+v5 = [
   {
     "alias": null,
     "args": [
+      {
+        "kind": "Variable",
+        "name": "description",
+        "variableName": "description"
+      },
       {
         "kind": "Variable",
         "name": "id",
@@ -94,7 +106,7 @@ v4 = [
         "name": "story",
         "plural": false,
         "selections": [
-          (v3/*: any*/),
+          (v4/*: any*/),
           {
             "alias": null,
             "args": null,
@@ -113,6 +125,13 @@ v4 = [
             "alias": null,
             "args": null,
             "kind": "ScalarField",
+            "name": "description",
+            "storageKey": null
+          },
+          {
+            "alias": null,
+            "args": null,
+            "kind": "ScalarField",
             "name": "createdAt",
             "storageKey": null
           },
@@ -124,7 +143,7 @@ v4 = [
             "name": "tags",
             "plural": true,
             "selections": [
-              (v3/*: any*/),
+              (v4/*: any*/),
               {
                 "alias": null,
                 "args": null,
@@ -179,37 +198,39 @@ return {
     "argumentDefinitions": [
       (v0/*: any*/),
       (v1/*: any*/),
-      (v2/*: any*/)
+      (v2/*: any*/),
+      (v3/*: any*/)
     ],
     "kind": "Fragment",
     "metadata": null,
     "name": "LibraryUpdateStoryMutation",
-    "selections": (v4/*: any*/),
+    "selections": (v5/*: any*/),
     "type": "Mutation",
     "abstractKey": null
   },
   "kind": "Request",
   "operation": {
     "argumentDefinitions": [
+      (v1/*: any*/),
+      (v3/*: any*/),
       (v0/*: any*/),
-      (v2/*: any*/),
-      (v1/*: any*/)
+      (v2/*: any*/)
     ],
     "kind": "Operation",
     "name": "LibraryUpdateStoryMutation",
-    "selections": (v4/*: any*/)
+    "selections": (v5/*: any*/)
   },
   "params": {
-    "cacheID": "9a9907425c554e2c4fa618818423e8a4",
+    "cacheID": "95d3b7f905e566bfdfc2f4d2386c9dcb",
     "id": null,
     "metadata": {},
     "name": "LibraryUpdateStoryMutation",
     "operationKind": "mutation",
-    "text": "mutation LibraryUpdateStoryMutation(\n  $id: String!\n  $title: String\n  $tagIds: [String!]\n) {\n  updateStory(id: $id, title: $title, tagIds: $tagIds) {\n    story {\n      id\n      url\n      title\n      createdAt\n      tags {\n        id\n        name\n        color\n      }\n    }\n    error {\n      code\n      message\n    }\n  }\n}\n"
+    "text": "mutation LibraryUpdateStoryMutation(\n  $id: String!\n  $title: String\n  $description: String\n  $tagIds: [String!]\n) {\n  updateStory(id: $id, title: $title, description: $description, tagIds: $tagIds) {\n    story {\n      id\n      url\n      title\n      description\n      createdAt\n      tags {\n        id\n        name\n        color\n      }\n    }\n    error {\n      code\n      message\n    }\n  }\n}\n"
   }
 };
 })();
 
-(node as any).hash = "ea5e71b390ca1a86f0bba4afb4134440";
+(node as any).hash = "ac95161dc4d1458573e5dccaa9e93d6f";
 
 export default node;
