@@ -62,6 +62,10 @@ export class Library extends DurableObject<Env> {
 			query = query.where(lt(schema.story.id, options.after)) as typeof query;
 		}
 
+		// Get total count (independent of pagination)
+		const countResult = await this.db.select({count: sql<number>`count(*)`}).from(schema.story);
+		const totalCount = countResult[0]?.count ?? 0;
+
 		const dbStories = await query.limit(limit + 1).all();
 		const hasNextPage = dbStories.length > limit;
 		const edges = dbStories.slice(0, limit);
@@ -74,6 +78,7 @@ export class Library extends DurableObject<Env> {
 			})),
 			hasNextPage,
 			endCursor: edges.length > 0 ? edges[edges.length - 1].id : null,
+			totalCount,
 		};
 	}
 
@@ -330,8 +335,16 @@ export class Library extends DurableObject<Env> {
 				edges: [],
 				hasNextPage: false,
 				endCursor: null,
+				totalCount: 0,
 			};
 		}
+
+		// Get total count for this tag (independent of pagination)
+		const countResult = await this.db
+			.select({count: sql<number>`count(*)`})
+			.from(schema.storyTag)
+			.where(eq(schema.storyTag.tagId, tag.id));
+		const totalCount = countResult[0]?.count ?? 0;
 
 		// Build where condition
 		const whereCondition = options?.after
@@ -365,6 +378,7 @@ export class Library extends DurableObject<Env> {
 			})),
 			hasNextPage,
 			endCursor: edges.length > 0 ? edges[edges.length - 1].id : null,
+			totalCount,
 		};
 	}
 

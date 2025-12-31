@@ -1,6 +1,6 @@
 import {Component, type ReactNode, Suspense, useCallback, useMemo, useState} from "react";
 import {graphql, useLazyLoadQuery, useMutation, useRefetchableFragment} from "react-relay";
-import {Navigate, useSearchParams} from "react-router";
+import {Link, Navigate, useSearchParams} from "react-router";
 import type {LibraryCreateStoryMutation} from "../__generated__/LibraryCreateStoryMutation.graphql";
 import type {LibraryCreateTagMutation} from "../__generated__/LibraryCreateTagMutation.graphql";
 import type {LibraryDeleteStoryMutation} from "../__generated__/LibraryDeleteStoryMutation.graphql";
@@ -81,10 +81,14 @@ const LibraryFilteredQuery = graphql`
 
 const ListTagsQuery = graphql`
 	query LibraryTagsQuery {
-		listTags {
-			id
-			name
-			color
+		me {
+			library {
+				tags {
+					id
+					name
+					color
+				}
+			}
 		}
 	}
 `;
@@ -98,8 +102,14 @@ const CreateTagMutation = graphql`
 				color
 			}
 			error {
-				code
-				message
+				... on TagNameExistsError {
+					code
+					message
+				}
+				... on InvalidTagNameError {
+					code
+					message
+				}
 			}
 		}
 	}
@@ -254,14 +264,14 @@ function useAvailableTags() {
 	const [localTags, setLocalTags] = useState<Tag[]>([]);
 
 	const allTags = useMemo(() => {
-		const combined = [...data.listTags, ...localTags];
+		const combined = [...data.me.library.tags, ...localTags];
 		const seen = new Set<string>();
 		return combined.filter((t) => {
 			if (seen.has(t.id)) return false;
 			seen.add(t.id);
 			return true;
 		});
-	}, [data.listTags, localTags]);
+	}, [data.me.library.tags, localTags]);
 
 	const addTag = useCallback((tag: Tag) => {
 		setLocalTags((prev) => [...prev, tag]);
@@ -753,6 +763,9 @@ function AuthenticatedLibrary() {
 		<div className={styles.container}>
 			<header className={styles.header}>
 				<h1 className={styles.title}>Library</h1>
+				<Link to="/me/library/tags" className={styles.manageTagsLink}>
+					Manage Tags
+				</Link>
 			</header>
 
 			<CreateStoryForm

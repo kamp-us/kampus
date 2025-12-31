@@ -273,7 +273,43 @@ feature-name/
 
 - **GQLoom** (`@gqloom/core`, `@gqloom/effect`) for schema definition using Effect Schema
 - **Relay** patterns for global IDs and cursor-based pagination
-- Helpers in `apps/worker/src/graphql/relay.ts`: `encodeGlobalId`, `decodeGlobalId`, `createConnectionSchema`
+- Helpers in `apps/worker/src/graphql/relay.ts`: `encodeGlobalId`, `decodeGlobalId`
+
+**Connection pattern:**
+```typescript
+// 1. Define connection schema inline in index.ts
+const StoryEdge = Schema.Struct({
+  node: Story,
+  cursor: Schema.String,
+}).annotations({title: "StoryEdge"});
+
+const StoryConnection = Schema.Struct({
+  edges: Schema.Array(StoryEdge),
+  pageInfo: PageInfo,
+}).annotations({title: "StoryConnection"});
+
+// 2. Library DO returns simple shape
+async listStories(...) {
+  return { edges, hasNextPage, endCursor };
+}
+
+// 3. Resolver transforms to connection shape
+resolve: async () => {
+  const result = await library.listStories(...);
+  return {
+    edges: result.edges.map(story => ({
+      node: toStoryNode(story),
+      cursor: encodeGlobalId(NodeType.Story, story.id),
+    })),
+    pageInfo: {
+      hasNextPage: result.hasNextPage,
+      hasPreviousPage: false,
+      startCursor: result.edges[0] ? encodeGlobalId(...) : null,
+      endCursor: result.endCursor ? encodeGlobalId(...) : null,
+    },
+  };
+}
+```
 
 ### Code Style
 
