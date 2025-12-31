@@ -1,5 +1,5 @@
 /**
- * @generated SignedSource<<6818034e1c9fa619fc0f5be4bd649436>>
+ * @generated SignedSource<<8f0cba39eeb84803d70b902d5047dfe0>>
  * @lightSyntaxTransform
  * @nogrep
  */
@@ -10,6 +10,7 @@
 
 import { ConcreteRequest } from 'relay-runtime';
 export type LibraryCreateStoryMutation$variables = {
+  description?: string | null | undefined;
   tagIds?: ReadonlyArray<string> | null | undefined;
   title: string;
   url: string;
@@ -38,29 +39,39 @@ const node: ConcreteRequest = (function(){
 var v0 = {
   "defaultValue": null,
   "kind": "LocalArgument",
-  "name": "tagIds"
+  "name": "description"
 },
 v1 = {
   "defaultValue": null,
   "kind": "LocalArgument",
-  "name": "title"
+  "name": "tagIds"
 },
 v2 = {
   "defaultValue": null,
   "kind": "LocalArgument",
-  "name": "url"
+  "name": "title"
 },
 v3 = {
+  "defaultValue": null,
+  "kind": "LocalArgument",
+  "name": "url"
+},
+v4 = {
   "alias": null,
   "args": null,
   "kind": "ScalarField",
   "name": "id",
   "storageKey": null
 },
-v4 = [
+v5 = [
   {
     "alias": null,
     "args": [
+      {
+        "kind": "Variable",
+        "name": "description",
+        "variableName": "description"
+      },
       {
         "kind": "Variable",
         "name": "tagIds",
@@ -90,7 +101,7 @@ v4 = [
         "name": "story",
         "plural": false,
         "selections": [
-          (v3/*: any*/),
+          (v4/*: any*/),
           {
             "alias": null,
             "args": null,
@@ -120,7 +131,7 @@ v4 = [
             "name": "tags",
             "plural": true,
             "selections": [
-              (v3/*: any*/),
+              (v4/*: any*/),
               {
                 "alias": null,
                 "args": null,
@@ -150,37 +161,39 @@ return {
     "argumentDefinitions": [
       (v0/*: any*/),
       (v1/*: any*/),
-      (v2/*: any*/)
+      (v2/*: any*/),
+      (v3/*: any*/)
     ],
     "kind": "Fragment",
     "metadata": null,
     "name": "LibraryCreateStoryMutation",
-    "selections": (v4/*: any*/),
+    "selections": (v5/*: any*/),
     "type": "Mutation",
     "abstractKey": null
   },
   "kind": "Request",
   "operation": {
     "argumentDefinitions": [
+      (v3/*: any*/),
       (v2/*: any*/),
-      (v1/*: any*/),
-      (v0/*: any*/)
+      (v0/*: any*/),
+      (v1/*: any*/)
     ],
     "kind": "Operation",
     "name": "LibraryCreateStoryMutation",
-    "selections": (v4/*: any*/)
+    "selections": (v5/*: any*/)
   },
   "params": {
-    "cacheID": "f61e33eda8d91d56f154cb9aa50cba78",
+    "cacheID": "207daca623ad219b02a45d9554c6a90c",
     "id": null,
     "metadata": {},
     "name": "LibraryCreateStoryMutation",
     "operationKind": "mutation",
-    "text": "mutation LibraryCreateStoryMutation(\n  $url: String!\n  $title: String!\n  $tagIds: [String!]\n) {\n  createStory(url: $url, title: $title, tagIds: $tagIds) {\n    story {\n      id\n      url\n      title\n      createdAt\n      tags {\n        id\n        name\n        color\n      }\n    }\n  }\n}\n"
+    "text": "mutation LibraryCreateStoryMutation(\n  $url: String!\n  $title: String!\n  $description: String\n  $tagIds: [String!]\n) {\n  createStory(url: $url, title: $title, description: $description, tagIds: $tagIds) {\n    story {\n      id\n      url\n      title\n      createdAt\n      tags {\n        id\n        name\n        color\n      }\n    }\n  }\n}\n"
   }
 };
 })();
 
-(node as any).hash = "19ee1ca524843a06acb6c4066c4fcea3";
+(node as any).hash = "2409ab1c1aa5e804dc5f544c82cb0c98";
 
 export default node;

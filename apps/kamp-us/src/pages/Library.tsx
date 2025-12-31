@@ -1,9 +1,17 @@
 import {Component, type ReactNode, Suspense, useCallback, useMemo, useState} from "react";
-import {graphql, useLazyLoadQuery, useMutation, useRefetchableFragment} from "react-relay";
+import {
+	fetchQuery,
+	graphql,
+	useLazyLoadQuery,
+	useMutation,
+	useRefetchableFragment,
+	useRelayEnvironment,
+} from "react-relay";
 import {Link, Navigate, useSearchParams} from "react-router";
 import type {LibraryCreateStoryMutation} from "../__generated__/LibraryCreateStoryMutation.graphql";
 import type {LibraryCreateTagMutation} from "../__generated__/LibraryCreateTagMutation.graphql";
 import type {LibraryDeleteStoryMutation} from "../__generated__/LibraryDeleteStoryMutation.graphql";
+import type {LibraryFetchUrlMetadataQuery} from "../__generated__/LibraryFetchUrlMetadataQuery.graphql";
 import type {LibraryFilteredQuery as LibraryFilteredQueryType} from "../__generated__/LibraryFilteredQuery.graphql";
 import type {LibraryQuery as LibraryQueryType} from "../__generated__/LibraryQuery.graphql";
 import type {LibraryStoryFragment$key} from "../__generated__/LibraryStoryFragment.graphql";
@@ -19,6 +27,7 @@ import {MoreHorizontalIcon} from "../design/icons/MoreHorizontalIcon";
 import {Menu} from "../design/Menu";
 import {TagChip} from "../design/TagChip";
 import {type Tag, TagInput} from "../design/TagInput";
+import {Textarea} from "../design/Textarea";
 import styles from "./Library.module.css";
 
 const DEFAULT_PAGE_SIZE = 20;
@@ -116,8 +125,8 @@ const CreateTagMutation = graphql`
 `;
 
 const CreateStoryMutation = graphql`
-	mutation LibraryCreateStoryMutation($url: String!, $title: String!, $tagIds: [String!]) {
-		createStory(url: $url, title: $title, tagIds: $tagIds) {
+	mutation LibraryCreateStoryMutation($url: String!, $title: String!, $description: String, $tagIds: [String!]) {
+		createStory(url: $url, title: $title, description: $description, tagIds: $tagIds) {
 			story {
 				id
 				url
@@ -129,6 +138,16 @@ const CreateStoryMutation = graphql`
 					color
 				}
 			}
+		}
+	}
+`;
+
+const FetchUrlMetadataQuery = graphql`
+	query LibraryFetchUrlMetadataQuery($url: String!) {
+		fetchUrlMetadata(url: $url) {
+			title
+			description
+			error
 		}
 	}
 `;
@@ -380,10 +399,14 @@ function CreateStoryForm({
 	onTagCreate: (tag: Tag) => void;
 	initialTags?: Tag[];
 }) {
+	const environment = useRelayEnvironment();
 	const [url, setUrl] = useState("");
 	const [title, setTitle] = useState("");
+	const [description, setDescription] = useState("");
 	const [selectedTags, setSelectedTags] = useState<Tag[]>(initialTags);
 	const [error, setError] = useState<string | null>(null);
+	const [isFetching, setIsFetching] = useState(false);
+	const [fetchError, setFetchError] = useState<string | null>(null);
 
 	const [commitStory, isCreating] = useMutation<LibraryCreateStoryMutation>(CreateStoryMutation);
 	const [commitTag] = useMutation<LibraryCreateTagMutation>(CreateTagMutation);
@@ -408,6 +431,38 @@ function CreateStoryForm({
 		});
 	};
 
+	const handleFetchMetadata = async () => {
+		if (!url) return;
+
+		setIsFetching(true);
+		setFetchError(null);
+
+		try {
+			const result = await fetchQuery<LibraryFetchUrlMetadataQuery>(
+				environment,
+				FetchUrlMetadataQuery,
+				{url},
+			).toPromise();
+
+			if (result?.fetchUrlMetadata.error) {
+				setFetchError(result.fetchUrlMetadata.error);
+				return;
+			}
+
+			// Only populate empty fields
+			if (result?.fetchUrlMetadata.title && !title) {
+				setTitle(result.fetchUrlMetadata.title);
+			}
+			if (result?.fetchUrlMetadata.description && !description) {
+				setDescription(result.fetchUrlMetadata.description);
+			}
+		} catch {
+			setFetchError("Failed to fetch metadata");
+		} finally {
+			setIsFetching(false);
+		}
+	};
+
 	const handleSubmit = (e: React.FormEvent) => {
 		e.preventDefault();
 		setError(null);
@@ -415,11 +470,12 @@ function CreateStoryForm({
 		const tagIds = selectedTags.length > 0 ? selectedTags.map((t) => t.id) : null;
 
 		commitStory({
-			variables: {url, title, tagIds},
+			variables: {url, title, description: description || null, tagIds},
 			onCompleted: (response) => {
 				if (response.createStory.story) {
 					setUrl("");
 					setTitle("");
+					setDescription("");
 					setSelectedTags(initialTags);
 					onCollapse();
 				}
@@ -448,8 +504,10 @@ function CreateStoryForm({
 	const handleCancel = () => {
 		setUrl("");
 		setTitle("");
+		setDescription("");
 		setSelectedTags(initialTags);
 		setError(null);
+		setFetchError(null);
 		onCollapse();
 	};
 
@@ -461,6 +519,15 @@ function CreateStoryForm({
 		);
 	}
 
+	// Check if URL is valid for fetch button
+	let isValidUrl = false;
+	try {
+		const parsed = new URL(url);
+		isValidUrl = ["http:", "https:"].includes(parsed.protocol);
+	} catch {
+		isValidUrl = false;
+	}
+
 	return (
 		<form onSubmit={handleSubmit} className={styles.createForm}>
 			{error && <div className={styles.error}>{error}</div>}
@@ -470,14 +537,27 @@ function CreateStoryForm({
 
 				<Field
 					label="URL"
+					error={fetchError ?? undefined}
 					control={
-						<Input
-							type="url"
-							value={url}
-							onChange={(e) => setUrl(e.target.value)}
-							required
-							autoFocus
-						/>
+						<div className={styles.urlFieldContainer}>
+							<Input
+								type="url"
+								value={url}
+								onChange={(e) => {
+									setUrl(e.target.value);
+									setFetchError(null);
+								}}
+								required
+								autoFocus
+							/>
+							<Button
+								type="button"
+								onClick={handleFetchMetadata}
+								disabled={!isValidUrl || isFetching}
+							>
+								{isFetching ? "Fetching..." : "Fetch Title"}
+							</Button>
+						</div>
 					}
 				/>
 
@@ -485,6 +565,18 @@ function CreateStoryForm({
 					label="Title"
 					control={
 						<Input type="text" value={title} onChange={(e) => setTitle(e.target.value)} required />
+					}
+				/>
+
+				<Field
+					label="Description"
+					control={
+						<Textarea
+							value={description}
+							onChange={(e) => setDescription(e.target.value)}
+							placeholder="Optional description..."
+							rows={3}
+						/>
 					}
 				/>
 

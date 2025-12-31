@@ -51,7 +51,7 @@
 }
 
 .storyRow {
-	padding: var(--space-16);
+	padding: var(--space-16) 0;
 	border-bottom: 1px solid var(--gray-6);
 }
 
@@ -201,6 +201,16 @@
 	border-radius: var(--radius-4);
 	margin-bottom: var(--space-16);
 	font-size: var(--font-size-2);
+}
+
+.urlFieldContainer {
+	display: flex;
+	gap: var(--space-8);
+	align-items: stretch;
+}
+
+.urlFieldContainer > input {
+	flex: 1;
 }
 
 /* Empty state */
