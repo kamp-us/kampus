@@ -9,4 +9,4 @@ Feature directory with completion status. Each feature follows the [spec-driven 
 - [ ] **[relay-node-interface](./relay-node-interface/)** - Implement Relay Node interface for @refetchable fragment support
 - [ ] **[frontend-story-tagging](./frontend-story-tagging/)** - Frontend UI for tagging stories (core MVP)
 - [ ] **[frontend-tag-filtering](./frontend-tag-filtering/)** - Filter stories by clicking tags (planned)
-- [ ] **[frontend-tag-management](./frontend-tag-management/)** - Rename, recolor, delete tags (planned)
+- [x] **[frontend-tag-management](./frontend-tag-management/)** - Rename, recolor, delete tags
