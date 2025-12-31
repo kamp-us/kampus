@@ -8,7 +8,7 @@ type CreateStoryPayload {
 }
 
 type CreateTagPayload {
-  error: TagNameExistsError
+  error: TagError
   tag: Tag
 }
 
@@ -18,9 +18,22 @@ type DeleteStoryPayload {
   success: Boolean!
 }
 
+type DeleteTagPayload {
+  deletedTagId: String
+  error: TagNotFoundError
+  success: Boolean!
+}
+
+type InvalidTagNameError {
+  code: String!
+  message: String!
+  tagName: String!
+}
+
 type Library {
   stories(after: String, first: Float): StoryConnection!
   storiesByTag(after: String, first: Float, tagName: String!): StoryConnection!
+  tags: [Tag!]!
 }
 
 type Mutation {
@@ -29,8 +42,10 @@ type Mutation {
   createStory(tagIds: [String!], title: String!, url: String!): CreateStoryPayload!
   createTag(color: String!, name: String!): CreateTagPayload!
   deleteStory(id: String!): DeleteStoryPayload!
+  deleteTag(id: String!): DeleteTagPayload!
   signIn(email: String!, password: String!): SignInResponse!
   updateStory(id: String!, tagIds: [String!], title: String): UpdateStoryPayload!
+  updateTag(color: String, id: String!, name: String): UpdateTagPayload!
 }
 
 """An object with a globally unique ID"""
@@ -46,7 +61,6 @@ type PageInfo {
 }
 
 type Query {
-  listTags: [Tag!]!
   me: User!
   node(id: String!): Node
 }
@@ -67,6 +81,7 @@ type Story implements Node {
 type StoryConnection {
   edges: [StoryEdge!]!
   pageInfo: PageInfo!
+  totalCount: Float!
 }
 
 type StoryEdge {
@@ -85,7 +100,10 @@ type Tag implements Node {
   createdAt: String!
   id: ID!
   name: String!
+  stories(after: String, first: Float): StoryConnection!
 }
+
+union TagError = InvalidTagNameError | TagNameExistsError
 
 type TagNameExistsError {
   code: String!
@@ -93,9 +111,22 @@ type TagNameExistsError {
   tagName: String!
 }
 
+type TagNotFoundError {
+  code: String!
+  message: String!
+  tagId: String!
+}
+
 type UpdateStoryPayload {
   error: StoryNotFoundError
   story: Story
+}
+
+union UpdateTagError = InvalidTagNameError | TagNameExistsError | TagNotFoundError
+
+type UpdateTagPayload {
+  error: UpdateTagError
+  tag: Tag
 }
 
 type User {

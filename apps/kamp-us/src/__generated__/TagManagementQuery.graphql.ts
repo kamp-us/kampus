@@ -1,5 +1,5 @@
 /**
- * @generated SignedSource<<672eebe0519b996e698cdd3781e763b6>>
+ * @generated SignedSource<<bcb307beeb4b6c2e3ecfa88720d4890a>>
  * @lightSyntaxTransform
  * @nogrep
  */
@@ -9,21 +9,24 @@
 // @ts-nocheck
 
 import { ConcreteRequest } from 'relay-runtime';
-export type LibraryTagsQuery$variables = Record<PropertyKey, never>;
-export type LibraryTagsQuery$data = {
+export type TagManagementQuery$variables = Record<PropertyKey, never>;
+export type TagManagementQuery$data = {
   readonly me: {
     readonly library: {
       readonly tags: ReadonlyArray<{
         readonly color: string;
         readonly id: string;
         readonly name: string;
+        readonly stories: {
+          readonly totalCount: number;
+        };
       }>;
     };
   };
 };
-export type LibraryTagsQuery = {
-  response: LibraryTagsQuery$data;
-  variables: LibraryTagsQuery$variables;
+export type TagManagementQuery = {
+  response: TagManagementQuery$data;
+  variables: TagManagementQuery$variables;
 };
 
 const node: ConcreteRequest = (function(){
@@ -72,6 +75,30 @@ var v0 = [
                 "kind": "ScalarField",
                 "name": "color",
                 "storageKey": null
+              },
+              {
+                "alias": null,
+                "args": [
+                  {
+                    "kind": "Literal",
+                    "name": "first",
+                    "value": 0
+                  }
+                ],
+                "concreteType": "StoryConnection",
+                "kind": "LinkedField",
+                "name": "stories",
+                "plural": false,
+                "selections": [
+                  {
+                    "alias": null,
+                    "args": null,
+                    "kind": "ScalarField",
+                    "name": "totalCount",
+                    "storageKey": null
+                  }
+                ],
+                "storageKey": "stories(first:0)"
               }
             ],
             "storageKey": null
@@ -88,7 +115,7 @@ return {
     "argumentDefinitions": [],
     "kind": "Fragment",
     "metadata": null,
-    "name": "LibraryTagsQuery",
+    "name": "TagManagementQuery",
     "selections": (v0/*: any*/),
     "type": "Query",
     "abstractKey": null
@@ -97,20 +124,20 @@ return {
   "operation": {
     "argumentDefinitions": [],
     "kind": "Operation",
-    "name": "LibraryTagsQuery",
+    "name": "TagManagementQuery",
     "selections": (v0/*: any*/)
   },
   "params": {
-    "cacheID": "d1236a35c328bd6a870c55595cb81380",
+    "cacheID": "32cf5a23eea936299e001483d3cf888d",
     "id": null,
     "metadata": {},
-    "name": "LibraryTagsQuery",
+    "name": "TagManagementQuery",
     "operationKind": "query",
-    "text": "query LibraryTagsQuery {\n  me {\n    library {\n      tags {\n        id\n        name\n        color\n      }\n    }\n  }\n}\n"
+    "text": "query TagManagementQuery {\n  me {\n    library {\n      tags {\n        id\n        name\n        color\n        stories(first: 0) {\n          totalCount\n        }\n      }\n    }\n  }\n}\n"
   }
 };
 })();
 
-(node as any).hash = "c26185a8cb21e9b90e7bbadc3e17d336";
+(node as any).hash = "8192c79d631021c7ee2bea05a5cd2905";
 
 export default node;
