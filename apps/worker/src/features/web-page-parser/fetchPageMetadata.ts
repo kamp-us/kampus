@@ -25,8 +25,29 @@ export async function fetchPageMetadata(url: string) {
 			},
 		});
 
-	const res = await fetch(url);
-	await rewriter.transform(res).text();
+	const controller = new AbortController();
+	const timeoutId = setTimeout(() => controller.abort(), 10000);
 
-	return Schema.decodeUnknownSync(PageMetadata)(metadata);
+	try {
+		const res = await fetch(url, {
+			signal: controller.signal,
+			headers: {
+				"User-Agent": "Mozilla/5.0 (compatible; KampusBot/1.0)",
+			},
+		});
+		clearTimeout(timeoutId);
+
+		if (!res.ok) {
+			throw new Error(`HTTP ${res.status}`);
+		}
+
+		await rewriter.transform(res).text();
+		return Schema.decodeUnknownSync(PageMetadata)(metadata);
+	} catch (err) {
+		clearTimeout(timeoutId);
+		if (err instanceof Error && err.name === "AbortError") {
+			throw new Error("Request timed out");
+		}
+		throw err;
+	}
 }
