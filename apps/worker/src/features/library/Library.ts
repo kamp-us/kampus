@@ -94,8 +94,9 @@ export class Library extends DurableObject<Env> {
 		};
 	}
 
-	async updateStory(id: string, updates: {title?: string}) {
-		if (!updates.title) {
+	async updateStory(id: string, updates: {title?: string; description?: string | null}) {
+		// If no updates provided, just return the existing story
+		if (updates.title === undefined && updates.description === undefined) {
 			return await this.getStory(id);
 		}
 
@@ -103,9 +104,14 @@ export class Library extends DurableObject<Env> {
 			const existing = await tx.select().from(schema.story).where(eq(schema.story.id, id)).get();
 			if (!existing) return null;
 
+			// Build the set object with only provided fields
+			const setFields: {title?: string; description?: string | null} = {};
+			if (updates.title !== undefined) setFields.title = updates.title;
+			if (updates.description !== undefined) setFields.description = updates.description;
+
 			const [story] = await tx
 				.update(schema.story)
-				.set({title: updates.title})
+				.set(setFields)
 				.where(eq(schema.story.id, id))
 				.returning();
 

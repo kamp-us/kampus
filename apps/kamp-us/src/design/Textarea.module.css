@@ -1,0 +1,31 @@
+.Textarea {
+	--input-border-default: var(--gray-a7);
+	--input-border-focus: var(--sky-8);
+	--input-bg-default: var(--gray-1);
+	--input-text-default: var(--gray-12);
+	--input-text-placeholder: var(--gray-9);
+	--input-ring-focus: var(--sky-4);
+
+	box-sizing: border-box;
+	padding: var(--space-8) var(--space-12);
+	border: 1px solid var(--input-border-default);
+	border-radius: var(--radius-4);
+	background-color: var(--input-bg-default);
+	color: var(--input-text-default);
+	font-family: inherit;
+	font-size: var(--font-size-2);
+	line-height: var(--line-height-2);
+	outline: none;
+	width: 100%;
+	min-height: 80px;
+	resize: vertical;
+
+	&::placeholder {
+		color: var(--input-text-placeholder);
+	}
+
+	&:focus {
+		border-color: var(--input-border-focus);
+		box-shadow: 0 0 0 2px var(--input-ring-focus);
+	}
+}

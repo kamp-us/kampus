@@ -1,5 +1,5 @@
 /**
- * @generated SignedSource<<3b556ef057a75852a8e7fe5bed2651bf>>
+ * @generated SignedSource<<d5917ea646c62f534ebc4d7e7896994f>>
  * @lightSyntaxTransform
  * @nogrep
  */
@@ -256,6 +256,13 @@ return {
                             "alias": null,
                             "args": null,
                             "kind": "ScalarField",
+                            "name": "description",
+                            "storageKey": null
+                          },
+                          {
+                            "alias": null,
+                            "args": null,
+                            "kind": "ScalarField",
                             "name": "createdAt",
                             "storageKey": null
                           },
@@ -305,12 +312,12 @@ return {
     ]
   },
   "params": {
-    "cacheID": "d7af9f3639064697fbef9602c105ce29",
+    "cacheID": "b30f6c4b393dd0adae03fb5572b6e230",
     "id": null,
     "metadata": {},
     "name": "LibraryFilteredQuery",
     "operationKind": "query",
-    "text": "query LibraryFilteredQuery(\n  $tagName: String!\n  $first: Float!\n  $after: String\n) {\n  me {\n    library {\n      storiesByTag(tagName: $tagName, first: $first, after: $after) {\n        edges {\n          node {\n            ...LibraryStoryFragment\n            id\n          }\n          cursor\n        }\n        pageInfo {\n          hasNextPage\n          endCursor\n        }\n      }\n    }\n  }\n}\n\nfragment LibraryStoryFragment on Story {\n  id\n  url\n  title\n  createdAt\n  tags {\n    id\n    name\n    color\n  }\n}\n"
+    "text": "query LibraryFilteredQuery(\n  $tagName: String!\n  $first: Float!\n  $after: String\n) {\n  me {\n    library {\n      storiesByTag(tagName: $tagName, first: $first, after: $after) {\n        edges {\n          node {\n            ...LibraryStoryFragment\n            id\n          }\n          cursor\n        }\n        pageInfo {\n          hasNextPage\n          endCursor\n        }\n      }\n    }\n  }\n}\n\nfragment LibraryStoryFragment on Story {\n  id\n  url\n  title\n  description\n  createdAt\n  tags {\n    id\n    name\n    color\n  }\n}\n"
   }
 };
 })();

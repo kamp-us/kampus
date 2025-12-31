@@ -1,5 +1,5 @@
 /**
- * @generated SignedSource<<e82a059e3469b1ff0203bbc8375f0858>>
+ * @generated SignedSource<<e7a8be4cacc9302f419a5b741f022d4e>>
  * @lightSyntaxTransform
  * @nogrep
  */
@@ -115,6 +115,13 @@ return {
                 "alias": null,
                 "args": null,
                 "kind": "ScalarField",
+                "name": "description",
+                "storageKey": null
+              },
+              {
+                "alias": null,
+                "args": null,
+                "kind": "ScalarField",
                 "name": "createdAt",
                 "storageKey": null
               },
@@ -154,16 +161,16 @@ return {
     ]
   },
   "params": {
-    "cacheID": "f336e0021f12dd59ca3efce2c29b6fda",
+    "cacheID": "4ed072a19069a39ca6b7a9d89c1aa4dd",
     "id": null,
     "metadata": {},
     "name": "LibraryStoryRefetchQuery",
     "operationKind": "query",
-    "text": "query LibraryStoryRefetchQuery(\n  $id: String!\n) {\n  node(id: $id) {\n    __typename\n    ...LibraryStoryFragment\n    id\n  }\n}\n\nfragment LibraryStoryFragment on Story {\n  id\n  url\n  title\n  createdAt\n  tags {\n    id\n    name\n    color\n  }\n}\n"
+    "text": "query LibraryStoryRefetchQuery(\n  $id: String!\n) {\n  node(id: $id) {\n    __typename\n    ...LibraryStoryFragment\n    id\n  }\n}\n\nfragment LibraryStoryFragment on Story {\n  id\n  url\n  title\n  description\n  createdAt\n  tags {\n    id\n    name\n    color\n  }\n}\n"
   }
 };
 })();
 
-(node as any).hash = "28abdebeb7f99719612ff4baea16109d";
+(node as any).hash = "4c4e1ed3d82e94c7b8b35a1334ab6cd5";
 
 export default node;

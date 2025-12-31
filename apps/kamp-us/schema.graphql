@@ -39,12 +39,12 @@ type Library {
 type Mutation {
   bootstrap(email: String!, name: String!, password: String!): User!
   createApiKey(name: String!): ApiKey!
-  createStory(tagIds: [String!], title: String!, url: String!): CreateStoryPayload!
+  createStory(description: String, tagIds: [String!], title: String!, url: String!): CreateStoryPayload!
   createTag(color: String!, name: String!): CreateTagPayload!
   deleteStory(id: String!): DeleteStoryPayload!
   deleteTag(id: String!): DeleteTagPayload!
   signIn(email: String!, password: String!): SignInResponse!
-  updateStory(id: String!, tagIds: [String!], title: String): UpdateStoryPayload!
+  updateStory(description: String, id: String!, tagIds: [String!], title: String): UpdateStoryPayload!
   updateTag(color: String, id: String!, name: String): UpdateTagPayload!
 }
 
@@ -61,6 +61,7 @@ type PageInfo {
 }
 
 type Query {
+  fetchUrlMetadata(url: String!): UrlMetadata!
   me: User!
   node(id: String!): Node
 }
@@ -72,6 +73,7 @@ type SignInResponse {
 
 type Story implements Node {
   createdAt: String!
+  description: String
   id: ID!
   tags: [Tag!]!
   title: String!
@@ -127,6 +129,12 @@ union UpdateTagError = InvalidTagNameError | TagNameExistsError | TagNotFoundErr
 type UpdateTagPayload {
   error: UpdateTagError
   tag: Tag
+}
+
+type UrlMetadata {
+  description: String
+  error: String
+  title: String
 }
 
 type User {

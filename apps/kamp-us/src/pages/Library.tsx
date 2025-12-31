@@ -1,9 +1,26 @@
-import {Component, type ReactNode, Suspense, useCallback, useMemo, useState} from "react";
-import {graphql, useLazyLoadQuery, useMutation, useRefetchableFragment} from "react-relay";
+import {
+	Component,
+	type ReactNode,
+	Suspense,
+	useCallback,
+	useEffect,
+	useMemo,
+	useRef,
+	useState,
+} from "react";
+import {
+	fetchQuery,
+	graphql,
+	useLazyLoadQuery,
+	useMutation,
+	useRefetchableFragment,
+	useRelayEnvironment,
+} from "react-relay";
 import {Link, Navigate, useSearchParams} from "react-router";
 import type {LibraryCreateStoryMutation} from "../__generated__/LibraryCreateStoryMutation.graphql";
 import type {LibraryCreateTagMutation} from "../__generated__/LibraryCreateTagMutation.graphql";
 import type {LibraryDeleteStoryMutation} from "../__generated__/LibraryDeleteStoryMutation.graphql";
+import type {LibraryFetchUrlMetadataQuery} from "../__generated__/LibraryFetchUrlMetadataQuery.graphql";
 import type {LibraryFilteredQuery as LibraryFilteredQueryType} from "../__generated__/LibraryFilteredQuery.graphql";
 import type {LibraryQuery as LibraryQueryType} from "../__generated__/LibraryQuery.graphql";
 import type {LibraryStoryFragment$key} from "../__generated__/LibraryStoryFragment.graphql";
@@ -19,6 +36,7 @@ import {MoreHorizontalIcon} from "../design/icons/MoreHorizontalIcon";
 import {Menu} from "../design/Menu";
 import {TagChip} from "../design/TagChip";
 import {type Tag, TagInput} from "../design/TagInput";
+import {Textarea} from "../design/Textarea";
 import styles from "./Library.module.css";
 
 const DEFAULT_PAGE_SIZE = 20;
@@ -28,6 +46,7 @@ const StoryFragment = graphql`
 		id
 		url
 		title
+		description
 		createdAt
 		tags {
 			id
@@ -116,8 +135,8 @@ const CreateTagMutation = graphql`
 `;
 
 const CreateStoryMutation = graphql`
-	mutation LibraryCreateStoryMutation($url: String!, $title: String!, $tagIds: [String!]) {
-		createStory(url: $url, title: $title, tagIds: $tagIds) {
+	mutation LibraryCreateStoryMutation($url: String!, $title: String!, $description: String, $tagIds: [String!]) {
+		createStory(url: $url, title: $title, description: $description, tagIds: $tagIds) {
 			story {
 				id
 				url
@@ -133,13 +152,24 @@ const CreateStoryMutation = graphql`
 	}
 `;
 
+const FetchUrlMetadataQuery = graphql`
+	query LibraryFetchUrlMetadataQuery($url: String!) {
+		fetchUrlMetadata(url: $url) {
+			title
+			description
+			error
+		}
+	}
+`;
+
 const UpdateStoryMutation = graphql`
-	mutation LibraryUpdateStoryMutation($id: String!, $title: String, $tagIds: [String!]) {
-		updateStory(id: $id, title: $title, tagIds: $tagIds) {
+	mutation LibraryUpdateStoryMutation($id: String!, $title: String, $description: String, $tagIds: [String!]) {
+		updateStory(id: $id, title: $title, description: $description, tagIds: $tagIds) {
 			story {
 				id
 				url
 				title
+				description
 				createdAt
 				tags {
 					id
@@ -380,13 +410,37 @@ function CreateStoryForm({
 	onTagCreate: (tag: Tag) => void;
 	initialTags?: Tag[];
 }) {
+	const environment = useRelayEnvironment();
 	const [url, setUrl] = useState("");
 	const [title, setTitle] = useState("");
+	const [description, setDescription] = useState("");
 	const [selectedTags, setSelectedTags] = useState<Tag[]>(initialTags);
 	const [error, setError] = useState<string | null>(null);
+	const [isFetching, setIsFetching] = useState(false);
+	const [fetchError, setFetchError] = useState<string | null>(null);
+
+	// Dirty state tracking - marked when user manually edits
+	const [titleDirty, setTitleDirty] = useState(false);
+	const [descriptionDirty, setDescriptionDirty] = useState(false);
+
+	// Pending replacements - shown when fetch returns but field is dirty
+	const [pendingTitle, setPendingTitle] = useState<string | null>(null);
+	const [pendingDescription, setPendingDescription] = useState<string | null>(null);
+
+	// Debounce timer ref for auto-fetch
+	const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
 	const [commitStory, isCreating] = useMutation<LibraryCreateStoryMutation>(CreateStoryMutation);
 	const [commitTag] = useMutation<LibraryCreateTagMutation>(CreateTagMutation);
+
+	// Cleanup debounce timer on unmount
+	useEffect(() => {
+		return () => {
+			if (debounceTimerRef.current) {
+				clearTimeout(debounceTimerRef.current);
+			}
+		};
+	}, []);
 
 	const handleCreateTag = async (name: string): Promise<Tag> => {
 		const color = getNextTagColor(availableTags);
@@ -408,6 +462,117 @@ function CreateStoryForm({
 		});
 	};
 
+	const handleFetchMetadata = async () => {
+		if (!url) return;
+
+		setIsFetching(true);
+		setFetchError(null);
+
+		try {
+			const result = await fetchQuery<LibraryFetchUrlMetadataQuery>(
+				environment,
+				FetchUrlMetadataQuery,
+				{url},
+			).toPromise();
+
+			if (result?.fetchUrlMetadata.error) {
+				setFetchError(result.fetchUrlMetadata.error);
+				return;
+			}
+
+			// Handle title with dirty state
+			if (result?.fetchUrlMetadata.title) {
+				if (titleDirty) {
+					setPendingTitle(result.fetchUrlMetadata.title);
+				} else {
+					setTitle(result.fetchUrlMetadata.title);
+				}
+			}
+
+			// Handle description with dirty state
+			if (result?.fetchUrlMetadata.description) {
+				if (descriptionDirty) {
+					setPendingDescription(result.fetchUrlMetadata.description);
+				} else {
+					setDescription(result.fetchUrlMetadata.description);
+				}
+			}
+		} catch {
+			setFetchError("Failed to fetch metadata");
+		} finally {
+			setIsFetching(false);
+		}
+	};
+
+	// Check if URL is valid for fetch
+	const isValidUrl = useMemo(() => {
+		try {
+			const parsed = new URL(url);
+			return ["http:", "https:"].includes(parsed.protocol);
+		} catch {
+			return false;
+		}
+	}, [url]);
+
+	// Handle URL change with auto-fetch debounce
+	const handleUrlChange = (newUrl: string) => {
+		setUrl(newUrl);
+		setFetchError(null);
+
+		// Clear any pending debounce
+		if (debounceTimerRef.current) {
+			clearTimeout(debounceTimerRef.current);
+		}
+
+		// Validate and trigger auto-fetch
+		try {
+			const parsed = new URL(newUrl);
+			if (["http:", "https:"].includes(parsed.protocol)) {
+				debounceTimerRef.current = setTimeout(() => {
+					handleFetchMetadata();
+				}, 500);
+			}
+		} catch {
+			// Invalid URL, don't auto-fetch
+		}
+	};
+
+	const handleTitleChange = (value: string) => {
+		setTitle(value);
+		setTitleDirty(true);
+		setPendingTitle(null); // Dismiss any pending replacement
+	};
+
+	const handleDescriptionChange = (value: string) => {
+		setDescription(value);
+		setDescriptionDirty(true);
+		setPendingDescription(null); // Dismiss any pending replacement
+	};
+
+	const confirmTitleReplace = () => {
+		if (pendingTitle) {
+			setTitle(pendingTitle);
+			setPendingTitle(null);
+			setTitleDirty(false);
+		}
+	};
+
+	const dismissTitleReplace = () => {
+		setPendingTitle(null);
+	};
+
+	const confirmDescriptionReplace = () => {
+		if (pendingDescription) {
+			setDescription(pendingDescription);
+			setPendingDescription(null);
+			setDescriptionDirty(false);
+		}
+	};
+
+	const dismissDescriptionReplace = () => {
+		setPendingDescription(null);
+	};
+
 	const handleSubmit = (e: React.FormEvent) => {
 		e.preventDefault();
 		setError(null);
@@ -415,12 +580,17 @@ function CreateStoryForm({
 		const tagIds = selectedTags.length > 0 ? selectedTags.map((t) => t.id) : null;
 
 		commitStory({
-			variables: {url, title, tagIds},
+			variables: {url, title, description: description || null, tagIds},
 			onCompleted: (response) => {
 				if (response.createStory.story) {
 					setUrl("");
 					setTitle("");
+					setDescription("");
 					setSelectedTags(initialTags);
+					setTitleDirty(false);
+					setDescriptionDirty(false);
+					setPendingTitle(null);
+					setPendingDescription(null);
 					onCollapse();
 				}
 			},
@@ -448,8 +618,14 @@ function CreateStoryForm({
 	const handleCancel = () => {
 		setUrl("");
 		setTitle("");
+		setDescription("");
 		setSelectedTags(initialTags);
 		setError(null);
+		setFetchError(null);
+		setTitleDirty(false);
+		setDescriptionDirty(false);
+		setPendingTitle(null);
+		setPendingDescription(null);
 		onCollapse();
 	};
 
@@ -470,21 +646,57 @@ function CreateStoryForm({
 
 				<Field
 					label="URL"
+					error={fetchError ?? undefined}
 					control={
-						<Input
-							type="url"
-							value={url}
-							onChange={(e) => setUrl(e.target.value)}
-							required
-							autoFocus
-						/>
+						<div className={styles.urlFieldContainer}>
+							<Input
+								type="url"
+								value={url}
+								onChange={(e) => handleUrlChange(e.target.value)}
+								required
+								autoFocus
+							/>
+							<Button
+								type="button"
+								onClick={handleFetchMetadata}
+								disabled={!isValidUrl || isFetching}
+							>
+								{isFetching ? "Fetching..." : "Fetch"}
+							</Button>
+						</div>
 					}
 				/>
 
 				<Field
 					label="Title"
 					control={
-						<Input type="text" value={title} onChange={(e) => setTitle(e.target.value)} required />
+						<div className={styles.fieldWithHint}>
+							<Input
+								type="text"
+								value={title}
+								onChange={(e) => handleTitleChange(e.target.value)}
+								required
+							/>
+							{pendingTitle && (
+								<div className={styles.replaceHintContainer}>
+									<button
+										type="button"
+										className={styles.replaceHint}
+										onClick={confirmTitleReplace}
+									>
+										Replace?
+									</button>
+									<button
+										type="button"
+										className={styles.dismissHint}
+										onClick={dismissTitleReplace}
+										aria-label="Keep current value"
+									>
+										×
+									</button>
+								</div>
+							)}
+						</div>
 					}
 				/>
 
@@ -498,6 +710,39 @@ function CreateStoryForm({
 							onCreate={handleCreateTag}
 							placeholder="Add tags..."
 						/>
+					}
+				/>
+
+				<Field
+					label="Description"
+					control={
+						<div className={styles.fieldWithHint}>
+							<Textarea
+								value={description}
+								onChange={(e) => handleDescriptionChange(e.target.value)}
+								placeholder="Optional description..."
+								rows={3}
+							/>
+							{pendingDescription && (
+								<div className={styles.replaceHintContainer}>
+									<button
+										type="button"
+										className={styles.replaceHint}
+										onClick={confirmDescriptionReplace}
+									>
+										Replace?
+									</button>
+									<button
+										type="button"
+										className={styles.dismissHint}
+										onClick={dismissDescriptionReplace}
+										aria-label="Keep current value"
+									>
+										×
+									</button>
+								</div>
+							)}
+						</div>
 					}
 				/>
 			</Fieldset.Root>
@@ -525,6 +770,7 @@ function StoryRow({
 	availableTags: Tag[];
 	onTagCreate: (tag: Tag) => void;
 }) {
+	const environment = useRelayEnvironment();
 	const [story] = useRefetchableFragment(StoryFragment, storyRef);
 
 	const domain = extractDomain(story.url);
@@ -532,9 +778,18 @@ function StoryRow({
 
 	const [isEditing, setIsEditing] = useState(false);
 	const [editTitle, setEditTitle] = useState(story.title);
+	const [editDescription, setEditDescription] = useState(story.description ?? "");
 	const [editTags, setEditTags] = useState<Tag[]>([]);
 	const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 	const [error, setError] = useState<string | null>(null);
+	const [isFetching, setIsFetching] = useState(false);
+	const [fetchError, setFetchError] = useState<string | null>(null);
+
+	// Dirty state for edit panel
+	const [editTitleDirty, setEditTitleDirty] = useState(false);
+	const [editDescriptionDirty, setEditDescriptionDirty] = useState(false);
+	const [pendingEditTitle, setPendingEditTitle] = useState<string | null>(null);
+	const [pendingEditDescription, setPendingEditDescription] = useState<string | null>(null);
 
 	const [commitUpdate, isUpdating] = useMutation<LibraryUpdateStoryMutation>(UpdateStoryMutation);
 	const [commitDelete, isDeleting] = useMutation<LibraryDeleteStoryMutation>(DeleteStoryMutation);
@@ -560,18 +815,98 @@ function StoryRow({
 		});
 	};
 
+	const handleFetchMetadata = async () => {
+		setIsFetching(true);
+		setFetchError(null);
+
+		try {
+			const result = await fetchQuery<LibraryFetchUrlMetadataQuery>(
+				environment,
+				FetchUrlMetadataQuery,
+				{url: story.url},
+			).toPromise();
+
+			if (result?.fetchUrlMetadata.error) {
+				setFetchError(result.fetchUrlMetadata.error);
+				return;
+			}
+
+			// Handle title with dirty state
+			if (result?.fetchUrlMetadata.title) {
+				if (editTitleDirty) {
+					setPendingEditTitle(result.fetchUrlMetadata.title);
+				} else {
+					setEditTitle(result.fetchUrlMetadata.title);
+				}
+			}
+
+			// Handle description with dirty state
+			if (result?.fetchUrlMetadata.description) {
+				if (editDescriptionDirty) {
+					setPendingEditDescription(result.fetchUrlMetadata.description);
+				} else {
+					setEditDescription(result.fetchUrlMetadata.description);
+				}
+			}
+		} catch {
+			setFetchError("Failed to fetch metadata");
+		} finally {
+			setIsFetching(false);
+		}
+	};
+
 	const handleEdit = () => {
 		setError(null);
+		setFetchError(null);
 		setEditTitle(story.title);
+		setEditDescription(story.description ?? "");
 		setEditTags(story.tags.map((t) => ({id: t.id, name: t.name, color: t.color})));
+		setEditTitleDirty(false);
+		setEditDescriptionDirty(false);
+		setPendingEditTitle(null);
+		setPendingEditDescription(null);
 		setIsEditing(true);
 	};
 
 	const handleCancelEdit = () => {
 		setEditTitle(story.title);
+		setEditDescription(story.description ?? "");
 		setEditTags([]);
 		setIsEditing(false);
 		setError(null);
+		setFetchError(null);
+		setEditTitleDirty(false);
+		setEditDescriptionDirty(false);
+		setPendingEditTitle(null);
+		setPendingEditDescription(null);
+	};
+
+	const handleEditTitleChange = (value: string) => {
+		setEditTitle(value);
+		setEditTitleDirty(true);
+		setPendingEditTitle(null);
+	};
+
+	const handleEditDescriptionChange = (value: string) => {
+		setEditDescription(value);
+		setEditDescriptionDirty(true);
+		setPendingEditDescription(null);
+	};
+
+	const confirmEditTitleReplace = () => {
+		if (pendingEditTitle) {
+			setEditTitle(pendingEditTitle);
+			setPendingEditTitle(null);
+			setEditTitleDirty(false);
+		}
+	};
+
+	const confirmEditDescriptionReplace = () => {
+		if (pendingEditDescription) {
+			setEditDescription(pendingEditDescription);
+			setPendingEditDescription(null);
+			setEditDescriptionDirty(false);
+		}
 	};
 
 	const handleSaveEdit = () => {
@@ -580,11 +915,12 @@ function StoryRow({
 
 		// Check if anything changed
 		const titleChanged = trimmedTitle !== story.title;
+		const descriptionChanged = editDescription !== (story.description ?? "");
 		const currentTagIds = story.tags.map((t) => t.id).sort();
 		const newTagIds = editTags.map((t) => t.id).sort();
 		const tagsChanged = JSON.stringify(currentTagIds) !== JSON.stringify(newTagIds);
 
-		if (!titleChanged && !tagsChanged) {
+		if (!titleChanged && !descriptionChanged && !tagsChanged) {
 			setIsEditing(false);
 			return;
 		}
@@ -594,6 +930,8 @@ function StoryRow({
 			variables: {
 				id: story.id,
 				title: titleChanged ? trimmedTitle : null,
+				// null = no change, empty string = clear, value = update
+				description: descriptionChanged ? editDescription : null,
 				tagIds: tagsChanged ? editTags.map((t) => t.id) : null,
 			},
 			onCompleted: (response) => {
@@ -608,7 +946,7 @@ function StoryRow({
 	};
 
 	const handleKeyDown = (e: React.KeyboardEvent) => {
-		if (e.key === "Enter") {
+		if (e.key === "Enter" && !e.shiftKey) {
 			e.preventDefault();
 			handleSaveEdit();
 		} else if (e.key === "Escape") {
@@ -639,16 +977,44 @@ function StoryRow({
 		return (
 			<article className={styles.storyRow}>
 				{error && <div className={styles.rowError}>{error}</div>}
+				{fetchError && <div className={styles.rowError}>{fetchError}</div>}
 				<div className={styles.editRow}>
-					<input
-						type="text"
-						value={editTitle}
-						onChange={(e) => setEditTitle(e.target.value)}
-						onKeyDown={handleKeyDown}
-						className={styles.editInput}
-						// biome-ignore lint/a11y/noAutofocus: Focus is intentional when user clicks Edit
-						autoFocus
-					/>
+					<div className={styles.editFieldWithFetch}>
+						<div className={styles.fieldWithHint}>
+							<input
+								type="text"
+								value={editTitle}
+								onChange={(e) => handleEditTitleChange(e.target.value)}
+								onKeyDown={handleKeyDown}
+								className={styles.editInput}
+								placeholder="Title"
+								// biome-ignore lint/a11y/noAutofocus: Focus is intentional when user clicks Edit
+								autoFocus
+							/>
+							{pendingEditTitle && (
+								<div className={styles.replaceHintContainer}>
+									<button
+										type="button"
+										className={styles.replaceHint}
+										onClick={confirmEditTitleReplace}
+									>
+										Replace?
+									</button>
+									<button
+										type="button"
+										className={styles.dismissHint}
+										onClick={() => setPendingEditTitle(null)}
+										aria-label="Keep current value"
+									>
+										×
+									</button>
+								</div>
+							)}
+						</div>
+						<Button type="button" onClick={handleFetchMetadata} disabled={isFetching}>
+							{isFetching ? "Fetching..." : "Fetch"}
+						</Button>
+					</div>
 					<TagInput
 						selectedTags={editTags}
 						availableTags={availableTags}
@@ -656,6 +1022,33 @@ function StoryRow({
 						onCreate={handleCreateTag}
 						placeholder="Add tags..."
 					/>
+					<div className={styles.fieldWithHint}>
+						<Textarea
+							value={editDescription}
+							onChange={(e) => handleEditDescriptionChange(e.target.value)}
+							placeholder="Description (optional)"
+							rows={3}
+						/>
+						{pendingEditDescription && (
+							<div className={styles.replaceHintContainer}>
+								<button
+									type="button"
+									className={styles.replaceHint}
+									onClick={confirmEditDescriptionReplace}
+								>
+									Replace?
+								</button>
+								<button
+									type="button"
+									className={styles.dismissHint}
+									onClick={() => setPendingEditDescription(null)}
+									aria-label="Keep current value"
+								>
+									×
+								</button>
+							</div>
+						)}
+					</div>
 					<div className={styles.editActions}>
 						<Button type="button" onClick={handleCancelEdit} disabled={isUpdating}>
 							Cancel
@@ -682,6 +1075,7 @@ function StoryRow({
 						target="_blank"
 						rel="noopener noreferrer"
 						className={styles.storyTitle}
+						title={story.description ?? undefined}
 					>
 						{story.title}
 					</a>

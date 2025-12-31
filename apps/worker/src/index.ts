@@ -11,6 +11,7 @@ import {
 } from "graphql";
 import {createYoga} from "graphql-yoga";
 import {Hono} from "hono";
+import {getNormalizedUrl} from "./features/library/getNormalizedUrl";
 import {
 	InvalidTagNameError as InvalidTagNameErrorRuntime,
 	TagNameExistsError as TagNameExistsErrorRuntime,
@@ -87,6 +88,7 @@ const Story = Schema.Struct({
 	id: Schema.String.annotations({identifier: "ulid"}),
 	url: Schema.String,
 	title: Schema.String,
+	description: Schema.NullOr(Schema.String),
 	createdAt: Schema.String,
 }).annotations({
 	title: "Story",
@@ -94,12 +96,19 @@ const Story = Schema.Struct({
 });
 
 // Helper to transform story with global ID
-function toStoryNode(story: {id: string; url: string; title: string; createdAt: string}) {
+function toStoryNode(story: {
+	id: string;
+	url: string;
+	title: string;
+	description?: string | null;
+	createdAt: string;
+}) {
 	return {
 		__typename: "Story" as const,
 		id: encodeGlobalId(NodeType.Story, story.id),
 		url: story.url,
 		title: story.title,
+		description: story.description ?? null,
 		createdAt: story.createdAt,
 	};
 }
@@ -217,6 +226,14 @@ const DeleteTagPayload = Schema.Struct({
 	error: Schema.NullOr(TagNotFoundError),
 }).annotations({title: "DeleteTagPayload"});
 
+// --- URL Metadata Types ---
+
+const UrlMetadata = Schema.Struct({
+	title: Schema.NullOr(Schema.String),
+	description: Schema.NullOr(Schema.String),
+	error: Schema.NullOr(Schema.String),
+}).annotations({title: "UrlMetadata"});
+
 // --- Library Resolvers ---
 
 const libraryResolver = resolver.of(standard(Library), {
@@ -333,15 +350,16 @@ const storyResolver = resolver.of(standard(Story), {
 		.input({
 			url: standard(Schema.String),
 			title: standard(Schema.String),
+			description: standard(Schema.NullOr(Schema.String)),
 			tagIds: standard(Schema.NullOr(Schema.Array(Schema.String))),
 		})
-		.resolve(async ({url, title, tagIds}) => {
+		.resolve(async ({url, title, description, tagIds}) => {
 			const ctx = useContext<GQLContext>();
 			if (!ctx.pasaport.user?.id) throw new Error("Unauthorized");
 
 			const libraryId = ctx.env.LIBRARY.idFromName(ctx.pasaport.user.id);
 			const lib = ctx.env.LIBRARY.get(libraryId);
-			const story = await lib.createStory({url, title});
+			const story = await lib.createStory({url, title, description: description ?? undefined});
 
 			// Tag the story if tagIds provided
 			if (tagIds && tagIds.length > 0) {
@@ -361,9 +379,10 @@ const storyResolver = resolver.of(standard(Story), {
 		.input({
 			id: standard(Schema.String),
 			title: standard(Schema.NullOr(Schema.String)),
+			description: standard(Schema.NullOr(Schema.String)),
 			tagIds: standard(Schema.NullOr(Schema.Array(Schema.String))),
 		})
-		.resolve(async ({id: globalId, title, tagIds}) => {
+		.resolve(async ({id: globalId, title, description, tagIds}) => {
 			const ctx = useContext<GQLContext>();
 			if (!ctx.pasaport.user?.id) throw new Error("Unauthorized");
 
@@ -382,7 +401,11 @@ const storyResolver = resolver.of(standard(Story), {
 
 			const libraryId = ctx.env.LIBRARY.idFromName(ctx.pasaport.user.id);
 			const lib = ctx.env.LIBRARY.get(libraryId);
-			const story = await lib.updateStory(decoded.id, {title: title ?? undefined});
+			// null means "don't change", empty string means "clear", other string means "set to value"
+			const story = await lib.updateStory(decoded.id, {
+				title: title ?? undefined,
+				description: description === null ? undefined : description === "" ? null : description,
+			});
 
 			if (!story) {
 				return {
@@ -758,6 +781,49 @@ const helloResolver = resolver({
 		}),
 });
 
+// URL metadata resolver for fetching page title/description
+const urlMetadataResolver = resolver({
+	fetchUrlMetadata: query(standard(UrlMetadata))
+		.input({
+			url: standard(Schema.String),
+		})
+		.resolve(async ({url}) => {
+			const ctx = useContext<GQLContext>();
+
+			// Validate URL format
+			let parsedUrl: URL;
+			try {
+				parsedUrl = new URL(url);
+			} catch {
+				return {title: null, description: null, error: "Invalid URL format"};
+			}
+
+			// Only allow http/https (SSRF prevention)
+			if (!["http:", "https:"].includes(parsedUrl.protocol)) {
+				return {title: null, description: null, error: "Only HTTP/HTTPS URLs are allowed"};
+			}
+
+			try {
+				// Use normalized URL as DO key for deduplication
+				const normalizedUrl = getNormalizedUrl(url);
+				const parserId = ctx.env.WEB_PAGE_PARSER.idFromName(normalizedUrl);
+				const parser = ctx.env.WEB_PAGE_PARSER.get(parserId);
+
+				await parser.init(url);
+				const metadata = await parser.getMetadata();
+
+				return {
+					title: metadata.title || null,
+					description: metadata.description || null,
+					error: null,
+				};
+			} catch (err) {
+				const message = err instanceof Error ? err.message : "Failed to fetch metadata";
+				return {title: null, description: null, error: message};
+			}
+		}),
+});
+
 // Node query resolver for Relay refetching
 const nodeResolver = resolver({
 	node: query(silk.nullable(silk<{__typename: string; id: string}>(NodeInterface)))
@@ -822,6 +888,7 @@ const schema = weave(
 	libraryResolver,
 	storyResolver,
 	tagResolver,
+	urlMetadataResolver,
 	nodeResolver,
 );
 
