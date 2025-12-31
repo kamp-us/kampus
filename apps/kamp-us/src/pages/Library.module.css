@@ -213,6 +213,64 @@
 	flex: 1;
 }
 
+/* Field with replacement hint */
+.fieldWithHint {
+	position: relative;
+	flex: 1;
+}
+
+.replaceHintContainer {
+	position: absolute;
+	right: var(--space-8);
+	top: 50%;
+	transform: translateY(-50%);
+	display: flex;
+	align-items: center;
+	gap: var(--space-4);
+}
+
+.replaceHint {
+	padding: var(--space-4) var(--space-8);
+	background: var(--amber-3);
+	border: 1px solid var(--amber-7);
+	border-radius: var(--radius-2);
+	color: var(--amber-11);
+	font-size: var(--font-size-1);
+	cursor: pointer;
+	white-space: nowrap;
+}
+
+.replaceHint:hover {
+	background: var(--amber-4);
+	border-color: var(--amber-8);
+}
+
+.dismissHint {
+	all: unset;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 18px;
+	height: 18px;
+	border-radius: 50%;
+	cursor: pointer;
+	color: var(--gray-9);
+	font-size: 14px;
+	line-height: 1;
+}
+
+.dismissHint:hover {
+	background: var(--gray-a4);
+	color: var(--gray-12);
+}
+
+/* Edit panel with fetch button */
+.editFieldWithFetch {
+	display: flex;
+	gap: var(--space-8);
+	align-items: stretch;
+}
+
 /* Empty state */
 .emptyState {
 	display: flex;
