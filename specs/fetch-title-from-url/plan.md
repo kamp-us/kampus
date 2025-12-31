@@ -1,6 +1,6 @@
 # Implementation Plan: Fetch Title from URL
 
-**Status:** Phase 4 - Implementation Roadmap
+**Status:** Phase 4 - Implementation Roadmap (Updated with UX Improvements)
 **Source:** [design.md](./design.md)
 
 ## Implementation Sequence
@@ -8,23 +8,26 @@
 The implementation follows a **backend-first** approach to ensure the frontend has a working API to integrate with.
 
 ```
-Phase A: Backend (worker)
+Phase A: Backend (worker) ✅ COMPLETE
     │
-    ├─► A1: Add timeout to fetchPageMetadata
-    ├─► A2: Add fetchUrlMetadata GraphQL query
-    └─► A3: Add description to createStory mutation
+    ├─► A1: Add timeout to fetchPageMetadata ✅
+    ├─► A2: Add fetchUrlMetadata GraphQL query ✅
+    └─► A3: Add description to createStory mutation ✅
             │
             ▼
-Phase B: Frontend Design System (kamp-us)
+Phase B: Frontend Design System (kamp-us) ✅ COMPLETE
     │
-    └─► B1: Create Textarea component
+    └─► B1: Create Textarea component ✅
             │
             ▼
-Phase C: Frontend Form (kamp-us)
+Phase C: Frontend Form - UX Improvements (kamp-us)
     │
-    ├─► C1: Add description state and field
-    ├─► C2: Add fetch button with loading/error states
-    └─► C3: Update createStory mutation call
+    ├─► C1: Rename button "Fetch Title" → "Fetch"
+    ├─► C2: Add dirty state tracking with "Replace?" hint
+    ├─► C3: Add auto-fetch on paste (500ms debounce)
+    ├─► C4: Reorder fields: URL → Title → Tags → Description
+    ├─► C5: Add description field to edit panel
+    └─► C6: Add description hover/tooltip on story rows
             │
             ▼
 Phase D: Verification
@@ -32,7 +35,7 @@ Phase D: Verification
     ├─► D1: Regenerate Relay artifacts
     ├─► D2: Type check worker
     ├─► D3: Manual testing
-    └─► D4: Biome check
+    └─► D4: Biome check (staged files only)
 ```
 
 ---
@@ -247,53 +250,94 @@ export function Textarea(props: TextareaProps) {
 
 ---
 
-### Phase C: Frontend Form Updates
+### Phase C: Frontend Form - UX Improvements
 
-#### C1: Add description state and field
+#### C1: Rename button "Fetch Title" → "Fetch"
 **File:** `apps/kamp-us/src/pages/Library.tsx`
 
 **Changes:**
-1. Import `Textarea` component
-2. Add `description` state
-3. Add description field to form
-4. Reset description on cancel/submit
+- Change button text from "Fetch Title" to "Fetch"
+- The button fetches both title and description, so "Fetch" is more honest
 
 ---
 
-#### C2: Add fetch button with loading/error states
+#### C2: Add dirty state tracking with "Replace?" hint
 **File:** `apps/kamp-us/src/pages/Library.tsx`
 
 **Changes:**
-1. Add GraphQL query for `fetchUrlMetadata`
-2. Import `fetchQuery` and `useRelayEnvironment` from react-relay
-3. Add `isFetching` and `fetchError` state
-4. Add `handleFetchMetadata` function
-5. Update URL field with fetch button
-6. Add CSS for URL field container
+1. Add `titleDirty` and `descriptionDirty` state
+2. Add `pendingTitle` and `pendingDescription` state for waiting replacements
+3. Mark fields dirty when user manually edits them
+4. On fetch: if field is dirty, show "Replace?" hint instead of overwriting
+5. Add `confirmReplace()` and `dismissReplace()` handlers
+6. Fetched values do NOT mark fields as dirty
 
 **File:** `apps/kamp-us/src/pages/Library.module.css`
 
 **Add:**
 ```css
-.urlFieldContainer {
-  display: flex;
-  gap: var(--space-8);
-  align-items: stretch;
+.fieldWithHint {
+  position: relative;
 }
 
-.urlFieldContainer > input {
-  flex: 1;
+.replaceHint {
+  position: absolute;
+  right: var(--space-8);
+  top: 50%;
+  transform: translateY(-50%);
+  padding: var(--space-4) var(--space-8);
+  background: var(--amber-3);
+  border: 1px solid var(--amber-7);
+  border-radius: var(--radius-2);
+  color: var(--amber-11);
+  font-size: var(--font-size-1);
+  cursor: pointer;
 }
 ```
 
 ---
 
-#### C3: Update createStory mutation call
+#### C3: Add auto-fetch on paste (500ms debounce)
 **File:** `apps/kamp-us/src/pages/Library.tsx`
 
 **Changes:**
-1. Update `CreateStoryMutation` to include description variable
-2. Pass description in mutation variables
+1. Add `useRef` for debounce timer
+2. Create `handleUrlChange()` that sets URL and triggers debounced fetch
+3. Validate URL before triggering auto-fetch
+4. Clear debounce timer on unmount via `useEffect` cleanup
+5. Manual "Fetch" button remains as fallback
+
+---
+
+#### C4: Reorder fields: URL → Title → Tags → Description
+**File:** `apps/kamp-us/src/pages/Library.tsx`
+
+**Changes:**
+- Move Description field after Tags field in JSX
+- Tags require user thought after auto-fetch; description is "nice to have"
+
+---
+
+#### C5: Add description field to edit panel
+**File:** `apps/kamp-us/src/pages/Library.tsx` (StoryRow component)
+
+**Changes:**
+1. Add `editDescription` and `editDescriptionDirty` state
+2. Initialize description when entering edit mode
+3. Add Textarea for description in edit panel JSX
+4. Add "Fetch" button to edit panel for re-fetching metadata
+5. Include description in save mutation
+
+---
+
+#### C6: Add description hover/tooltip on story rows
+**File:** `apps/kamp-us/src/pages/Library.tsx` (StoryRow component)
+
+**Changes:**
+- Add `title={story.description}` attribute to story link for native tooltip
+- Only show tooltip if description exists
+
+**Note:** Native `title` attribute is simplest; custom Tooltip component can be added later if better UX needed.
 
 ---
 
@@ -311,12 +355,15 @@ pnpm --filter worker exec tsc --noEmit
 ```
 
 #### D3: Manual testing
-- [ ] Enter valid URL, click Fetch Title → title/description populate
-- [ ] Enter URL with existing title → title NOT overwritten
-- [ ] Enter invalid URL → error message displayed
-- [ ] Test timeout with slow/unresponsive URL
+- [ ] Enter valid URL → auto-fetch triggers after 500ms, title/description populate
+- [ ] Click "Fetch" button → same result as auto-fetch
+- [ ] Edit title manually, then fetch → "Replace?" hint appears
+- [ ] Click "Replace?" → field updates with fetched value
+- [ ] Click elsewhere → "Replace?" dismissed, user value kept
+- [ ] Verify field order is URL → Title → Tags → Description
+- [ ] Edit a story → description field visible and editable
+- [ ] Hover over story in list → description tooltip appears
 - [ ] Submit story with description → saved correctly
-- [ ] Verify description appears (if displayed in UI)
 
 #### D4: Biome check (changed files only)
 ```bash
@@ -327,22 +374,22 @@ biome check --write --staged
 
 ## Implementation Checklist
 
-### Phase A: Backend
-- [ ] A1: Add timeout to fetchPageMetadata
-- [ ] A2: Add fetchUrlMetadata GraphQL query
-- [ ] A3: Add description to createStory mutation
-- [ ] A-verify: `pnpm --filter worker exec tsc --noEmit`
+### Phase A: Backend ✅ COMPLETE
+- [x] A1: Add timeout to fetchPageMetadata
+- [x] A2: Add fetchUrlMetadata GraphQL query
+- [x] A3: Add description to createStory mutation
 
-### Phase B: Design System
-- [ ] B1: Create Textarea.tsx
-- [ ] B1: Create Textarea.module.css
+### Phase B: Design System ✅ COMPLETE
+- [x] B1: Create Textarea.tsx
+- [x] B1: Create Textarea.module.css
 
-### Phase C: Frontend Form
-- [ ] C1: Add description state and field
-- [ ] C2: Add fetch button UI
-- [ ] C2: Add fetch handler logic
-- [ ] C2: Add urlFieldContainer CSS
-- [ ] C3: Update mutation to include description
+### Phase C: Frontend Form - UX Improvements
+- [ ] C1: Rename button to "Fetch"
+- [ ] C2: Add dirty state tracking with "Replace?" hint
+- [ ] C3: Add auto-fetch on paste (500ms debounce)
+- [ ] C4: Reorder fields URL → Title → Tags → Description
+- [ ] C5: Add description to edit panel
+- [ ] C6: Add description hover on story rows
 
 ### Phase D: Verification
 - [ ] D1: Fetch GraphQL schema

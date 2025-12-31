@@ -247,40 +247,80 @@ export function Textarea(props: TextareaProps) {
 
 **Location:** `apps/kamp-us/src/pages/Library.tsx`
 
-#### State Changes
+#### State Changes (with Dirty State Tracking)
 
 ```typescript
 function CreateStoryForm({...}) {
+  const environment = useRelayEnvironment();
   const [url, setUrl] = useState("");
   const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");  // NEW
+  const [description, setDescription] = useState("");
   const [selectedTags, setSelectedTags] = useState<Tag[]>(initialTags);
   const [error, setError] = useState<string | null>(null);
-  const [isFetching, setIsFetching] = useState(false);  // NEW
-  const [fetchError, setFetchError] = useState<string | null>(null);  // NEW
+  const [isFetching, setIsFetching] = useState(false);
+  const [fetchError, setFetchError] = useState<string | null>(null);
+
+  // Dirty state tracking - tracks user manual edits
+  const [titleDirty, setTitleDirty] = useState(false);
+  const [descriptionDirty, setDescriptionDirty] = useState(false);
+
+  // Pending replacements - when dirty field has new fetched value waiting
+  const [pendingTitle, setPendingTitle] = useState<string | null>(null);
+  const [pendingDescription, setPendingDescription] = useState<string | null>(null);
+
+  // Debounce timer ref for auto-fetch on paste
+  const fetchDebounceRef = useRef<NodeJS.Timeout | null>(null);
   // ...
 }
 ```
 
-#### GraphQL Query
+#### Auto-Fetch on Paste with Debounce
 
 ```typescript
-const FetchUrlMetadataQuery = graphql`
-  query LibraryFetchUrlMetadataQuery($url: String!) {
-    fetchUrlMetadata(url: $url) {
-      title
-      description
-      error
-    }
+// Helper to check if URL is valid
+const isValidUrl = (urlString: string): boolean => {
+  try {
+    const parsed = new URL(urlString);
+    return ["http:", "https:"].includes(parsed.protocol);
+  } catch {
+    return false;
   }
-`;
+};
+
+// Handle URL change with auto-fetch on paste
+const handleUrlChange = (newUrl: string) => {
+  setUrl(newUrl);
+  setFetchError(null);
+
+  // Clear existing debounce timer
+  if (fetchDebounceRef.current) {
+    clearTimeout(fetchDebounceRef.current);
+  }
+
+  // Auto-fetch if valid URL (debounced)
+  if (isValidUrl(newUrl)) {
+    fetchDebounceRef.current = setTimeout(() => {
+      handleFetchMetadata(newUrl);
+    }, 500);
+  }
+};
+
+// Cleanup on unmount
+useEffect(() => {
+  return () => {
+    if (fetchDebounceRef.current) {
+      clearTimeout(fetchDebounceRef.current);
+    }
+  };
+}, []);
 ```
 
-#### Fetch Handler
+#### Fetch Handler with Dirty State Logic
 
 ```typescript
-const handleFetchMetadata = async () => {
-  if (!url) return;
+const handleFetchMetadata = async (urlToFetch?: string) => {
+  const targetUrl = urlToFetch ?? url;
+  if (!targetUrl || !isValidUrl(targetUrl)) return;
 
   setIsFetching(true);
   setFetchError(null);
@@ -289,7 +329,7 @@ const handleFetchMetadata = async () => {
     const result = await fetchQuery<LibraryFetchUrlMetadataQuery>(
       environment,
       FetchUrlMetadataQuery,
-      {url}
+      {url: targetUrl},
     ).toPromise();
 
     if (result?.fetchUrlMetadata.error) {
@@ -297,73 +337,159 @@ const handleFetchMetadata = async () => {
       return;
     }
 
-    // Only populate empty fields
-    if (result?.fetchUrlMetadata.title && !title) {
-      setTitle(result.fetchUrlMetadata.title);
+    // Handle title - check dirty state
+    if (result?.fetchUrlMetadata.title) {
+      if (titleDirty) {
+        // Field is dirty - show "Replace?" hint
+        setPendingTitle(result.fetchUrlMetadata.title);
+      } else {
+        // Field is clean - overwrite directly
+        setTitle(result.fetchUrlMetadata.title);
+      }
     }
-    if (result?.fetchUrlMetadata.description && !description) {
-      setDescription(result.fetchUrlMetadata.description);
+
+    // Handle description - check dirty state
+    if (result?.fetchUrlMetadata.description) {
+      if (descriptionDirty) {
+        // Field is dirty - show "Replace?" hint
+        setPendingDescription(result.fetchUrlMetadata.description);
+      } else {
+        // Field is clean - overwrite directly
+        setDescription(result.fetchUrlMetadata.description);
+      }
     }
-  } catch (err) {
+  } catch {
     setFetchError("Failed to fetch metadata");
   } finally {
     setIsFetching(false);
   }
 };
+
+// Confirm replacement of dirty field
+const confirmReplace = (field: "title" | "description") => {
+  if (field === "title" && pendingTitle) {
+    setTitle(pendingTitle);
+    setPendingTitle(null);
+    setTitleDirty(false);
+  } else if (field === "description" && pendingDescription) {
+    setDescription(pendingDescription);
+    setPendingDescription(null);
+    setDescriptionDirty(false);
+  }
+};
+
+// Dismiss replacement hint
+const dismissReplace = (field: "title" | "description") => {
+  if (field === "title") {
+    setPendingTitle(null);
+  } else {
+    setPendingDescription(null);
+  }
+};
 ```
 
-#### Updated JSX
+#### Updated JSX (Field Order: URL → Title → Tags → Description)
 
 ```tsx
-<Field
-  label="URL"
-  error={fetchError ?? undefined}
-  control={
-    <div className={styles.urlFieldContainer}>
-      <Input
-        type="url"
-        value={url}
-        onChange={(e) => {
-          setUrl(e.target.value);
-          setFetchError(null);
-        }}
-        required
-        autoFocus
+<Fieldset.Root>
+  <Fieldset.Legend>Add Story</Fieldset.Legend>
+
+  {/* URL Field with Fetch Button */}
+  <Field
+    label="URL"
+    error={fetchError ?? undefined}
+    control={
+      <div className={styles.urlFieldContainer}>
+        <Input
+          type="url"
+          value={url}
+          onChange={(e) => handleUrlChange(e.target.value)}
+          required
+          autoFocus
+        />
+        <Button
+          type="button"
+          onClick={() => handleFetchMetadata()}
+          disabled={!isValidUrl(url) || isFetching}
+        >
+          {isFetching ? "Fetching..." : "Fetch"}
+        </Button>
+      </div>
+    }
+  />
+
+  {/* Title Field with Replace Hint */}
+  <Field
+    label="Title"
+    control={
+      <div className={styles.fieldWithHint}>
+        <Input
+          type="text"
+          value={title}
+          onChange={(e) => {
+            setTitle(e.target.value);
+            setTitleDirty(true);
+            setPendingTitle(null);
+          }}
+          required
+        />
+        {pendingTitle && (
+          <button
+            type="button"
+            className={styles.replaceHint}
+            onClick={() => confirmReplace("title")}
+            onBlur={() => dismissReplace("title")}
+          >
+            Replace?
+          </button>
+        )}
+      </div>
+    }
+  />
+
+  {/* Tags Field (before Description) */}
+  <Field
+    label="Tags"
+    control={
+      <TagInput
+        selectedTags={selectedTags}
+        availableTags={availableTags}
+        onChange={setSelectedTags}
+        onCreate={handleCreateTag}
+        placeholder="Add tags..."
       />
-      <Button
-        type="button"
-        onClick={handleFetchMetadata}
-        disabled={!url || isFetching}
-      >
-        {isFetching ? "Fetching..." : "Fetch Title"}
-      </Button>
-    </div>
-  }
-/>
+    }
+  />
 
-<Field
-  label="Title"
-  control={
-    <Input
-      type="text"
-      value={title}
-      onChange={(e) => setTitle(e.target.value)}
-      required
-    />
-  }
-/>
-
-<Field
-  label="Description"
-  control={
-    <Textarea
-      value={description}
-      onChange={(e) => setDescription(e.target.value)}
-      placeholder="Optional description..."
-      rows={3}
-    />
-  }
-/>
+  {/* Description Field with Replace Hint */}
+  <Field
+    label="Description"
+    control={
+      <div className={styles.fieldWithHint}>
+        <Textarea
+          value={description}
+          onChange={(e) => {
+            setDescription(e.target.value);
+            setDescriptionDirty(true);
+            setPendingDescription(null);
+          }}
+          placeholder="Optional description..."
+          rows={3}
+        />
+        {pendingDescription && (
+          <button
+            type="button"
+            className={styles.replaceHint}
+            onClick={() => confirmReplace("description")}
+            onBlur={() => dismissReplace("description")}
+          >
+            Replace?
+          </button>
+        )}
+      </div>
+    }
+  />
+</Fieldset.Root>
 ```
 
 #### CSS for URL Field Container
@@ -380,9 +506,191 @@ const handleFetchMetadata = async () => {
 .urlFieldContainer > input {
   flex: 1;
 }
+
+.fieldWithHint {
+  position: relative;
+}
+
+.replaceHint {
+  position: absolute;
+  right: var(--space-8);
+  top: 50%;
+  transform: translateY(-50%);
+  padding: var(--space-4) var(--space-8);
+  background: var(--amber-3);
+  border: 1px solid var(--amber-7);
+  border-radius: var(--radius-2);
+  color: var(--amber-11);
+  font-size: var(--font-size-1);
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.replaceHint:hover {
+  background: var(--amber-4);
+}
+
+.replaceHint:focus {
+  outline: 2px solid var(--amber-8);
+  outline-offset: 2px;
+}
 ```
 
-### 3. Update Mutation Call
+### 3. Update StoryRow Edit Panel
+
+The edit panel needs to include description field and fetch capability.
+
+**Location:** `apps/kamp-us/src/pages/Library.tsx` (StoryRow component)
+
+```typescript
+// Add to StoryRow state
+const [editDescription, setEditDescription] = useState("");
+const [editDescriptionDirty, setEditDescriptionDirty] = useState(false);
+const [pendingEditDescription, setPendingEditDescription] = useState<string | null>(null);
+const [isEditFetching, setIsEditFetching] = useState(false);
+const [editFetchError, setEditFetchError] = useState<string | null>(null);
+
+// Initialize edit description when entering edit mode
+const handleEdit = () => {
+  setEditTitle(story.title);
+  setEditDescription(story.description ?? "");
+  setEditDescriptionDirty(false);
+  setEditTags(story.tags.map((t) => ({id: t.id, name: t.name, color: t.color})));
+  setIsEditing(true);
+};
+
+// Fetch handler for edit panel
+const handleEditFetch = async () => {
+  if (!story.url) return;
+  setIsEditFetching(true);
+  setEditFetchError(null);
+
+  try {
+    const result = await fetchQuery<LibraryFetchUrlMetadataQuery>(
+      environment,
+      FetchUrlMetadataQuery,
+      {url: story.url},
+    ).toPromise();
+
+    if (result?.fetchUrlMetadata.error) {
+      setEditFetchError(result.fetchUrlMetadata.error);
+      return;
+    }
+
+    // Apply with dirty state logic (same as create form)
+    // ...
+  } catch {
+    setEditFetchError("Failed to fetch metadata");
+  } finally {
+    setIsEditFetching(false);
+  }
+};
+```
+
+#### Edit Panel JSX
+
+```tsx
+{isEditing && (
+  <article className={styles.storyRow}>
+    {error && <div className={styles.rowError}>{error}</div>}
+    <div className={styles.editRow}>
+      {/* URL display with Fetch button */}
+      <div className={styles.editUrlRow}>
+        <span className={styles.editUrl}>{story.url}</span>
+        <Button
+          type="button"
+          onClick={handleEditFetch}
+          disabled={isEditFetching}
+        >
+          {isEditFetching ? "Fetching..." : "Fetch"}
+        </Button>
+      </div>
+
+      {/* Title input */}
+      <input
+        type="text"
+        value={editTitle}
+        onChange={(e) => setEditTitle(e.target.value)}
+        className={styles.editInput}
+        autoFocus
+      />
+
+      {/* Tags input */}
+      <TagInput
+        selectedTags={editTags}
+        availableTags={availableTags}
+        onChange={setEditTags}
+        onCreate={handleCreateTag}
+        placeholder="Add tags..."
+      />
+
+      {/* Description textarea */}
+      <Textarea
+        value={editDescription}
+        onChange={(e) => {
+          setEditDescription(e.target.value);
+          setEditDescriptionDirty(true);
+        }}
+        placeholder="Optional description..."
+        rows={3}
+      />
+
+      <div className={styles.editActions}>
+        <Button type="button" onClick={handleCancelEdit} disabled={isUpdating}>
+          Cancel
+        </Button>
+        <Button type="button" onClick={handleSaveEdit} disabled={isUpdating}>
+          {isUpdating ? "Saving..." : "Save"}
+        </Button>
+      </div>
+    </div>
+  </article>
+)}
+```
+
+### 4. Description Hover on Story Rows
+
+Stories display description on hover using a tooltip.
+
+**Location:** `apps/kamp-us/src/pages/Library.tsx` (StoryRow component)
+
+```tsx
+// In the story display (non-editing) view
+<article className={styles.storyRow}>
+  <div className={styles.storyContent}>
+    <div className={styles.storyMain}>
+      <a
+        href={story.url}
+        target="_blank"
+        rel="noopener noreferrer"
+        className={styles.storyTitle}
+        title={story.description ?? undefined}  // Native tooltip for now
+      >
+        {story.title}
+      </a>
+      {/* ... rest of story content */}
+    </div>
+  </div>
+</article>
+```
+
+**Alternative: Custom Tooltip Component**
+
+For better UX, consider using a proper tooltip component:
+
+```tsx
+import {Tooltip} from "../design/Tooltip";
+
+<Tooltip content={story.description} delayMs={150}>
+  <a href={story.url} className={styles.storyTitle}>
+    {story.title}
+  </a>
+</Tooltip>
+```
+
+**Note:** If using native `title` attribute, the tooltip behavior is browser-controlled. For custom delay and styling, a Tooltip component would be needed (could be added to design system).
+
+### 5. Update Mutation Call
 
 ```typescript
 commitStory({
@@ -440,9 +748,19 @@ export function useFetchUrlMetadata() {
 | `apps/worker/src/features/web-page-parser/fetchPageMetadata.ts` | Modify | Add timeout and User-Agent header |
 | `apps/kamp-us/src/design/Textarea.tsx` | Create | New textarea component |
 | `apps/kamp-us/src/design/Textarea.module.css` | Create | Textarea styles |
-| `apps/kamp-us/src/design/index.ts` | Modify | Export Textarea (if exists) |
-| `apps/kamp-us/src/pages/Library.tsx` | Modify | Add fetch button, description field, fetch logic |
-| `apps/kamp-us/src/pages/Library.module.css` | Modify | Add urlFieldContainer styles |
+| `apps/kamp-us/src/pages/Library.tsx` | Modify | Add fetch button, description field, auto-fetch, dirty state, edit panel description |
+| `apps/kamp-us/src/pages/Library.module.css` | Modify | Add urlFieldContainer, fieldWithHint, replaceHint styles |
+
+### Key Changes from Initial Design
+
+| Aspect | Initial | Updated |
+|--------|---------|---------|
+| **Button text** | "Fetch Title" | "Fetch" |
+| **Trigger** | Button click only | Auto-fetch on paste (500ms debounce) + button |
+| **Overwrite** | Only empty fields | Always overwrite, unless dirty (show "Replace?" hint) |
+| **Field order** | URL → Title → Description → Tags | URL → Title → Tags → Description |
+| **Edit panel** | No description | Description + Fetch button |
+| **Story list** | No description visible | Description on hover (tooltip) |
 
 ---
 

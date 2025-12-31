@@ -9,36 +9,48 @@ Add functionality to automatically fetch the title and description from a URL wh
 ## User Stories
 
 ### Primary User Story
-As a user submitting a story to my library, I want to be able to click a "Fetch Title" button after entering a URL so that the title (and optionally description) fields are automatically populated with metadata from the webpage.
+As a user submitting a story to my library, I want metadata to be automatically fetched when I paste a URL so that the title and description fields are populated with minimal effort.
 
 ### Secondary User Stories
-- As a user, I want to see a loading state while the title is being fetched so I know the action is in progress
+- As a user, I want to see a loading state while metadata is being fetched so I know the action is in progress
 - As a user, I want to see an error message if the fetch fails (e.g., invalid URL, unreachable site) so I can take corrective action
 - As a user, I want the ability to edit the auto-populated title/description so I can customize it if needed
-- As a user, I want the fetch to only populate empty fields so my existing input isn't overwritten
+- As a user, I want a warning before my manually-edited content is overwritten by a fetch
+- As a user, I want to see the description on hover when browsing my saved stories
+- As a user, I want to edit the description when editing a story
 
 ## Behavior Decisions
 
-- **Trigger mechanism:** Button click only (no auto-fetch on paste)
+- **Trigger mechanism:** Auto-fetch on URL paste (500ms debounce) + manual "Fetch" button as fallback
 - **Fields populated:** Both title and description
-- **Overwrite behavior:** Only fill empty fields; preserve user-entered content
+- **Overwrite behavior:** Always overwrite, UNLESS field was manually edited (dirty state) - show confirmation hint
+- **Button naming:** "Fetch" (not "Fetch Title" - it fetches both title and description)
+- **Field order:** URL → Title → Tags → Description (put action items first, description is "nice to have")
+- **Description display:** Hover/tooltip reveal on story rows (not inline in list)
+- **Edit panel:** Include description field with same fetch capability
 
 ## Acceptance Criteria
 
 ### Must Have
-- [ ] "Fetch Title" button appears next to the URL input field
+- [ ] "Fetch" button appears next to the URL input field
+- [ ] Auto-fetch triggers on URL paste (500ms debounce)
 - [ ] Clicking the button fetches metadata from the entered URL
 - [ ] Title field is auto-populated with the page's `<title>` or `og:title`
 - [ ] Description field is auto-populated with `meta[name="description"]` or `og:description`
-- [ ] Only populate fields that are currently empty (preserve user input)
+- [ ] Fetched data overwrites existing values (unless field is dirty)
+- [ ] Dirty fields show confirmation hint before overwrite ("Replace?")
 - [ ] Loading state is displayed while fetching
 - [ ] Error state is displayed if fetch fails
 - [ ] User can still manually edit the auto-populated fields
+- [ ] Form field order: URL → Title → Tags → Description
+- [ ] Edit panel includes description field
+- [ ] Description visible on hover/tooltip in story list
 
 ### Should Have
 - [ ] Button is disabled when URL field is empty or invalid
 - [ ] Graceful handling of sites that block scraping
 - [ ] Reasonable timeout for slow sites (e.g., 10 seconds)
+- [ ] Edit panel has "Fetch" button for re-fetching metadata
 
 ### Could Have
 - [ ] Cache fetched metadata to avoid duplicate requests for same URL
