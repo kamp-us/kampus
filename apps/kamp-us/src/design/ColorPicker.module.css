@@ -1,0 +1,40 @@
+.Positioner {
+	z-index: 100;
+}
+
+.Popup {
+	background: var(--gray-1);
+	border: 1px solid var(--gray-6);
+	border-radius: var(--radius-4);
+	padding: var(--space-8);
+	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.Swatches {
+	display: grid;
+	grid-template-columns: repeat(4, 1fr);
+	gap: var(--space-8);
+}
+
+.Swatch {
+	width: 24px;
+	height: 24px;
+	border-radius: var(--radius-round);
+	border: 2px solid transparent;
+	cursor: pointer;
+	transition: transform 0.1s ease;
+	padding: 0;
+}
+
+.Swatch:hover {
+	transform: scale(1.15);
+}
+
+.Swatch[aria-pressed="true"] {
+	border-color: var(--gray-12);
+}
+
+.Swatch:focus-visible {
+	outline: 2px solid var(--sky-8);
+	outline-offset: 2px;
+}
