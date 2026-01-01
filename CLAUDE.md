@@ -33,6 +33,8 @@ Before committing, ensure code passes:
 
 Never commit code with lint errors or type failures.
 
+**Important:** Always use `pnpm exec` instead of `npx` for running package binaries.
+
 Note: `biome.jsonc` excludes `__generated__/` directories via `files.includes`. Use `biome check --write .` to check all files if needed.
 
 ## Architecture
