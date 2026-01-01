@@ -33,6 +33,8 @@ Before committing, ensure code passes:
 
 Never commit code with lint errors or type failures.
 
+**Important:** Always use `pnpm exec` instead of `npx` for running package binaries.
+
 Note: `biome.jsonc` excludes `__generated__/` directories via `files.includes`. Use `biome check --write .` to check all files if needed.
 
 ## Architecture
@@ -269,11 +271,17 @@ feature-name/
 - ID generation: `id("prefix")` from `@usirin/forge` (e.g., `id("story")`, `id("user")`)
 - Export DO classes from `src/index.ts`, add bindings in `wrangler.jsonc`
 
-### GraphQL
+### GraphQL (Backend)
 
 - **GQLoom** (`@gqloom/core`, `@gqloom/effect`) for schema definition using Effect Schema
 - **Relay** patterns for global IDs and cursor-based pagination
 - Helpers in `apps/worker/src/graphql/relay.ts`: `encodeGlobalId`, `decodeGlobalId`
+
+**Backend gotchas for Relay compatibility:**
+- Use `Schema.NullishOr` (not `NullOr`) for optional params - Relay sends `undefined`
+- Use `Schema.Int` (not `Number`) for pagination `first` param - Relay expects Int
+- Add `{identifier: "ulid"}` annotation to ID fields used with `@deleteEdge`
+- Types need Node interface for `@refetchable` - add to `NodeType` enum
 
 **Connection pattern:**
 ```typescript
@@ -310,6 +318,44 @@ resolve: async () => {
   };
 }
 ```
+
+### Relay (Frontend)
+
+**Pagination with `usePaginationFragment`:**
+```graphql
+fragment LibraryStoriesFragment on Library
+  @argumentDefinitions(first: {type: "Int", defaultValue: 20}, after: {type: "String"})
+  @refetchable(queryName: "LibraryStoriesPaginationQuery") {
+  stories(first: $first, after: $after) @connection(key: "Library_stories") {
+    __id        # Connection ID for mutations
+    totalCount  # For display (not auto-updated by directives)
+    edges { node { ...StoryFragment } }
+  }
+}
+```
+
+**Declarative mutation directives:**
+```graphql
+# Add to connection - use @prependNode with edgeTypeName
+mutation CreateStory($connections: [ID!]!) {
+  createStory(...) {
+    story @prependNode(connections: $connections, edgeTypeName: "StoryEdge") { id }
+  }
+}
+
+# Remove from connection - use @deleteEdge (field must be ID type)
+mutation DeleteStory($connections: [ID!]!) {
+  deleteStory(id: $id) {
+    deletedStoryId @deleteEdge(connections: $connections)
+  }
+}
+```
+
+**Key patterns:**
+- Query `__id` on connections to get connection ID for mutations
+- Declarative directives only update edges, not scalar fields like `totalCount`
+- Use `updater` function to manually update `totalCount` after mutations
+- Parent type must implement Node interface for `@refetchable` to work
 
 ### Code Style
 
@@ -402,6 +448,8 @@ describe('Feature', () => {
 - **Effect in worker** - Used via GQLoom's EffectWeaver, not direct Effect.gen
 - **Relay artifacts** - Run `pnpm --filter kamp-us run relay` after schema changes
 - **Design system className** - Props intentionally omit it; don't try to add styles
+- **Relay @refetchable requires Node** - Parent type must implement Node interface
+- **Relay pagination types** - Use `Schema.Int` not `Number`, `NullishOr` not `NullOr`
 
 ## Reference Implementations
 

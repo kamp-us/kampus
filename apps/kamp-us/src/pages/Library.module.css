@@ -347,3 +347,10 @@
 	outline: 2px solid var(--sky-8);
 	outline-offset: 1px;
 }
+
+/* Load more button */
+.loadMoreContainer {
+	display: flex;
+	justify-content: center;
+	padding: var(--space-24) 0;
+}

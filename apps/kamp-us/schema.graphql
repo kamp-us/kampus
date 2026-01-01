@@ -13,7 +13,7 @@ type CreateTagPayload {
 }
 
 type DeleteStoryPayload {
-  deletedStoryId: String
+  deletedStoryId: ID
   error: StoryNotFoundError
   success: Boolean!
 }
@@ -30,9 +30,10 @@ type InvalidTagNameError {
   tagName: String!
 }
 
-type Library {
-  stories(after: String, first: Float): StoryConnection!
-  storiesByTag(after: String, first: Float, tagName: String!): StoryConnection!
+type Library implements Node {
+  id: ID!
+  stories(after: String, first: Int): StoryConnection!
+  storiesByTag(after: String, first: Int, tagName: String!): StoryConnection!
   tags: [Tag!]!
 }
 
@@ -102,7 +103,7 @@ type Tag implements Node {
   createdAt: String!
   id: ID!
   name: String!
-  stories(after: String, first: Float): StoryConnection!
+  stories(after: String, first: Int): StoryConnection!
 }
 
 union TagError = InvalidTagNameError | TagNameExistsError

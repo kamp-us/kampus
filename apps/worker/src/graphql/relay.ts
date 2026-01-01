@@ -39,6 +39,7 @@ export function decodeGlobalId(globalId: string): {type: string; id: string} | n
 export const NodeType = {
 	Story: "Story",
 	Tag: "Tag",
+	Library: "Library",
 } as const;
 
 export type NodeTypeName = (typeof NodeType)[keyof typeof NodeType];

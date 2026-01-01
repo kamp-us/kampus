@@ -1,5 +1,5 @@
 /**
- * @generated SignedSource<<bcb307beeb4b6c2e3ecfa88720d4890a>>
+ * @generated SignedSource<<882239939d2018564d75c65f191da0a8>>
  * @lightSyntaxTransform
  * @nogrep
  */
@@ -30,76 +30,87 @@ export type TagManagementQuery = {
 };
 
 const node: ConcreteRequest = (function(){
-var v0 = [
-  {
-    "alias": null,
-    "args": null,
-    "concreteType": "User",
-    "kind": "LinkedField",
-    "name": "me",
-    "plural": false,
+var v0 = {
+  "alias": null,
+  "args": null,
+  "kind": "ScalarField",
+  "name": "id",
+  "storageKey": null
+},
+v1 = {
+  "alias": null,
+  "args": null,
+  "concreteType": "Tag",
+  "kind": "LinkedField",
+  "name": "tags",
+  "plural": true,
+  "selections": [
+    (v0/*: any*/),
+    {
+      "alias": null,
+      "args": null,
+      "kind": "ScalarField",
+      "name": "name",
+      "storageKey": null
+    },
+    {
+      "alias": null,
+      "args": null,
+      "kind": "ScalarField",
+      "name": "color",
+      "storageKey": null
+    },
+    {
+      "alias": null,
+      "args": [
+        {
+          "kind": "Literal",
+          "name": "first",
+          "value": 0
+        }
+      ],
+      "concreteType": "StoryConnection",
+      "kind": "LinkedField",
+      "name": "stories",
+      "plural": false,
+      "selections": [
+        {
+          "alias": null,
+          "args": null,
+          "kind": "ScalarField",
+          "name": "totalCount",
+          "storageKey": null
+        }
+      ],
+      "storageKey": "stories(first:0)"
+    }
+  ],
+  "storageKey": null
+};
+return {
+  "fragment": {
+    "argumentDefinitions": [],
+    "kind": "Fragment",
+    "metadata": null,
+    "name": "TagManagementQuery",
     "selections": [
       {
         "alias": null,
         "args": null,
-        "concreteType": "Library",
+        "concreteType": "User",
         "kind": "LinkedField",
-        "name": "library",
+        "name": "me",
         "plural": false,
         "selections": [
           {
             "alias": null,
             "args": null,
-            "concreteType": "Tag",
+            "concreteType": "Library",
             "kind": "LinkedField",
-            "name": "tags",
-            "plural": true,
+            "name": "library",
+            "plural": false,
             "selections": [
-              {
-                "alias": null,
-                "args": null,
-                "kind": "ScalarField",
-                "name": "id",
-                "storageKey": null
-              },
-              {
-                "alias": null,
-                "args": null,
-                "kind": "ScalarField",
-                "name": "name",
-                "storageKey": null
-              },
-              {
-                "alias": null,
-                "args": null,
-                "kind": "ScalarField",
-                "name": "color",
-                "storageKey": null
-              },
-              {
-                "alias": null,
-                "args": [
-                  {
-                    "kind": "Literal",
-                    "name": "first",
-                    "value": 0
-                  }
-                ],
-                "concreteType": "StoryConnection",
-                "kind": "LinkedField",
-                "name": "stories",
-                "plural": false,
-                "selections": [
-                  {
-                    "alias": null,
-                    "args": null,
-                    "kind": "ScalarField",
-                    "name": "totalCount",
-                    "storageKey": null
-                  }
-                ],
-                "storageKey": "stories(first:0)"
-              }
+              (v1/*: any*/)
             ],
             "storageKey": null
           }
@@ -107,16 +118,6 @@ var v0 = [
         "storageKey": null
       }
     ],
-    "storageKey": null
-  }
-];
-return {
-  "fragment": {
-    "argumentDefinitions": [],
-    "kind": "Fragment",
-    "metadata": null,
-    "name": "TagManagementQuery",
-    "selections": (v0/*: any*/),
     "type": "Query",
     "abstractKey": null
   },
@@ -125,15 +126,40 @@ return {
     "argumentDefinitions": [],
     "kind": "Operation",
     "name": "TagManagementQuery",
-    "selections": (v0/*: any*/)
+    "selections": [
+      {
+        "alias": null,
+        "args": null,
+        "concreteType": "User",
+        "kind": "LinkedField",
+        "name": "me",
+        "plural": false,
+        "selections": [
+          {
+            "alias": null,
+            "args": null,
+            "concreteType": "Library",
+            "kind": "LinkedField",
+            "name": "library",
+            "plural": false,
+            "selections": [
+              (v1/*: any*/),
+              (v0/*: any*/)
+            ],
+            "storageKey": null
+          }
+        ],
+        "storageKey": null
+      }
+    ]
   },
   "params": {
-    "cacheID": "32cf5a23eea936299e001483d3cf888d",
+    "cacheID": "1ce90fb0c6ccfd470d3677006f5ca2bc",
     "id": null,
     "metadata": {},
     "name": "TagManagementQuery",
     "operationKind": "query",
-    "text": "query TagManagementQuery {\n  me {\n    library {\n      tags {\n        id\n        name\n        color\n        stories(first: 0) {\n          totalCount\n        }\n      }\n    }\n  }\n}\n"
+    "text": "query TagManagementQuery {\n  me {\n    library {\n      tags {\n        id\n        name\n        color\n        stories(first: 0) {\n          totalCount\n        }\n      }\n      id\n    }\n  }\n}\n"
   }
 };
 })();
