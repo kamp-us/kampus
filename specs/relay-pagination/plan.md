@@ -65,7 +65,7 @@ Implement `usePaginationFragment` for the Library page with "Load More" function
 
 4. **Connection ID via `__id`** - Query for `__id` field on connections to get the connection ID for declarative directives.
 
-5. **totalCount requires updater** - Declarative directives (`@prependNode`, `@deleteEdge`) only handle edges, not scalar fields. Added `updater` functions to increment/decrement `totalCount`.
+5. **totalCount requires updater** - Declarative directives (`@prependNode`, `@deleteEdge`) only handle edges, not scalar fields. Added `updater` functions to increment/decrement `totalCount`. Extracted reusable `updateConnectionCount` helper.
 
 6. **onConnectionId callback pattern** - Form is outside Suspense boundary for UX (persists across view switches), so connection ID must be passed up from child views via callback.
 
@@ -77,6 +77,7 @@ Implement `usePaginationFragment` for the Library page with "Load More" function
 | `apps/worker/src/index.ts` | Library implements Node, pagination type fixes |
 | `apps/kamp-us/src/pages/Library.tsx` | Major refactor with usePaginationFragment |
 | `apps/kamp-us/src/pages/Library.module.css` | Add loadMoreContainer styles |
+| `apps/kamp-us/src/relay/updateConnectionCount.ts` | Helper function for totalCount updater |
 
 ## Success Criteria - ALL MET
 

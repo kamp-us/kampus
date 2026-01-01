@@ -188,19 +188,35 @@ mutation LibraryDeleteStoryMutation($id: String!, $connections: [ID!]!) {
 
 ### Updater Functions for totalCount
 
-Declarative directives only handle edges, not scalar fields. Use `updater` for `totalCount`:
+Declarative directives only handle edges, not scalar fields. Use `updater` for `totalCount`.
+
+**Helper utility** (`apps/kamp-us/src/relay/updateConnectionCount.ts`):
+
+```typescript
+import type {RecordSourceSelectorProxy} from "relay-runtime";
+
+export function updateConnectionCount(
+  store: RecordSourceSelectorProxy,
+  connectionId: string,
+  delta: number,
+) {
+  const connection = store.get(connectionId);
+  if (connection) {
+    const currentCount = connection.getValue("totalCount");
+    if (typeof currentCount === "number") {
+      connection.setValue(currentCount + delta, "totalCount");
+    }
+  }
+}
+```
+
+**Usage in mutations:**
 
 ```typescript
 commitStory({
   variables: { url, title, description, tagIds, connections: [connectionId] },
   updater: (store) => {
-    const connection = store.get(connectionId);
-    if (connection) {
-      const currentCount = connection.getValue("totalCount");
-      if (typeof currentCount === "number") {
-        connection.setValue(currentCount + 1, "totalCount");
-      }
-    }
+    updateConnectionCount(store, connectionId, 1);
   },
   onCompleted: ...
 });
@@ -208,13 +224,7 @@ commitStory({
 commitDelete({
   variables: { id: story.id, connections: [connectionId] },
   updater: (store) => {
-    const connection = store.get(connectionId);
-    if (connection) {
-      const currentCount = connection.getValue("totalCount");
-      if (typeof currentCount === "number") {
-        connection.setValue(currentCount - 1, "totalCount");
-      }
-    }
+    updateConnectionCount(store, connectionId, -1);
   },
   onCompleted: ...
 });
@@ -317,6 +327,7 @@ Moving `CreateStoryForm` inside each view component would give direct access to 
 | `apps/worker/src/index.ts` | Library implements Node, pagination type fixes, deletedStoryId ID annotation |
 | `apps/kamp-us/src/pages/Library.tsx` | usePaginationFragment, LoadMoreButton, onConnectionId callback, updater functions |
 | `apps/kamp-us/src/pages/Library.module.css` | Add `.loadMoreContainer` styles |
+| `apps/kamp-us/src/relay/updateConnectionCount.ts` | Helper function for updating totalCount in mutations |
 
 ## Generated Files
 
