@@ -11,4 +11,4 @@ Feature directory with completion status. Each feature follows the [spec-driven 
 - [ ] **[frontend-tag-filtering](./frontend-tag-filtering/)** - Filter stories by clicking tags (planned)
 - [x] **[frontend-tag-management](./frontend-tag-management/)** - Rename, recolor, delete tags
 - [ ] **[fetch-title-from-url](./fetch-title-from-url/)** - Auto-fetch title and description from URL when submitting stories
-- [ ] **[relay-pagination](./relay-pagination/)** - Implement usePaginationFragment for Library "Load More" functionality
+- [x] **[relay-pagination](./relay-pagination/)** - Implement usePaginationFragment for Library "Load More" functionality

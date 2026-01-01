@@ -1,5 +1,7 @@
 # Relay Pagination - Technical Design
 
+**Status: COMPLETED**
+
 ## Overview
 
 Migrate the Library page from manual pagination (using `useLazyLoadQuery` with `fetchKey` state) to proper Relay pagination using `usePaginationFragment`. This enables "Load More" functionality without full page refetches.
@@ -9,12 +11,13 @@ Migrate the Library page from manual pagination (using `useLazyLoadQuery` with `
 ### Current vs Target State
 
 ```
-CURRENT                                TARGET
+CURRENT                                TARGET (IMPLEMENTED)
 ────────────────────────────────────────────────────────────────
 LibraryQuery (root)                    LibraryQuery (root)
   └── me.library.stories(...)            └── me.library
         └── edges/pageInfo                     └── ...LibraryStoriesFragment
                                                      └── stories @connection
+                                                           └── __id, totalCount
                                                            └── edges/pageInfo
 
 useLazyLoadQuery + fetchKey state      useLazyLoadQuery + usePaginationFragment
@@ -26,25 +29,75 @@ No "Load More"                         loadNext() / hasNext / isLoadingNext
 ```
 Library.tsx
 ├── AuthenticatedLibrary
-│   ├── CreateStoryForm (unchanged)
-│   ├── AllStoriesView
-│   │   ├── useLazyLoadQuery(LibraryQuery)     # Fetches root + fragment
-│   │   ├── usePaginationFragment(StoriesFragment)  # NEW
-│   │   ├── StoryList
-│   │   │   └── StoryRow[] (uses useFragment)
-│   │   └── LoadMoreButton                     # NEW
-│   └── FilteredLibraryView
-│       ├── useLazyLoadQuery(FilteredQuery)
-│       ├── usePaginationFragment(FilteredStoriesFragment)  # NEW
-│       ├── StoryList
-│       └── LoadMoreButton                     # NEW
+│   ├── CreateStoryForm (connectionId from callback)
+│   ├── Suspense
+│   │   ├── AllStoriesView
+│   │   │   ├── useLazyLoadQuery(LibraryQuery)
+│   │   │   ├── usePaginationFragment(StoriesFragment)
+│   │   │   ├── onConnectionId callback (reports __id to parent)
+│   │   │   ├── StoryList
+│   │   │   │   └── StoryRow[] (uses useRefetchableFragment)
+│   │   │   └── LoadMoreButton
+│   │   └── FilteredLibraryView
+│   │       ├── useLazyLoadQuery(FilteredQuery)
+│   │       ├── usePaginationFragment(FilteredStoriesFragment)
+│   │       ├── onConnectionId callback
+│   │       ├── StoryList
+│   │       └── LoadMoreButton
 ```
 
-## GraphQL Changes
+## Backend Requirements
 
-### Fragment Definitions
+### Library Must Implement Node Interface
 
-**LibraryStoriesFragment** (for unfiltered view):
+For `@refetchable` to work, the parent type must implement the Node interface:
+
+```typescript
+// relay.ts
+export const NodeType = {
+  Story: "Story",
+  Tag: "Tag",
+  Library: "Library",  // Added
+} as const;
+
+// index.ts
+const Library = Schema.Struct({
+  __typename: Schema.optional(Schema.Literal("Library")),
+  id: Schema.String.annotations({identifier: "ulid"}),
+}).annotations({
+  title: "Library",
+  [asObjectType]: {interfaces: [NodeInterface]},
+});
+```
+
+### Pagination Input Types
+
+Relay sends `undefined` for optional params, not `null`. Use `NullishOr` and `Int`:
+
+```typescript
+stories: field(standard(StoryConnection))
+  .input({
+    first: standard(Schema.NullishOr(Schema.Int)),  // Not NullOr, not Number
+    after: standard(Schema.NullishOr(Schema.String)),
+  })
+```
+
+### DeleteStory Must Return ID Type
+
+For `@deleteEdge` directive, the ID field must have the ID annotation:
+
+```typescript
+const DeleteStoryPayload = Schema.Struct({
+  success: Schema.Boolean,
+  deletedStoryId: Schema.NullOr(Schema.String.annotations({identifier: "ulid"})),
+  error: Schema.NullOr(StoryNotFoundError),
+});
+```
+
+## GraphQL Fragments (Implemented)
+
+### LibraryStoriesFragment
+
 ```graphql
 fragment LibraryStoriesFragment on Library
   @argumentDefinitions(
@@ -54,20 +107,20 @@ fragment LibraryStoriesFragment on Library
   @refetchable(queryName: "LibraryStoriesPaginationQuery") {
   stories(first: $first, after: $after)
     @connection(key: "Library_stories") {
+    __id           # Connection ID for mutations
+    totalCount     # Total count for display
     edges {
       node {
+        id
         ...LibraryStoryFragment
       }
-    }
-    pageInfo {
-      hasNextPage
-      endCursor
     }
   }
 }
 ```
 
-**LibraryFilteredStoriesFragment** (for tag-filtered view):
+### LibraryFilteredStoriesFragment
+
 ```graphql
 fragment LibraryFilteredStoriesFragment on Library
   @argumentDefinitions(
@@ -78,38 +131,12 @@ fragment LibraryFilteredStoriesFragment on Library
   @refetchable(queryName: "LibraryFilteredStoriesPaginationQuery") {
   storiesByTag(tagName: $tagName, first: $first, after: $after)
     @connection(key: "Library_storiesByTag", filters: ["tagName"]) {
+    __id
+    totalCount
     edges {
       node {
         ...LibraryStoryFragment
       }
-    }
-    pageInfo {
-      hasNextPage
-      endCursor
-    }
-  }
-}
-```
-
-### Root Queries (Updated)
-
-**LibraryQuery** (includes fragment spread):
-```graphql
-query LibraryQuery($first: Int, $after: String) {
-  me {
-    library {
-      ...LibraryStoriesFragment @arguments(first: $first, after: $after)
-    }
-  }
-}
-```
-
-**LibraryFilteredQuery** (includes fragment spread):
-```graphql
-query LibraryFilteredQuery($tagName: String!, $first: Int, $after: String) {
-  me {
-    library {
-      ...LibraryFilteredStoriesFragment @arguments(tagName: $tagName, first: $first, after: $after)
     }
   }
 }
@@ -124,111 +151,9 @@ query LibraryFilteredQuery($tagName: String!, $first: Int, $after: String) {
 | `@connection(key: "...")` | Enables Relay connection handling, store updates |
 | `filters: ["tagName"]` | Separates connections by filter value in store |
 
-## Component Implementation
+## Mutation Directives
 
-### AllStoriesView
-
-```typescript
-function AllStoriesView({libraryRef, ...}) {
-  const {
-    data,
-    loadNext,
-    hasNext,
-    isLoadingNext,
-  } = usePaginationFragment<
-    LibraryStoriesPaginationQuery,
-    LibraryStoriesFragment$key
-  >(LibraryStoriesFragment, libraryRef);
-
-  const stories = data.stories.edges;
-
-  return (
-    <>
-      <StoryList stories={stories} ... />
-      {hasNext && (
-        <LoadMoreButton
-          onClick={() => loadNext(DEFAULT_PAGE_SIZE)}
-          isLoading={isLoadingNext}
-        />
-      )}
-    </>
-  );
-}
-```
-
-### FilteredLibraryView
-
-```typescript
-function FilteredLibraryView({libraryRef, tagName, ...}) {
-  const {
-    data,
-    loadNext,
-    hasNext,
-    isLoadingNext,
-  } = usePaginationFragment<
-    LibraryFilteredStoriesPaginationQuery,
-    LibraryFilteredStoriesFragment$key
-  >(LibraryFilteredStoriesFragment, libraryRef);
-
-  const stories = data.storiesByTag.edges;
-
-  return (
-    <>
-      <StoryList stories={stories} ... />
-      {hasNext && (
-        <LoadMoreButton
-          onClick={() => loadNext(DEFAULT_PAGE_SIZE)}
-          isLoading={isLoadingNext}
-        />
-      )}
-    </>
-  );
-}
-```
-
-### LoadMoreButton Component
-
-```typescript
-function LoadMoreButton({
-  onClick,
-  isLoading,
-}: {
-  onClick: () => void;
-  isLoading: boolean;
-}) {
-  return (
-    <div className={styles.loadMoreContainer}>
-      <Button
-        onClick={onClick}
-        disabled={isLoading}
-        aria-busy={isLoading}
-      >
-        {isLoading ? "Loading..." : "Load More"}
-      </Button>
-    </div>
-  );
-}
-```
-
-## Mutation Directives (Declarative Approach)
-
-Using Relay's declarative directives instead of imperative `updater` functions.
-
-### Getting Connection IDs
-
-Connection IDs are obtained from the fragment data's `__id` field:
-
-```typescript
-// In component using usePaginationFragment
-const {data, ...} = usePaginationFragment(LibraryStoriesFragment, libraryRef);
-
-// The connection ID is available on the connection field
-const connectionId = data.stories.__id;
-```
-
-### CreateStory - @prependNode
-
-Since `createStory` returns a node (not an edge), use `@prependNode` with `edgeTypeName`:
+### CreateStory with @prependNode
 
 ```graphql
 mutation LibraryCreateStoryMutation(
@@ -240,42 +165,16 @@ mutation LibraryCreateStoryMutation(
 ) {
   createStory(url: $url, title: $title, description: $description, tagIds: $tagIds) {
     story @prependNode(connections: $connections, edgeTypeName: "StoryEdge") {
-      id
-      url
-      title
-      description
-      createdAt
-      tags {
-        id
-        name
-        color
-      }
+      ...LibraryStoryFragment
     }
   }
 }
 ```
 
-```typescript
-// Usage
-commitStory({
-  variables: {
-    url,
-    title,
-    description,
-    tagIds,
-    connections: [connectionId],  // Pass connection ID
-  },
-  onCompleted: ...
-});
-```
-
-### DeleteStory - @deleteEdge
+### DeleteStory with @deleteEdge
 
 ```graphql
-mutation LibraryDeleteStoryMutation(
-  $id: String!
-  $connections: [ID!]!
-) {
+mutation LibraryDeleteStoryMutation($id: String!, $connections: [ID!]!) {
   deleteStory(id: $id) {
     success
     deletedStoryId @deleteEdge(connections: $connections)
@@ -287,35 +186,78 @@ mutation LibraryDeleteStoryMutation(
 }
 ```
 
+### Updater Functions for totalCount
+
+Declarative directives only handle edges, not scalar fields. Use `updater` for `totalCount`:
+
 ```typescript
-// Usage
+commitStory({
+  variables: { url, title, description, tagIds, connections: [connectionId] },
+  updater: (store) => {
+    const connection = store.get(connectionId);
+    if (connection) {
+      const currentCount = connection.getValue("totalCount");
+      if (typeof currentCount === "number") {
+        connection.setValue(currentCount + 1, "totalCount");
+      }
+    }
+  },
+  onCompleted: ...
+});
+
 commitDelete({
-  variables: {
-    id: storyId,
-    connections: [connectionId],  // Pass connection ID
+  variables: { id: story.id, connections: [connectionId] },
+  updater: (store) => {
+    const connection = store.get(connectionId);
+    if (connection) {
+      const currentCount = connection.getValue("totalCount");
+      if (typeof currentCount === "number") {
+        connection.setValue(currentCount - 1, "totalCount");
+      }
+    }
   },
   onCompleted: ...
 });
 ```
 
-### Passing Connection IDs to Forms
+## Connection ID Pattern
 
-The `CreateStoryForm` and `StoryRow` components need access to the connection ID. Pass it as a prop:
+### Why onConnectionId Callback?
+
+The `CreateStoryForm` lives outside the Suspense boundary (in `AuthenticatedLibrary`) so its state persists when switching between "all stories" and tag-filtered views. However, the connection ID (`__id`) is only available inside the Suspense boundary after data loads.
+
+Solution: Child views report connection ID to parent via callback:
 
 ```typescript
-// AllStoriesView
-<CreateStoryForm
-  connectionId={data.stories.__id}
-  ...
-/>
+function AuthenticatedLibrary() {
+  const [connectionId, setConnectionId] = useState<string | null>(null);
+  const handleConnectionId = useCallback((id: string) => setConnectionId(id), []);
 
-// StoryRow (for delete)
-<StoryRow
-  connectionId={data.stories.__id}
-  storyRef={node}
-  ...
-/>
+  return (
+    <>
+      <CreateStoryForm connectionId={connectionId} ... />
+      <Suspense>
+        <AllStoriesView onConnectionId={handleConnectionId} ... />
+      </Suspense>
+    </>
+  );
+}
+
+function AllStoriesView({ onConnectionId, ... }) {
+  const { data } = usePaginationFragment(...);
+  const connectionId = data.stories.__id;
+
+  useEffect(() => {
+    onConnectionId(connectionId);
+  }, [connectionId, onConnectionId]);
+
+  return ...;
+}
 ```
+
+### Alternative Considered: Form Inside Views
+
+Moving `CreateStoryForm` inside each view component would give direct access to `connectionId`, but causes UX regression - form state resets when switching views.
 
 ## Data Flow
 
@@ -330,10 +272,11 @@ The `CreateStoryForm` and `StoryRow` components need access to the connection ID
    │ LibraryStoriesFragment  │──────► usePaginationFragment
    └────────┬────────────────┘
             │ {data, loadNext, hasNext, isLoadingNext}
+            │ connectionId = data.stories.__id
             ▼
    ┌─────────────────┐
-   │ Render stories  │
-   │ + Load More btn │
+   │ onConnectionId  │──────► Parent receives connectionId
+   │ callback        │
    └─────────────────┘
 
 2. Load More
@@ -352,33 +295,38 @@ The `CreateStoryForm` and `StoryRow` components need access to the connection ID
    │ Re-render with  │
    │ all stories     │
    └─────────────────┘
+
+3. Create Story
+   ┌─────────────────┐
+   │ commitStory()   │
+   └────────┬────────┘
+            │ @prependNode adds to connection
+            │ updater increments totalCount
+            ▼
+   ┌─────────────────┐
+   │ Story appears   │
+   │ at top of list  │
+   └─────────────────┘
 ```
 
-## File Changes
+## File Changes Summary
 
 | File | Change |
 |------|--------|
-| `Library.tsx` | Replace `useLazyLoadQuery` patterns with `usePaginationFragment` |
-| `Library.tsx` | Add `LoadMoreButton` component |
-| `Library.tsx` | Update mutations to use `@prependNode` / `@deleteEdge` directives |
-| `Library.tsx` | Pass `connectionId` prop to `CreateStoryForm` and `StoryRow` |
-| `Library.tsx` | Remove imperative `updater` functions from mutations |
-| `Library.module.css` | Add `.loadMoreContainer` styles |
+| `apps/worker/src/graphql/relay.ts` | Add Library to NodeType |
+| `apps/worker/src/index.ts` | Library implements Node, pagination type fixes, deletedStoryId ID annotation |
+| `apps/kamp-us/src/pages/Library.tsx` | usePaginationFragment, LoadMoreButton, onConnectionId callback, updater functions |
+| `apps/kamp-us/src/pages/Library.module.css` | Add `.loadMoreContainer` styles |
 
-## Type Generation
+## Generated Files
 
-After updating GraphQL, run:
-```bash
-pnpm --filter kamp-us run relay
-```
-
-This generates:
+After running `pnpm --filter kamp-us run relay`:
 - `LibraryStoriesFragment.graphql.ts`
 - `LibraryStoriesPaginationQuery.graphql.ts`
 - `LibraryFilteredStoriesFragment.graphql.ts`
 - `LibraryFilteredStoriesPaginationQuery.graphql.ts`
 
-## Edge Cases
+## Edge Cases Handled
 
 ### Empty State
 - `hasNext` is false when connection is empty
@@ -387,20 +335,9 @@ This generates:
 ### Filter Switching
 - Each `tagName` filter has separate connection in store (due to `filters: ["tagName"]`)
 - Switching tags loads fresh data, doesn't carry over pagination state
+- Form state persists due to being outside Suspense
 
-### Mutation with Multiple Connections
-- CreateStory only prepends to `Library_stories` (unfiltered)
-- If user is viewing filtered, new story may not appear until filter cleared
-- Alternative: Also insert into filtered connection if tags match (future enhancement)
-
-## Testing Checklist
-
-- [ ] Initial load shows first 20 stories
-- [ ] "Load More" appears when > 20 stories exist
-- [ ] Clicking "Load More" appends next page
-- [ ] Button shows loading state during fetch
-- [ ] Button disappears when all loaded
-- [ ] Works with tag filtering
-- [ ] New story appears at top after creation
-- [ ] Deleted story removed from list
-- [ ] No console errors or Relay warnings
+### Connection ID Not Yet Available
+- Form renders with `connectionId: null` initially
+- Shows error "Cannot save - please wait for page to load" if submitted before data loads
+- In practice, data loads quickly so this is rare
