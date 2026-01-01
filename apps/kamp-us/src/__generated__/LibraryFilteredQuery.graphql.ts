@@ -1,5 +1,5 @@
 /**
- * @generated SignedSource<<282ab30bd55c6c28c34b954ecb45fe65>>
+ * @generated SignedSource<<71a8c8edfe531ef5e6a3f7fc8ec7b505>>
  * @lightSyntaxTransform
  * @nogrep
  */
@@ -282,12 +282,12 @@ return {
     ]
   },
   "params": {
-    "cacheID": "a866e414b3738bd467c06c17067c3ff9",
+    "cacheID": "b368947c319b5ee9100fd4b423d6dddd",
     "id": null,
     "metadata": {},
     "name": "LibraryFilteredQuery",
     "operationKind": "query",
-    "text": "query LibraryFilteredQuery(\n  $tagName: String!\n) {\n  me {\n    library {\n      ...LibraryFilteredStoriesFragment_kXqS8\n      id\n    }\n  }\n}\n\nfragment LibraryFilteredStoriesFragment_kXqS8 on Library {\n  storiesByTag(tagName: $tagName, first: 20) {\n    totalCount\n    edges {\n      node {\n        ...LibraryStoryFragment\n        id\n        __typename\n      }\n      cursor\n    }\n    pageInfo {\n      endCursor\n      hasNextPage\n    }\n  }\n  id\n}\n\nfragment LibraryStoryFragment on Story {\n  id\n  url\n  title\n  description\n  createdAt\n  tags {\n    id\n    name\n    color\n  }\n}\n"
+    "text": "query LibraryFilteredQuery(\n  $tagName: String!\n) {\n  me {\n    library {\n      ...LibraryFilteredStoriesFragment_kXqS8\n      id\n    }\n  }\n}\n\nfragment LibraryFilteredStoriesFragment_kXqS8 on Library {\n  storiesByTag(tagName: $tagName, first: 20) {\n    totalCount\n    edges {\n      node {\n        id\n        ...LibraryStoryFragment\n        __typename\n      }\n      cursor\n    }\n    pageInfo {\n      endCursor\n      hasNextPage\n    }\n  }\n  id\n}\n\nfragment LibraryStoryFragment on Story {\n  id\n  url\n  title\n  description\n  createdAt\n  tags {\n    id\n    name\n    color\n  }\n}\n"
   }
 };
 })();

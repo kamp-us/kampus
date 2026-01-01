@@ -42,6 +42,7 @@ import {Menu} from "../design/Menu";
 import {TagChip} from "../design/TagChip";
 import {type Tag, TagInput} from "../design/TagInput";
 import {Textarea} from "../design/Textarea";
+import {updateConnectionCount} from "../relay/updateConnectionCount";
 import styles from "./Library.module.css";
 
 const DEFAULT_PAGE_SIZE = 20;
@@ -95,6 +96,7 @@ const LibraryFilteredStoriesFragment = graphql`
 			totalCount
 			edges {
 				node {
+          id
 					...LibraryStoryFragment
 				}
 			}
@@ -627,14 +629,7 @@ function CreateStoryForm({
 				connections: [connectionId],
 			},
 			updater: (store) => {
-				// Update totalCount on the connection
-				const connection = store.get(connectionId);
-				if (connection) {
-					const currentCount = connection.getValue("totalCount");
-					if (typeof currentCount === "number") {
-						connection.setValue(currentCount + 1, "totalCount");
-					}
-				}
+				updateConnectionCount(store, connectionId, 1);
 			},
 			onCompleted: (response) => {
 				if (response.createStory.story) {
@@ -993,14 +988,7 @@ function StoryRow({
 		commitDelete({
 			variables: {id: story.id, connections: [connectionId]},
 			updater: (store) => {
-				// Update totalCount on the connection
-				const connection = store.get(connectionId);
-				if (connection) {
-					const currentCount = connection.getValue("totalCount");
-					if (typeof currentCount === "number") {
-						connection.setValue(currentCount - 1, "totalCount");
-					}
-				}
+				updateConnectionCount(store, connectionId, -1);
 			},
 			onCompleted: (response) => {
 				setDeleteDialogOpen(false);

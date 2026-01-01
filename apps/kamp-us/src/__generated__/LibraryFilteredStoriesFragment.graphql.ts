@@ -1,5 +1,5 @@
 /**
- * @generated SignedSource<<8e5af71c160b001143f797f8ba58e091>>
+ * @generated SignedSource<<9827b31fdc5a303f57a3cf5f3ccfccb5>>
  * @lightSyntaxTransform
  * @nogrep
  */
@@ -16,6 +16,7 @@ export type LibraryFilteredStoriesFragment$data = {
     readonly __id: string;
     readonly edges: ReadonlyArray<{
       readonly node: {
+        readonly id: string;
         readonly " $fragmentSpreads": FragmentRefs<"LibraryStoryFragment">;
       };
     }>;
@@ -33,7 +34,14 @@ import LibraryFilteredStoriesPaginationQuery_graphql from './LibraryFilteredStor
 const node: ReaderFragment = (function(){
 var v0 = [
   "storiesByTag"
-];
+],
+v1 = {
+  "alias": null,
+  "args": null,
+  "kind": "ScalarField",
+  "name": "id",
+  "storageKey": null
+};
 return {
   "argumentDefinitions": [
     {
@@ -120,6 +128,7 @@ return {
               "name": "node",
               "plural": false,
               "selections": [
+                (v1/*: any*/),
                 {
                   "args": null,
                   "kind": "FragmentSpread",
@@ -185,19 +194,13 @@ return {
       ],
       "storageKey": null
     },
-    {
-      "alias": null,
-      "args": null,
-      "kind": "ScalarField",
-      "name": "id",
-      "storageKey": null
-    }
+    (v1/*: any*/)
   ],
   "type": "Library",
   "abstractKey": null
 };
 })();
 
-(node as any).hash = "69dff20558e6dbf99bbb27ecd6e91ac7";
+(node as any).hash = "c0bb6c1abd8be227ff454810704ea7fb";
 
 export default node;
