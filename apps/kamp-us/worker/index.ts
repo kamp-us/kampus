@@ -16,13 +16,6 @@ export default {
 			return env.BACKEND.fetch(request);
 		}
 
-		// Legacy API endpoint
-		if (url.pathname.startsWith("/api/")) {
-			return Response.json({
-				name: "Umut",
-			});
-		}
-
 		return new Response(null, {status: 404});
 	},
 } satisfies ExportedHandler<Env>;
