@@ -155,7 +155,13 @@ const StoryConnection = Schema.Struct({
 	totalCount: Schema.Number,
 }).annotations({title: "StoryConnection"});
 
-const Library = Schema.Struct({}).annotations({title: "Library"});
+const Library = Schema.Struct({
+	__typename: Schema.optional(Schema.Literal("Library")),
+	id: Schema.String.annotations({identifier: "ulid"}),
+}).annotations({
+	title: "Library",
+	[asObjectType]: {interfaces: [NodeInterface]},
+});
 
 // Mutation payloads
 const StoryNotFoundError = Schema.Struct({
@@ -175,7 +181,7 @@ const UpdateStoryPayload = Schema.Struct({
 
 const DeleteStoryPayload = Schema.Struct({
 	success: Schema.Boolean,
-	deletedStoryId: Schema.NullOr(Schema.String),
+	deletedStoryId: Schema.NullOr(Schema.String.annotations({identifier: "ulid"})),
 	error: Schema.NullOr(StoryNotFoundError),
 }).annotations({title: "DeleteStoryPayload"});
 
@@ -239,8 +245,8 @@ const UrlMetadata = Schema.Struct({
 const libraryResolver = resolver.of(standard(Library), {
 	stories: field(standard(StoryConnection))
 		.input({
-			first: standard(Schema.NullOr(Schema.Number)),
-			after: standard(Schema.NullOr(Schema.String)),
+			first: standard(Schema.NullishOr(Schema.Int)),
+			after: standard(Schema.NullishOr(Schema.String)),
 		})
 		.resolve(async (_parent, input) => {
 			const ctx = useContext<GQLContext>();
@@ -278,8 +284,8 @@ const libraryResolver = resolver.of(standard(Library), {
 	storiesByTag: field(standard(StoryConnection))
 		.input({
 			tagName: standard(Schema.String),
-			first: standard(Schema.NullOr(Schema.Number)),
-			after: standard(Schema.NullOr(Schema.String)),
+			first: standard(Schema.NullishOr(Schema.Int)),
+			after: standard(Schema.NullishOr(Schema.String)),
 		})
 		.resolve(async (_parent, input) => {
 			const ctx = useContext<GQLContext>();
@@ -327,7 +333,15 @@ const libraryResolver = resolver.of(standard(Library), {
 });
 
 const userResolver = resolver.of(standard(User), {
-	library: field(standard(Library)).resolve(() => ({})),
+	library: field(standard(Library)).resolve(() => {
+		const ctx = useContext<GQLContext>();
+		if (!ctx.pasaport.user?.id) throw new Error("Unauthorized");
+
+		return {
+			__typename: "Library" as const,
+			id: encodeGlobalId(NodeType.Library, ctx.pasaport.user.id),
+		};
+	}),
 });
 
 const storyResolver = resolver.of(standard(Story), {
@@ -484,7 +498,7 @@ const storyResolver = resolver.of(standard(Story), {
 const tagResolver = resolver.of(standard(Tag), {
 	stories: field(standard(StoryConnection))
 		.input({
-			first: standard(Schema.NullishOr(Schema.Number)),
+			first: standard(Schema.NullishOr(Schema.Int)),
 			after: standard(Schema.NullishOr(Schema.String)),
 		})
 		.resolve(async (tag, input) => {
@@ -872,6 +886,15 @@ const nodeResolver = resolver({
 						name: tag.name,
 						color: tag.color,
 						createdAt: tag.createdAt.toISOString(),
+					};
+				}
+				case NodeType.Library: {
+					// Library is keyed by user ID, verify it matches the current user
+					if (decoded.id !== ctx.pasaport.user.id) return null;
+
+					return {
+						__typename: "Library" as const,
+						id: globalId,
 					};
 				}
 				default:
