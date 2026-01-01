@@ -1,5 +1,5 @@
 /**
- * @generated SignedSource<<58fd1a6185c280f05fc4554a3e885b01>>
+ * @generated SignedSource<<0c549c8d365928415753aa3c31ad1571>>
  * @lightSyntaxTransform
  * @nogrep
  */
@@ -10,28 +10,75 @@
 
 import { ConcreteRequest } from 'relay-runtime';
 import { FragmentRefs } from "relay-runtime";
-export type LibraryQuery$variables = Record<PropertyKey, never>;
-export type LibraryQuery$data = {
-  readonly me: {
-    readonly library: {
-      readonly " $fragmentSpreads": FragmentRefs<"LibraryStoriesFragment">;
-    };
-  };
+export type LibraryFilteredStoriesPaginationQuery$variables = {
+  after?: string | null | undefined;
+  first?: number | null | undefined;
+  id: string;
+  tagName: string;
 };
-export type LibraryQuery = {
-  response: LibraryQuery$data;
-  variables: LibraryQuery$variables;
+export type LibraryFilteredStoriesPaginationQuery$data = {
+  readonly node: {
+    readonly " $fragmentSpreads": FragmentRefs<"LibraryFilteredStoriesFragment">;
+  } | null | undefined;
+};
+export type LibraryFilteredStoriesPaginationQuery = {
+  response: LibraryFilteredStoriesPaginationQuery$data;
+  variables: LibraryFilteredStoriesPaginationQuery$variables;
 };
 
 const node: ConcreteRequest = (function(){
-var v0 = [
+var v0 = {
+  "defaultValue": null,
+  "kind": "LocalArgument",
+  "name": "after"
+},
+v1 = {
+  "defaultValue": 20,
+  "kind": "LocalArgument",
+  "name": "first"
+},
+v2 = {
+  "defaultValue": null,
+  "kind": "LocalArgument",
+  "name": "id"
+},
+v3 = {
+  "defaultValue": null,
+  "kind": "LocalArgument",
+  "name": "tagName"
+},
+v4 = [
   {
-    "kind": "Literal",
-    "name": "first",
-    "value": 20
+    "kind": "Variable",
+    "name": "id",
+    "variableName": "id"
   }
 ],
-v1 = {
+v5 = [
+  {
+    "kind": "Variable",
+    "name": "after",
+    "variableName": "after"
+  },
+  {
+    "kind": "Variable",
+    "name": "first",
+    "variableName": "first"
+  },
+  {
+    "kind": "Variable",
+    "name": "tagName",
+    "variableName": "tagName"
+  }
+],
+v6 = {
+  "alias": null,
+  "args": null,
+  "kind": "ScalarField",
+  "name": "__typename",
+  "storageKey": null
+},
+v7 = {
   "alias": null,
   "args": null,
   "kind": "ScalarField",
@@ -40,34 +87,28 @@ v1 = {
 };
 return {
   "fragment": {
-    "argumentDefinitions": [],
+    "argumentDefinitions": [
+      (v0/*: any*/),
+      (v1/*: any*/),
+      (v2/*: any*/),
+      (v3/*: any*/)
+    ],
     "kind": "Fragment",
     "metadata": null,
-    "name": "LibraryQuery",
+    "name": "LibraryFilteredStoriesPaginationQuery",
     "selections": [
       {
         "alias": null,
-        "args": null,
-        "concreteType": "User",
+        "args": (v4/*: any*/),
+        "concreteType": null,
         "kind": "LinkedField",
-        "name": "me",
+        "name": "node",
         "plural": false,
         "selections": [
           {
-            "alias": null,
-            "args": null,
-            "concreteType": "Library",
-            "kind": "LinkedField",
-            "name": "library",
-            "plural": false,
-            "selections": [
-              {
-                "args": null,
-                "kind": "FragmentSpread",
-                "name": "LibraryStoriesFragment"
-              }
-            ],
-            "storageKey": null
+            "args": (v5/*: any*/),
+            "kind": "FragmentSpread",
+            "name": "LibraryFilteredStoriesFragment"
           }
         ],
         "storageKey": null
@@ -78,32 +119,34 @@ return {
   },
   "kind": "Request",
   "operation": {
-    "argumentDefinitions": [],
+    "argumentDefinitions": [
+      (v0/*: any*/),
+      (v1/*: any*/),
+      (v3/*: any*/),
+      (v2/*: any*/)
+    ],
     "kind": "Operation",
-    "name": "LibraryQuery",
+    "name": "LibraryFilteredStoriesPaginationQuery",
     "selections": [
       {
         "alias": null,
-        "args": null,
-        "concreteType": "User",
+        "args": (v4/*: any*/),
+        "concreteType": null,
         "kind": "LinkedField",
-        "name": "me",
+        "name": "node",
         "plural": false,
         "selections": [
+          (v6/*: any*/),
+          (v7/*: any*/),
           {
-            "alias": null,
-            "args": null,
-            "concreteType": "Library",
-            "kind": "LinkedField",
-            "name": "library",
-            "plural": false,
+            "kind": "InlineFragment",
             "selections": [
               {
                 "alias": null,
-                "args": (v0/*: any*/),
+                "args": (v5/*: any*/),
                 "concreteType": "StoryConnection",
                 "kind": "LinkedField",
-                "name": "stories",
+                "name": "storiesByTag",
                 "plural": false,
                 "selections": [
                   {
@@ -129,7 +172,7 @@ return {
                         "name": "node",
                         "plural": false,
                         "selections": [
-                          (v1/*: any*/),
+                          (v7/*: any*/),
                           {
                             "alias": null,
                             "args": null,
@@ -166,7 +209,7 @@ return {
                             "name": "tags",
                             "plural": true,
                             "selections": [
-                              (v1/*: any*/),
+                              (v7/*: any*/),
                               {
                                 "alias": null,
                                 "args": null,
@@ -184,13 +227,7 @@ return {
                             ],
                             "storageKey": null
                           },
-                          {
-                            "alias": null,
-                            "args": null,
-                            "kind": "ScalarField",
-                            "name": "__typename",
-                            "storageKey": null
-                          }
+                          (v6/*: any*/)
                         ],
                         "storageKey": null
                       },
@@ -242,20 +279,22 @@ return {
                     ]
                   }
                 ],
-                "storageKey": "stories(first:20)"
+                "storageKey": null
               },
               {
                 "alias": null,
-                "args": (v0/*: any*/),
-                "filters": null,
+                "args": (v5/*: any*/),
+                "filters": [
+                  "tagName"
+                ],
                 "handle": "connection",
-                "key": "Library_stories",
+                "key": "Library_storiesByTag",
                 "kind": "LinkedHandle",
-                "name": "stories"
-              },
-              (v1/*: any*/)
+                "name": "storiesByTag"
+              }
             ],
-            "storageKey": null
+            "type": "Library",
+            "abstractKey": null
           }
         ],
         "storageKey": null
@@ -263,16 +302,16 @@ return {
     ]
   },
   "params": {
-    "cacheID": "89e8bdf50950c66fa6338759723f02be",
+    "cacheID": "6c10b89394bfc2feee53699194d3e829",
     "id": null,
     "metadata": {},
-    "name": "LibraryQuery",
+    "name": "LibraryFilteredStoriesPaginationQuery",
     "operationKind": "query",
-    "text": "query LibraryQuery {\n  me {\n    library {\n      ...LibraryStoriesFragment\n      id\n    }\n  }\n}\n\nfragment LibraryStoriesFragment on Library {\n  stories(first: 20) {\n    totalCount\n    edges {\n      node {\n        id\n        ...LibraryStoryFragment\n        __typename\n      }\n      cursor\n    }\n    pageInfo {\n      endCursor\n      hasNextPage\n    }\n  }\n  id\n}\n\nfragment LibraryStoryFragment on Story {\n  id\n  url\n  title\n  description\n  createdAt\n  tags {\n    id\n    name\n    color\n  }\n}\n"
+    "text": "query LibraryFilteredStoriesPaginationQuery(\n  $after: String\n  $first: Int = 20\n  $tagName: String!\n  $id: String!\n) {\n  node(id: $id) {\n    __typename\n    ...LibraryFilteredStoriesFragment_2WFizK\n    id\n  }\n}\n\nfragment LibraryFilteredStoriesFragment_2WFizK on Library {\n  storiesByTag(tagName: $tagName, first: $first, after: $after) {\n    totalCount\n    edges {\n      node {\n        ...LibraryStoryFragment\n        id\n        __typename\n      }\n      cursor\n    }\n    pageInfo {\n      endCursor\n      hasNextPage\n    }\n  }\n  id\n}\n\nfragment LibraryStoryFragment on Story {\n  id\n  url\n  title\n  description\n  createdAt\n  tags {\n    id\n    name\n    color\n  }\n}\n"
   }
 };
 })();
 
-(node as any).hash = "7768d0ed04c3bb169e8c6dd0c9d456d0";
+(node as any).hash = "69dff20558e6dbf99bbb27ecd6e91ac7";
 
 export default node;

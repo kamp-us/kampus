@@ -13,6 +13,7 @@ import {
 	graphql,
 	useLazyLoadQuery,
 	useMutation,
+	usePaginationFragment,
 	useRefetchableFragment,
 	useRelayEnvironment,
 } from "react-relay";
@@ -22,7 +23,11 @@ import type {LibraryCreateTagMutation} from "../__generated__/LibraryCreateTagMu
 import type {LibraryDeleteStoryMutation} from "../__generated__/LibraryDeleteStoryMutation.graphql";
 import type {LibraryFetchUrlMetadataQuery} from "../__generated__/LibraryFetchUrlMetadataQuery.graphql";
 import type {LibraryFilteredQuery as LibraryFilteredQueryType} from "../__generated__/LibraryFilteredQuery.graphql";
+import type {LibraryFilteredStoriesFragment$key} from "../__generated__/LibraryFilteredStoriesFragment.graphql";
+import type {LibraryFilteredStoriesPaginationQuery} from "../__generated__/LibraryFilteredStoriesPaginationQuery.graphql";
 import type {LibraryQuery as LibraryQueryType} from "../__generated__/LibraryQuery.graphql";
+import type {LibraryStoriesFragment$key} from "../__generated__/LibraryStoriesFragment.graphql";
+import type {LibraryStoriesPaginationQuery} from "../__generated__/LibraryStoriesPaginationQuery.graphql";
 import type {LibraryStoryFragment$key} from "../__generated__/LibraryStoryFragment.graphql";
 import type {LibraryTagsQuery as LibraryTagsQueryType} from "../__generated__/LibraryTagsQuery.graphql";
 import type {LibraryUpdateStoryMutation} from "../__generated__/LibraryUpdateStoryMutation.graphql";
@@ -56,43 +61,62 @@ const StoryFragment = graphql`
 	}
 `;
 
-const LibraryQuery = graphql`
-	query LibraryQuery($first: Float!, $after: String) {
-		me {
-			library {
-				stories(first: $first, after: $after) {
-					edges {
-						node {
-							...LibraryStoryFragment
-						}
-						cursor
-					}
-					pageInfo {
-						hasNextPage
-						endCursor
-					}
+const LibraryStoriesFragment = graphql`
+	fragment LibraryStoriesFragment on Library
+	@argumentDefinitions(
+		first: {type: "Int", defaultValue: 20}
+		after: {type: "String"}
+	)
+	@refetchable(queryName: "LibraryStoriesPaginationQuery") {
+		stories(first: $first, after: $after) @connection(key: "Library_stories") {
+			__id
+			totalCount
+			edges {
+				node {
+          id
+					...LibraryStoryFragment
 				}
 			}
 		}
 	}
 `;
 
-const LibraryFilteredQuery = graphql`
-	query LibraryFilteredQuery($tagName: String!, $first: Float!, $after: String) {
+const LibraryFilteredStoriesFragment = graphql`
+	fragment LibraryFilteredStoriesFragment on Library
+	@argumentDefinitions(
+		tagName: {type: "String!"}
+		first: {type: "Int", defaultValue: 20}
+		after: {type: "String"}
+	)
+	@refetchable(queryName: "LibraryFilteredStoriesPaginationQuery") {
+		storiesByTag(tagName: $tagName, first: $first, after: $after)
+		@connection(key: "Library_storiesByTag", filters: ["tagName"]) {
+			__id
+			totalCount
+			edges {
+				node {
+					...LibraryStoryFragment
+				}
+			}
+		}
+	}
+`;
+
+const LibraryQuery = graphql`
+	query LibraryQuery {
 		me {
 			library {
-				storiesByTag(tagName: $tagName, first: $first, after: $after) {
-					edges {
-						node {
-							...LibraryStoryFragment
-						}
-						cursor
-					}
-					pageInfo {
-						hasNextPage
-						endCursor
-					}
-				}
+				...LibraryStoriesFragment
+			}
+		}
+	}
+`;
+
+const LibraryFilteredQuery = graphql`
+	query LibraryFilteredQuery($tagName: String!) {
+		me {
+			library {
+				...LibraryFilteredStoriesFragment @arguments(tagName: $tagName)
 			}
 		}
 	}
@@ -135,18 +159,16 @@ const CreateTagMutation = graphql`
 `;
 
 const CreateStoryMutation = graphql`
-	mutation LibraryCreateStoryMutation($url: String!, $title: String!, $description: String, $tagIds: [String!]) {
+	mutation LibraryCreateStoryMutation(
+		$url: String!
+		$title: String!
+		$description: String
+		$tagIds: [String!]
+		$connections: [ID!]!
+	) {
 		createStory(url: $url, title: $title, description: $description, tagIds: $tagIds) {
-			story {
-				id
-				url
-				title
-				createdAt
-				tags {
-					id
-					name
-					color
-				}
+			story @prependNode(connections: $connections, edgeTypeName: "StoryEdge") {
+				...LibraryStoryFragment
 			}
 		}
 	}
@@ -186,10 +208,10 @@ const UpdateStoryMutation = graphql`
 `;
 
 const DeleteStoryMutation = graphql`
-	mutation LibraryDeleteStoryMutation($id: String!) {
+	mutation LibraryDeleteStoryMutation($id: String!, $connections: [ID!]!) {
 		deleteStory(id: $id) {
 			success
-			deletedStoryId
+			deletedStoryId @deleteEdge(connections: $connections)
 			error {
 				code
 				message
@@ -395,6 +417,16 @@ function FilteredEmptyState({
 	);
 }
 
+function LoadMoreButton({onClick, isLoading}: {onClick: () => void; isLoading: boolean}) {
+	return (
+		<div className={styles.loadMoreContainer}>
+			<Button onClick={onClick} disabled={isLoading}>
+				{isLoading ? "Loading..." : "Load More"}
+			</Button>
+		</div>
+	);
+}
+
 function CreateStoryForm({
 	isExpanded,
 	onExpand,
@@ -402,6 +434,7 @@ function CreateStoryForm({
 	availableTags,
 	onTagCreate,
 	initialTags = [],
+	connectionId,
 }: {
 	isExpanded: boolean;
 	onExpand: () => void;
@@ -409,6 +442,7 @@ function CreateStoryForm({
 	availableTags: Tag[];
 	onTagCreate: (tag: Tag) => void;
 	initialTags?: Tag[];
+	connectionId: string | null;
 }) {
 	const environment = useRelayEnvironment();
 	const [url, setUrl] = useState("");
@@ -577,10 +611,31 @@ function CreateStoryForm({
 		e.preventDefault();
 		setError(null);
 
+		if (!connectionId) {
+			setError("Cannot save - please wait for page to load");
+			return;
+		}
+
 		const tagIds = selectedTags.length > 0 ? selectedTags.map((t) => t.id) : null;
 
 		commitStory({
-			variables: {url, title, description: description || null, tagIds},
+			variables: {
+				url,
+				title,
+				description: description || null,
+				tagIds,
+				connections: [connectionId],
+			},
+			updater: (store) => {
+				// Update totalCount on the connection
+				const connection = store.get(connectionId);
+				if (connection) {
+					const currentCount = connection.getValue("totalCount");
+					if (typeof currentCount === "number") {
+						connection.setValue(currentCount + 1, "totalCount");
+					}
+				}
+			},
 			onCompleted: (response) => {
 				if (response.createStory.story) {
 					setUrl("");
@@ -595,23 +650,6 @@ function CreateStoryForm({
 				}
 			},
 			onError: (err) => setError(err.message),
-			updater: (store) => {
-				const payload = store.getRootField("createStory");
-				const newStory = payload?.getLinkedRecord("story");
-				if (!newStory) return;
-
-				const root = store.getRoot();
-				const me = root.getLinkedRecord("me");
-				const library = me?.getLinkedRecord("library");
-				const connection = library?.getLinkedRecord("stories", {first: DEFAULT_PAGE_SIZE});
-				if (!connection) return;
-
-				const edges = connection.getLinkedRecords("edges") ?? [];
-				const newEdge = store.create(`edge:${newStory.getDataID()}`, "StoryEdge");
-				newEdge.setLinkedRecord(newStory, "node");
-				newEdge.setValue(newStory.getDataID(), "cursor");
-				connection.setLinkedRecords([newEdge, ...edges], "edges");
-			},
 		});
 	};
 
@@ -656,11 +694,7 @@ function CreateStoryForm({
 								required
 								autoFocus
 							/>
-							<Button
-								type="button"
-								onClick={handleFetchMetadata}
-								disabled={!isValidUrl || isFetching}
-							>
+							<Button onClick={handleFetchMetadata} disabled={!isValidUrl || isFetching}>
 								{isFetching ? "Fetching..." : "Fetch"}
 							</Button>
 						</div>
@@ -761,14 +795,14 @@ function CreateStoryForm({
 
 function StoryRow({
 	storyRef,
-	onStoryDeleted,
 	availableTags,
 	onTagCreate,
+	connectionId,
 }: {
 	storyRef: LibraryStoryFragment$key;
-	onStoryDeleted: () => void;
 	availableTags: Tag[];
 	onTagCreate: (tag: Tag) => void;
+	connectionId: string;
 }) {
 	const environment = useRelayEnvironment();
 	const [story] = useRefetchableFragment(StoryFragment, storyRef);
@@ -957,13 +991,21 @@ function StoryRow({
 	const handleDelete = () => {
 		setError(null);
 		commitDelete({
-			variables: {id: story.id},
+			variables: {id: story.id, connections: [connectionId]},
+			updater: (store) => {
+				// Update totalCount on the connection
+				const connection = store.get(connectionId);
+				if (connection) {
+					const currentCount = connection.getValue("totalCount");
+					if (typeof currentCount === "number") {
+						connection.setValue(currentCount - 1, "totalCount");
+					}
+				}
+			},
 			onCompleted: (response) => {
 				setDeleteDialogOpen(false);
 				if (response.deleteStory.error) {
 					setError(response.deleteStory.error.message);
-				} else if (response.deleteStory.success) {
-					onStoryDeleted();
 				}
 			},
 			onError: (err) => {
@@ -1011,7 +1053,7 @@ function StoryRow({
 								</div>
 							)}
 						</div>
-						<Button type="button" onClick={handleFetchMetadata} disabled={isFetching}>
+						<Button onClick={handleFetchMetadata} disabled={isFetching}>
 							{isFetching ? "Fetching..." : "Fetch"}
 						</Button>
 					</div>
@@ -1050,10 +1092,10 @@ function StoryRow({
 						)}
 					</div>
 					<div className={styles.editActions}>
-						<Button type="button" onClick={handleCancelEdit} disabled={isUpdating}>
+						<Button onClick={handleCancelEdit} disabled={isUpdating}>
 							Cancel
 						</Button>
-						<Button type="button" onClick={handleSaveEdit} disabled={isUpdating}>
+						<Button onClick={handleSaveEdit} disabled={isUpdating}>
 							{isUpdating ? "Saving..." : "Save"}
 						</Button>
 					</div>
@@ -1139,6 +1181,7 @@ function StoryRow({
 
 function AuthenticatedLibrary() {
 	const [isFormExpanded, setIsFormExpanded] = useState(false);
+	const [connectionId, setConnectionId] = useState<string | null>(null);
 	const {activeTag, clearFilter} = useTagFilter();
 	const {tags: availableTags, addTag} = useAvailableTags();
 
@@ -1149,6 +1192,7 @@ function AuthenticatedLibrary() {
 
 	const handleExpand = () => setIsFormExpanded(true);
 	const handleCollapse = () => setIsFormExpanded(false);
+	const handleConnectionId = useCallback((id: string) => setConnectionId(id), []);
 
 	// Prepopulate form with active filter tag
 	const initialTags = activeTagDetails ? [activeTagDetails] : [];
@@ -1170,6 +1214,7 @@ function AuthenticatedLibrary() {
 				availableTags={availableTags}
 				onTagCreate={addTag}
 				initialTags={initialTags}
+				connectionId={connectionId}
 			/>
 
 			<Suspense fallback={<LibrarySkeleton />}>
@@ -1180,12 +1225,14 @@ function AuthenticatedLibrary() {
 						availableTags={availableTags}
 						addTag={addTag}
 						onClearFilter={clearFilter}
+						onConnectionId={handleConnectionId}
 					/>
 				) : (
 					<AllStoriesView
 						availableTags={availableTags}
 						addTag={addTag}
 						onFormExpand={handleExpand}
+						onConnectionId={handleConnectionId}
 					/>
 				)}
 			</Suspense>
@@ -1197,46 +1244,55 @@ function AllStoriesView({
 	availableTags,
 	addTag,
 	onFormExpand,
+	onConnectionId,
 }: {
 	availableTags: Tag[];
 	addTag: (tag: Tag) => void;
 	onFormExpand: () => void;
+	onConnectionId: (id: string) => void;
 }) {
-	const [fetchKey, setFetchKey] = useState(0);
-	const data = useLazyLoadQuery<LibraryQueryType>(
-		LibraryQuery,
-		{first: DEFAULT_PAGE_SIZE},
-		{fetchKey, fetchPolicy: fetchKey > 0 ? "network-only" : "store-or-network"},
-	);
+	const queryData = useLazyLoadQuery<LibraryQueryType>(LibraryQuery, {});
 
-	const stories = data.me.library.stories.edges;
+	const {data, loadNext, hasNext, isLoadingNext} = usePaginationFragment<
+		LibraryStoriesPaginationQuery,
+		LibraryStoriesFragment$key
+	>(LibraryStoriesFragment, queryData.me.library);
+
+	const stories = data.stories.edges;
 	const hasStories = stories.length > 0;
+	const connectionId = data.stories.__id;
 
-	const handleRefetch = useCallback(() => {
-		setFetchKey((k) => k + 1);
-	}, []);
+	// Report connectionId to parent for CreateStoryForm
+	useEffect(() => {
+		onConnectionId(connectionId);
+	}, [connectionId, onConnectionId]);
 
 	return (
 		<>
 			<TagFilterRow
 				activeTag={null}
 				tagDetails={null}
-				storyCount={stories.length}
+				storyCount={data.stories.totalCount}
 				onClearFilter={() => {}}
 			/>
 
 			{hasStories ? (
-				<div className={styles.storyList}>
-					{stories.map(({node, cursor}) => (
-						<StoryRow
-							key={cursor}
-							storyRef={node}
-							onStoryDeleted={handleRefetch}
-							availableTags={availableTags}
-							onTagCreate={addTag}
-						/>
-					))}
-				</div>
+				<>
+					<div className={styles.storyList}>
+						{stories.map(({node}) => (
+							<StoryRow
+								key={node.id}
+								storyRef={node}
+								availableTags={availableTags}
+								onTagCreate={addTag}
+								connectionId={connectionId}
+							/>
+						))}
+					</div>
+					{hasNext && (
+						<LoadMoreButton onClick={() => loadNext(DEFAULT_PAGE_SIZE)} isLoading={isLoadingNext} />
+					)}
+				</>
 			) : (
 				<EmptyState onAddClick={onFormExpand} />
 			)}
@@ -1250,48 +1306,57 @@ function FilteredLibraryView({
 	availableTags,
 	addTag,
 	onClearFilter,
+	onConnectionId,
 }: {
 	tagName: string;
 	tagDetails: {name: string; color: string} | null;
 	availableTags: Tag[];
 	addTag: (tag: Tag) => void;
 	onClearFilter: () => void;
+	onConnectionId: (id: string) => void;
 }) {
-	const [fetchKey, setFetchKey] = useState(0);
-	const data = useLazyLoadQuery<LibraryFilteredQueryType>(
-		LibraryFilteredQuery,
-		{tagName, first: DEFAULT_PAGE_SIZE},
-		{fetchKey, fetchPolicy: fetchKey > 0 ? "network-only" : "store-or-network"},
-	);
+	const queryData = useLazyLoadQuery<LibraryFilteredQueryType>(LibraryFilteredQuery, {tagName});
 
-	const stories = data.me.library.storiesByTag.edges;
+	const {data, loadNext, hasNext, isLoadingNext} = usePaginationFragment<
+		LibraryFilteredStoriesPaginationQuery,
+		LibraryFilteredStoriesFragment$key
+	>(LibraryFilteredStoriesFragment, queryData.me.library);
+
+	const stories = data.storiesByTag.edges;
 	const hasStories = stories.length > 0;
+	const connectionId = data.storiesByTag.__id;
 
-	const handleRefetch = useCallback(() => {
-		setFetchKey((k) => k + 1);
-	}, []);
+	// Report connectionId to parent for CreateStoryForm
+	useEffect(() => {
+		onConnectionId(connectionId);
+	}, [connectionId, onConnectionId]);
 
 	return (
 		<>
 			<TagFilterRow
 				activeTag={tagName}
 				tagDetails={tagDetails}
-				storyCount={stories.length}
+				storyCount={data.storiesByTag.totalCount}
 				onClearFilter={onClearFilter}
 			/>
 
 			{hasStories ? (
-				<div className={styles.storyList}>
-					{stories.map(({node, cursor}) => (
-						<StoryRow
-							key={cursor}
-							storyRef={node}
-							onStoryDeleted={handleRefetch}
-							availableTags={availableTags}
-							onTagCreate={addTag}
-						/>
-					))}
-				</div>
+				<>
+					<div className={styles.storyList}>
+						{stories.map(({node}) => (
+							<StoryRow
+								key={node.id}
+								storyRef={node}
+								availableTags={availableTags}
+								onTagCreate={addTag}
+								connectionId={connectionId}
+							/>
+						))}
+					</div>
+					{hasNext && (
+						<LoadMoreButton onClick={() => loadNext(DEFAULT_PAGE_SIZE)} isLoading={isLoadingNext} />
+					)}
+				</>
 			) : (
 				<FilteredEmptyState tagName={tagName} onClearFilter={onClearFilter} />
 			)}
