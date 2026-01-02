@@ -5,6 +5,7 @@ import {
 	useCallback,
 	useEffect,
 	useMemo,
+	useRef,
 	useState,
 } from "react";
 import {
@@ -70,6 +71,25 @@ interface StoryCreateEvent {
 interface StoryDeleteEvent {
 	type: "story:delete";
 	deletedStoryId: string;
+}
+
+interface TagPayload {
+	id: string;
+	name: string;
+	color: string;
+	createdAt: string;
+}
+
+interface StoryTagEvent {
+	type: "story:tag";
+	storyId: string;
+	tags: TagPayload[];
+}
+
+interface StoryUntagEvent {
+	type: "story:untag";
+	storyId: string;
+	tagIds: string[];
 }
 
 interface LibraryEvent {
@@ -171,6 +191,57 @@ function useLibrarySubscription(connectionId: string | null) {
 								return node.getDataID() !== globalId && nodeId !== globalId;
 							});
 							connection.setLinkedRecords(newEdges, "edges");
+						});
+					}
+
+					// Handle story:tag event - add tags to story
+					if (event.type === "story:tag") {
+						const tagEvent = event as StoryTagEvent;
+						environment.commitUpdate((store) => {
+							// Find the story record by global ID
+							const storyRecord = store.get(tagEvent.storyId);
+							if (!storyRecord) return;
+
+							// Get current tags
+							const currentTags = storyRecord.getLinkedRecords("tags") || [];
+							const currentTagIds = new Set(currentTags.map((t) => t.getDataID()).filter(Boolean));
+
+							// Create or get records for new tags and merge
+							const newTagRecords = tagEvent.tags
+								.filter((t) => !currentTagIds.has(t.id))
+								.map((tag) => {
+									let tagRecord = store.get(tag.id);
+									if (!tagRecord) {
+										tagRecord = store.create(tag.id, "Tag");
+										tagRecord.setValue(tag.id, "id");
+										tagRecord.setValue(tag.name, "name");
+										tagRecord.setValue(tag.color, "color");
+									}
+									return tagRecord;
+								});
+
+							// Merge existing and new tags
+							storyRecord.setLinkedRecords([...currentTags, ...newTagRecords], "tags");
+						});
+					}
+
+					// Handle story:untag event - remove tags from story
+					if (event.type === "story:untag") {
+						const untagEvent = event as StoryUntagEvent;
+						environment.commitUpdate((store) => {
+							const storyRecord = store.get(untagEvent.storyId);
+							if (!storyRecord) return;
+
+							const currentTags = storyRecord.getLinkedRecords("tags") || [];
+							const tagIdsToRemove = new Set(untagEvent.tagIds);
+
+							// Filter out removed tags
+							const remainingTags = currentTags.filter((t) => {
+								const tagId = t.getDataID();
+								return tagId && !tagIdsToRemove.has(tagId);
+							});
+
+							storyRecord.setLinkedRecords(remainingTags, "tags");
 						});
 					}
 				},

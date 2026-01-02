@@ -433,15 +433,16 @@ export class Library extends DurableObject<Env> {
 			return;
 		}
 
-		// Verify all tags exist before creating associations
+		// Verify all tags exist before creating associations - fetch full tag data
 		const existingTags = await this.db
-			.select({id: schema.tag.id})
+			.select()
 			.from(schema.tag)
 			.where(inArray(schema.tag.id, tagIds))
 			.all();
 
 		const existingTagIds = new Set(existingTags.map((t) => t.id));
 		const validTagIds = tagIds.filter((id) => existingTagIds.has(id));
+		const validTags = existingTags.filter((t) => validTagIds.includes(t.id));
 
 		// Batch insert with ON CONFLICT DO NOTHING for idempotency
 		if (validTagIds.length > 0) {
@@ -450,11 +451,11 @@ export class Library extends DurableObject<Env> {
 				.values(validTagIds.map((tagId) => ({storyId, tagId})))
 				.onConflictDoNothing();
 
-			// Publish event
+			// Publish event with full tag data
 			await this.publishToLibrary({
 				type: "story:tag",
 				storyId: encodeGlobalId(NodeType.Story, storyId),
-				tagIds: validTagIds.map((id) => encodeGlobalId(NodeType.Tag, id)),
+				tags: validTags.map((t) => this.toTagPayload(t)),
 			});
 		}
 	}

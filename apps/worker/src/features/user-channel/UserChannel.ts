@@ -151,12 +151,12 @@ export class UserChannel extends DurableObject<Env> {
 	 * Handle WebSocket close.
 	 */
 	async webSocketClose(
-		_ws: WebSocket,
-		_code: number,
-		_reason: string,
+		ws: WebSocket,
+		code: number,
+		reason: string,
 		_wasClean: boolean,
 	): Promise<void> {
-		// Connection closed - no cleanup needed as Cloudflare handles it
+		ws.close(code, reason);
 	}
 
 	/**

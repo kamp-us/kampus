@@ -25,6 +25,6 @@ export type LibraryEvent =
 	| {type: "tag:create"; tag: TagPayload}
 	| {type: "tag:update"; tag: TagPayload}
 	| {type: "tag:delete"; deletedTagId: string}
-	| {type: "story:tag"; storyId: string; tagIds: string[]}
+	| {type: "story:tag"; storyId: string; tags: TagPayload[]}
 	| {type: "story:untag"; storyId: string; tagIds: string[]}
 	| {type: "library:change"; totalStories: number; totalTags: number};
