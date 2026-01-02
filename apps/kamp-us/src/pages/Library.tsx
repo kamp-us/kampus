@@ -1,3 +1,4 @@
+import {type Client, createClient} from "graphql-ws";
 import {
 	Component,
 	type ReactNode,
@@ -31,7 +32,7 @@ import type {LibraryStoriesPaginationQuery} from "../__generated__/LibraryStorie
 import type {LibraryStoryFragment$key} from "../__generated__/LibraryStoryFragment.graphql";
 import type {LibraryTagsQuery as LibraryTagsQueryType} from "../__generated__/LibraryTagsQuery.graphql";
 import type {LibraryUpdateStoryMutation} from "../__generated__/LibraryUpdateStoryMutation.graphql";
-import {useAuth} from "../auth/AuthContext";
+import {getStoredToken, useAuth} from "../auth/AuthContext";
 import {AlertDialog} from "../design/AlertDialog";
 import {Button} from "../design/Button";
 import {Field} from "../design/Field";
@@ -42,10 +43,173 @@ import {Menu} from "../design/Menu";
 import {TagChip} from "../design/TagChip";
 import {type Tag, TagInput} from "../design/TagInput";
 import {Textarea} from "../design/Textarea";
-import {updateConnectionCount} from "../relay/updateConnectionCount";
 import styles from "./Library.module.css";
 
 const DEFAULT_PAGE_SIZE = 20;
+
+// --- Library Channel Subscription Hook ---
+
+interface LibraryChangeEvent {
+	type: "library:change";
+	totalStories: number;
+	totalTags: number;
+}
+
+interface StoryPayload {
+	id: string;
+	url: string;
+	title: string;
+	description: string | null;
+	createdAt: string;
+}
+
+interface StoryCreateEvent {
+	type: "story:create";
+	story: StoryPayload;
+}
+
+interface StoryDeleteEvent {
+	type: "story:delete";
+	deletedStoryId: string;
+}
+
+interface LibraryEvent {
+	type: string;
+	[key: string]: unknown;
+}
+
+function getWebSocketUrl(): string {
+	const token = getStoredToken();
+	const tokenParam = token ? `?token=${encodeURIComponent(token)}` : "";
+
+	// In development, connect directly to the backend worker
+	// In production, use the same host (proxied through kamp-us worker)
+	if (import.meta.env.DEV) {
+		return `ws://localhost:8787/graphql${tokenParam}`;
+	}
+	return `${window.location.protocol === "https:" ? "wss:" : "ws:"}//${window.location.host}/graphql${tokenParam}`;
+}
+
+/**
+ * Hook to subscribe to library channel events and update the Relay store.
+ * Uses graphql-ws directly since we don't have subscription types in the schema yet.
+ */
+function useLibrarySubscription(connectionId: string | null) {
+	const environment = useRelayEnvironment();
+	const clientRef = useRef<Client | null>(null);
+
+	useEffect(() => {
+		if (!connectionId) return;
+
+		// Create WebSocket client
+		const client = createClient({
+			url: getWebSocketUrl(),
+			retryAttempts: Infinity,
+			shouldRetry: () => true,
+			retryWait: (retryCount) => {
+				const delay = Math.min(1000 * 2 ** retryCount, 30000);
+				return new Promise((resolve) => setTimeout(resolve, delay));
+			},
+		});
+		clientRef.current = client;
+
+		// Subscribe to library channel
+		// The query format matches what UserChannel DO expects
+		const unsubscribe = client.subscribe(
+			{
+				query: 'subscription { channel(name: "library") { type } }',
+			},
+			{
+				next: (result) => {
+					console.log("[Library Subscription] Received:", result);
+					const event = (result.data as {channel: LibraryEvent} | undefined)?.channel;
+					console.log("[Library Subscription] Parsed event:", event);
+					if (!event) return;
+
+					// Handle library:change event - update totalCount in Relay store
+					if (event.type === "library:change") {
+						const changeEvent = event as LibraryChangeEvent;
+						console.log("[Library Subscription] Updating totalCount to:", changeEvent.totalStories);
+						environment.commitUpdate((store) => {
+							const connection = store.get(connectionId);
+							if (connection) {
+								connection.setValue(changeEvent.totalStories, "totalCount");
+							}
+						});
+					}
+
+					// Handle story:create event - add story to connection
+					if (event.type === "story:create") {
+						const createEvent = event as StoryCreateEvent;
+						console.log("[Library Subscription] Adding story:", createEvent.story.id);
+						environment.commitUpdate((store) => {
+							const connection = store.get(connectionId);
+							if (!connection) return;
+
+							// Check if story already exists (avoid duplicates from own mutation)
+							const edges = connection.getLinkedRecords("edges") || [];
+							const exists = edges.some((edge) => {
+								const node = edge?.getLinkedRecord("node");
+								return node?.getDataID() === createEvent.story.id;
+							});
+							if (exists) {
+								console.log("[Library Subscription] Story already exists, skipping");
+								return;
+							}
+
+							// Create story record
+							const storyRecord = store.create(createEvent.story.id, "Story");
+							storyRecord.setValue(createEvent.story.id, "id");
+							storyRecord.setValue(createEvent.story.url, "url");
+							storyRecord.setValue(createEvent.story.title, "title");
+							storyRecord.setValue(createEvent.story.description, "description");
+							storyRecord.setValue(createEvent.story.createdAt, "createdAt");
+							storyRecord.setLinkedRecords([], "tags");
+
+							// Create edge and prepend to connection
+							const edgeId = `client:edge:${createEvent.story.id}`;
+							const edge = store.create(edgeId, "StoryEdge");
+							edge.setLinkedRecord(storyRecord, "node");
+							edge.setValue(createEvent.story.id, "cursor");
+
+							const newEdges = [edge, ...edges];
+							connection.setLinkedRecords(newEdges, "edges");
+						});
+					}
+
+					// Handle story:delete event - remove story from connection
+					if (event.type === "story:delete") {
+						const deleteEvent = event as StoryDeleteEvent;
+						console.log("[Library Subscription] Removing story:", deleteEvent.deletedStoryId);
+						environment.commitUpdate((store) => {
+							const connection = store.get(connectionId);
+							if (!connection) return;
+
+							const edges = connection.getLinkedRecords("edges") || [];
+							const newEdges = edges.filter((edge) => {
+								const node = edge?.getLinkedRecord("node");
+								return node?.getDataID() !== deleteEvent.deletedStoryId;
+							});
+							connection.setLinkedRecords(newEdges, "edges");
+						});
+					}
+				},
+				error: (error) => {
+					console.error("[Library Subscription] Error:", error);
+				},
+				complete: () => {
+					console.log("[Library Subscription] Complete");
+				},
+			},
+		);
+
+		return () => {
+			unsubscribe();
+			client.dispose();
+			clientRef.current = null;
+		};
+	}, [connectionId, environment]);
+}
 
 const StoryFragment = graphql`
 	fragment LibraryStoryFragment on Story @refetchable(queryName: "LibraryStoryRefetchQuery") {
@@ -628,9 +792,6 @@ function CreateStoryForm({
 				tagIds,
 				connections: [connectionId],
 			},
-			updater: (store) => {
-				updateConnectionCount(store, connectionId, 1);
-			},
 			onCompleted: (response) => {
 				if (response.createStory.story) {
 					setUrl("");
@@ -987,9 +1148,6 @@ function StoryRow({
 		setError(null);
 		commitDelete({
 			variables: {id: story.id, connections: [connectionId]},
-			updater: (store) => {
-				updateConnectionCount(store, connectionId, -1);
-			},
 			onCompleted: (response) => {
 				setDeleteDialogOpen(false);
 				if (response.deleteStory.error) {
@@ -1172,6 +1330,9 @@ function AuthenticatedLibrary() {
 	const [connectionId, setConnectionId] = useState<string | null>(null);
 	const {activeTag, clearFilter} = useTagFilter();
 	const {tags: availableTags, addTag} = useAvailableTags();
+
+	// Subscribe to library channel for real-time updates
+	useLibrarySubscription(connectionId);
 
 	// Find tag details for the active filter
 	const activeTagDetails = activeTag
