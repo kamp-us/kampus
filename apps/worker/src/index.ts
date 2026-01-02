@@ -21,6 +21,7 @@ import {decodeGlobalId, encodeGlobalId, NodeType} from "./graphql/relay";
 
 export {Library} from "./features/library/Library";
 export {Pasaport} from "./features/pasaport/pasaport";
+export {UserChannel} from "./features/user-channel/UserChannel";
 export {WebPageParser} from "./features/web-page-parser/WebPageParser";
 
 const standard = Schema.standardSchemaV1;
@@ -242,6 +243,17 @@ const UrlMetadata = Schema.Struct({
 
 // --- Library Resolvers ---
 
+/**
+ * Helper to get a user's Library DO and ensure it's initialized with the owner ID.
+ * This is needed so the Library can publish events to the user's UserChannel.
+ */
+async function getLibrary(ctx: GQLContext, userId: string) {
+	const libraryId = ctx.env.LIBRARY.idFromName(userId);
+	const lib = ctx.env.LIBRARY.get(libraryId);
+	await lib.init(userId);
+	return lib;
+}
+
 const libraryResolver = resolver.of(standard(Library), {
 	stories: field(standard(StoryConnection))
 		.input({
@@ -259,8 +271,7 @@ const libraryResolver = resolver.of(standard(Library), {
 				afterLocalId = decoded?.id;
 			}
 
-			const libraryId = ctx.env.LIBRARY.idFromName(ctx.pasaport.user.id);
-			const lib = ctx.env.LIBRARY.get(libraryId);
+			const lib = await getLibrary(ctx, ctx.pasaport.user.id);
 			const result = await lib.listStories({
 				first: input.first ?? 20,
 				after: afterLocalId,
@@ -298,8 +309,7 @@ const libraryResolver = resolver.of(standard(Library), {
 				afterLocalId = decoded?.id;
 			}
 
-			const libraryId = ctx.env.LIBRARY.idFromName(ctx.pasaport.user.id);
-			const lib = ctx.env.LIBRARY.get(libraryId);
+			const lib = await getLibrary(ctx, ctx.pasaport.user.id);
 			const result = await lib.getStoriesByTagName(input.tagName, {
 				first: input.first ?? 20,
 				after: afterLocalId,
@@ -324,8 +334,7 @@ const libraryResolver = resolver.of(standard(Library), {
 		const ctx = useContext<GQLContext>();
 		if (!ctx.pasaport.user?.id) throw new Error("Unauthorized");
 
-		const libraryId = ctx.env.LIBRARY.idFromName(ctx.pasaport.user.id);
-		const lib = ctx.env.LIBRARY.get(libraryId);
+		const lib = await getLibrary(ctx, ctx.pasaport.user.id);
 		const tags = await lib.listTags();
 
 		return tags.map(toTagNode);
@@ -353,8 +362,7 @@ const storyResolver = resolver.of(standard(Story), {
 		const decoded = decodeGlobalId(story.id);
 		if (!decoded) return [];
 
-		const libraryId = ctx.env.LIBRARY.idFromName(ctx.pasaport.user.id);
-		const lib = ctx.env.LIBRARY.get(libraryId);
+		const lib = await getLibrary(ctx, ctx.pasaport.user.id);
 		const tags = await lib.getTagsForStory(decoded.id);
 
 		return tags.map(toTagNode);
@@ -371,8 +379,7 @@ const storyResolver = resolver.of(standard(Story), {
 			const ctx = useContext<GQLContext>();
 			if (!ctx.pasaport.user?.id) throw new Error("Unauthorized");
 
-			const libraryId = ctx.env.LIBRARY.idFromName(ctx.pasaport.user.id);
-			const lib = ctx.env.LIBRARY.get(libraryId);
+			const lib = await getLibrary(ctx, ctx.pasaport.user.id);
 			const story = await lib.createStory({url, title, description: description ?? undefined});
 
 			// Tag the story if tagIds provided
@@ -413,8 +420,7 @@ const storyResolver = resolver.of(standard(Story), {
 				};
 			}
 
-			const libraryId = ctx.env.LIBRARY.idFromName(ctx.pasaport.user.id);
-			const lib = ctx.env.LIBRARY.get(libraryId);
+			const lib = await getLibrary(ctx, ctx.pasaport.user.id);
 			// null means "don't change", empty string means "clear", other string means "set to value"
 			const story = await lib.updateStory(decoded.id, {
 				title: title ?? undefined,
@@ -469,8 +475,7 @@ const storyResolver = resolver.of(standard(Story), {
 				};
 			}
 
-			const libraryId = ctx.env.LIBRARY.idFromName(ctx.pasaport.user.id);
-			const lib = ctx.env.LIBRARY.get(libraryId);
+			const lib = await getLibrary(ctx, ctx.pasaport.user.id);
 
 			const deleted = await lib.deleteStory(decoded.id);
 			if (!deleted) {
@@ -526,8 +531,7 @@ const tagResolver = resolver.of(standard(Tag), {
 				afterLocalId = decoded?.id;
 			}
 
-			const libraryId = ctx.env.LIBRARY.idFromName(ctx.pasaport.user.id);
-			const lib = ctx.env.LIBRARY.get(libraryId);
+			const lib = await getLibrary(ctx, ctx.pasaport.user.id);
 			const result = await lib.getStoriesByTagName(tag.name, {
 				first: input.first ?? 0,
 				after: afterLocalId,
@@ -560,8 +564,7 @@ const tagResolver = resolver.of(standard(Tag), {
 			const ctx = useContext<GQLContext>();
 			if (!ctx.pasaport.user?.id) throw new Error("Unauthorized");
 
-			const libraryId = ctx.env.LIBRARY.idFromName(ctx.pasaport.user.id);
-			const lib = ctx.env.LIBRARY.get(libraryId);
+			const lib = await getLibrary(ctx, ctx.pasaport.user.id);
 
 			try {
 				const tag = await lib.createTag(name, color);
@@ -615,8 +618,7 @@ const tagResolver = resolver.of(standard(Tag), {
 				};
 			}
 
-			const libraryId = ctx.env.LIBRARY.idFromName(ctx.pasaport.user.id);
-			const lib = ctx.env.LIBRARY.get(libraryId);
+			const lib = await getLibrary(ctx, ctx.pasaport.user.id);
 
 			try {
 				const tag = await lib.updateTag(decoded.id, {
@@ -684,8 +686,7 @@ const tagResolver = resolver.of(standard(Tag), {
 				};
 			}
 
-			const libraryId = ctx.env.LIBRARY.idFromName(ctx.pasaport.user.id);
-			const lib = ctx.env.LIBRARY.get(libraryId);
+			const lib = await getLibrary(ctx, ctx.pasaport.user.id);
 
 			const existing = await lib.getTag(decoded.id);
 			if (!existing) {
@@ -859,8 +860,7 @@ const nodeResolver = resolver({
 			}
 
 			// Get user's library
-			const libraryId = ctx.env.LIBRARY.idFromName(ctx.pasaport.user.id);
-			const lib = ctx.env.LIBRARY.get(libraryId);
+			const lib = await getLibrary(ctx, ctx.pasaport.user.id);
 
 			// Route to appropriate fetcher based on type
 			switch (decoded.type) {
@@ -919,6 +919,50 @@ const schema = weave(
 app.get("/graphql/schema", (c) => {
 	const schemaText = printSchema(lexicographicSortSchema(schema));
 	return c.text(schemaText);
+});
+
+// WebSocket upgrade routing - must be before GraphQL Yoga
+app.use("/graphql", async (c, next) => {
+	const upgradeHeader = c.req.header("Upgrade");
+	if (upgradeHeader?.toLowerCase() === "websocket") {
+		const pasaport = c.env.PASAPORT.getByName("kampus");
+
+		// Try to get token from query param (for WebSocket which can't send custom headers)
+		// or from Authorization header
+		const url = new URL(c.req.url);
+		const tokenFromQuery = url.searchParams.get("token");
+		const authHeader = c.req.header("Authorization");
+		const tokenFromHeader = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
+		const token = tokenFromQuery || tokenFromHeader;
+
+		let userId: string | null = null;
+
+		if (token) {
+			// Validate bearer token
+			const sessionData = await pasaport.validateBearerToken(token);
+			userId = sessionData?.user?.id ?? null;
+		} else {
+			// Fall back to cookie-based session (for same-origin connections)
+			const forwardedHeaders = new Headers(c.req.raw.headers);
+			const sessionData = await pasaport.validateSession(forwardedHeaders);
+			userId = sessionData?.user?.id ?? null;
+		}
+
+		if (!userId) {
+			return new Response("Unauthorized", {status: 401});
+		}
+
+		// Route to user's UserChannel DO
+		const channelId = c.env.USER_CHANNEL.idFromName(userId);
+		const userChannel = c.env.USER_CHANNEL.get(channelId);
+
+		// Ensure owner is set
+		await userChannel.setOwner(userId);
+
+		return userChannel.fetch(c.req.raw);
+	}
+
+	return next();
 });
 
 app.use("/graphql", async (c) => {
