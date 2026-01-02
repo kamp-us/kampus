@@ -925,34 +925,26 @@ app.get("/graphql/schema", (c) => {
 app.use("/graphql", async (c, next) => {
 	const upgradeHeader = c.req.header("Upgrade");
 	if (upgradeHeader?.toLowerCase() === "websocket") {
-		const pasaport = c.env.PASAPORT.getByName("kampus");
-
-		// Try to get token from query param (for WebSocket which can't send custom headers)
-		// or from Authorization header
 		const url = new URL(c.req.url);
-		const tokenFromQuery = url.searchParams.get("token");
-		const authHeader = c.req.header("Authorization");
-		const tokenFromHeader = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
-		const token = tokenFromQuery || tokenFromHeader;
 
-		let userId: string | null = null;
+		// Get userId from URL for routing (token is validated in DO via connectionParams)
+		// This is safe because the DO validates the token matches the expected user
+		let userId = url.searchParams.get("userId");
 
-		if (token) {
-			// Validate bearer token
-			const sessionData = await pasaport.validateBearerToken(token);
-			userId = sessionData?.user?.id ?? null;
-		} else {
-			// Fall back to cookie-based session (for same-origin connections)
+		// Fallback: try cookie-based session for same-origin connections
+		if (!userId) {
+			const pasaport = c.env.PASAPORT.getByName("kampus");
 			const forwardedHeaders = new Headers(c.req.raw.headers);
 			const sessionData = await pasaport.validateSession(forwardedHeaders);
 			userId = sessionData?.user?.id ?? null;
 		}
 
 		if (!userId) {
-			return new Response("Unauthorized", {status: 401});
+			return new Response("Unauthorized: userId required", {status: 401});
 		}
 
 		// Route to user's UserChannel DO
+		// The DO will validate the token from connectionParams
 		const channelId = c.env.USER_CHANNEL.idFromName(userId);
 		const userChannel = c.env.USER_CHANNEL.get(channelId);
 

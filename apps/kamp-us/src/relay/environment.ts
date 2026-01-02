@@ -1,4 +1,4 @@
-import {type Client, createClient} from "graphql-ws";
+import {type Client, type CloseCode, createClient} from "graphql-ws";
 import {
 	Environment,
 	type FetchFunction,
@@ -35,11 +35,35 @@ const fetchQuery: FetchFunction = async (operation, variables) => {
 	return (await response.json()) as GraphQLResponse;
 };
 
+/**
+ * Close codes that indicate auth/permission errors - don't retry these.
+ */
+const NON_RETRYABLE_CLOSE_CODES: CloseCode[] = [
+	4401, // Unauthorized
+	4403, // Forbidden
+	4400, // Bad Request
+];
+
 function createSubscriptionClient(): Client {
 	return createClient({
 		url: getWebSocketUrl(),
+		// Pass token via connectionParams (encrypted in WSS) instead of URL
+		connectionParams: () => {
+			const token = getStoredToken();
+			return token ? {token} : {};
+		},
 		retryAttempts: Infinity,
-		shouldRetry: () => true,
+		shouldRetry: (closeEvent) => {
+			// Don't retry on auth/permission errors
+			if (closeEvent && "code" in closeEvent) {
+				const code = (closeEvent as CloseEvent).code as CloseCode;
+				if (NON_RETRYABLE_CLOSE_CODES.includes(code)) {
+					console.warn(`[Subscription] Not retrying due to close code ${code}`);
+					return false;
+				}
+			}
+			return true;
+		},
 		retryWait: (retryCount) => {
 			// Exponential backoff: 1s, 2s, 4s, 8s, max 30s
 			const delay = Math.min(1000 * 2 ** retryCount, 30000);

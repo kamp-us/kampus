@@ -127,7 +127,7 @@ export class UserChannel extends DurableObject<Env> {
 
 		switch (parsed.type) {
 			case "connection_init":
-				await this.handleConnectionInit(ws, state);
+				await this.handleConnectionInit(ws, state, parsed.payload);
 				break;
 
 			case "subscribe":
@@ -226,7 +226,11 @@ export class UserChannel extends DurableObject<Env> {
 
 	// --- Private methods ---
 
-	private async handleConnectionInit(ws: WebSocket, state: ConnectionState): Promise<void> {
+	private async handleConnectionInit(
+		ws: WebSocket,
+		state: ConnectionState,
+		payload?: Record<string, unknown>,
+	): Promise<void> {
 		if (state.state !== "awaiting_init") {
 			this.closeWithError(ws, 4429, "Too many initialisation requests");
 			return;
@@ -240,6 +244,27 @@ export class UserChannel extends DurableObject<Env> {
 
 		if (!this.ownerId) {
 			this.closeWithError(ws, 4403, "Forbidden");
+			return;
+		}
+
+		// Validate token from connectionParams
+		const token = payload?.token;
+		if (typeof token !== "string" || !token) {
+			this.closeWithError(ws, 4401, "Unauthorized: token required");
+			return;
+		}
+
+		// Validate the token and verify it matches this channel's owner
+		const pasaport = this.env.PASAPORT.getByName("kampus");
+		const sessionData = await pasaport.validateBearerToken(token);
+
+		if (!sessionData?.user?.id) {
+			this.closeWithError(ws, 4401, "Unauthorized: invalid token");
+			return;
+		}
+
+		if (sessionData.user.id !== this.ownerId) {
+			this.closeWithError(ws, 4403, "Forbidden: token does not match channel owner");
 			return;
 		}
 

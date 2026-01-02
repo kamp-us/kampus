@@ -87,3 +87,16 @@ export function getStoredToken(): string | null {
 	}
 	return null;
 }
+
+export function getStoredUserId(): string | null {
+	try {
+		const stored = localStorage.getItem(STORAGE_KEY);
+		if (stored) {
+			const parsed = JSON.parse(stored);
+			return parsed.user?.id || null;
+		}
+	} catch {
+		// Ignore
+	}
+	return null;
+}
