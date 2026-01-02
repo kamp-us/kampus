@@ -2,6 +2,7 @@ import {DurableObject} from "cloudflare:workers";
 import {and, desc, eq, inArray, lt, sql} from "drizzle-orm";
 import {drizzle} from "drizzle-orm/durable-sqlite";
 import {migrate} from "drizzle-orm/durable-sqlite/migrator";
+import {encodeGlobalId, NodeType} from "../../graphql/relay";
 import * as schema from "./drizzle/drizzle.schema";
 import migrations from "./drizzle/migrations/migrations";
 import {getNormalizedUrl} from "./getNormalizedUrl";
@@ -12,20 +13,97 @@ import {
 	TagNameExistsError,
 	validateTagName,
 } from "./schema";
+import type {LibraryEvent, StoryPayload, TagPayload} from "./subscription-types";
 
 // keyed by user id
 export class Library extends DurableObject<Env> {
 	db = drizzle(this.ctx.storage, {schema});
+	private ownerId: string | undefined = undefined;
 
 	constructor(ctx: DurableObjectState, env: Env) {
 		super(ctx, env);
 		this.ctx.blockConcurrencyWhile(async () => {
 			await migrate(this.db, migrations);
+			this.ownerId = await this.ctx.storage.get<string>("owner");
 		});
 	}
 
 	async init(owner: string) {
+		this.ownerId = owner;
 		await this.ctx.storage.put("owner", owner);
+	}
+
+	// --- Subscription helpers ---
+
+	private getUserChannel() {
+		if (!this.ownerId) {
+			throw new Error("Library has no owner");
+		}
+		const channelId = this.env.USER_CHANNEL.idFromName(this.ownerId);
+		return this.env.USER_CHANNEL.get(channelId);
+	}
+
+	private async publishToLibrary(event: LibraryEvent): Promise<void> {
+		try {
+			const userChannel = this.getUserChannel();
+			await userChannel.publish("library", event);
+		} catch (error) {
+			// Log but don't throw - mutation succeeded, broadcast is best-effort
+			console.error("Failed to publish event:", error);
+		}
+	}
+
+	private async publishLibraryChange(counts?: {stories?: number; tags?: number}): Promise<void> {
+		// Use provided counts or query fresh counts
+		const totalStories = counts?.stories ?? (await this.getStoryCount());
+		const totalTags = counts?.tags ?? (await this.getTagCount());
+		console.log(`[Library] publishLibraryChange: totalStories=${totalStories}, totalTags=${totalTags}`);
+
+		await this.publishToLibrary({
+			type: "library:change",
+			totalStories,
+			totalTags,
+		});
+	}
+
+	private async getStoryCount(): Promise<number> {
+		const result = await this.db.select({count: sql<number>`count(*)`}).from(schema.story);
+		return result[0]?.count ?? 0;
+	}
+
+	private async getTagCount(): Promise<number> {
+		const result = await this.db.select({count: sql<number>`count(*)`}).from(schema.tag);
+		return result[0]?.count ?? 0;
+	}
+
+	private toStoryPayload(story: {
+		id: string;
+		url: string;
+		title: string;
+		description?: string | null;
+		createdAt: string;
+	}): StoryPayload {
+		return {
+			id: encodeGlobalId(NodeType.Story, story.id),
+			url: story.url,
+			title: story.title,
+			description: story.description ?? null,
+			createdAt: story.createdAt,
+		};
+	}
+
+	private toTagPayload(tag: {
+		id: string;
+		name: string;
+		color: string;
+		createdAt: Date;
+	}): TagPayload {
+		return {
+			id: encodeGlobalId(NodeType.Tag, tag.id),
+			name: tag.name,
+			color: tag.color,
+			createdAt: tag.createdAt.toISOString(),
+		};
 	}
 
 	async createStory(options: {url: string; title: string; description?: string}) {
@@ -38,15 +116,33 @@ export class Library extends DurableObject<Env> {
 			throw new Error("Invalid URL format");
 		}
 
-		const [story] = await this.db
-			.insert(schema.story)
-			.values({url, normalizedUrl: getNormalizedUrl(url), title, description})
-			.returning();
+		// Use transaction to ensure insert and count are atomic
+		const result = await this.db.transaction(async (tx) => {
+			const [story] = await tx
+				.insert(schema.story)
+				.values({url, normalizedUrl: getNormalizedUrl(url), title, description})
+				.returning();
 
-		return {
-			...story,
-			createdAt: story.createdAt.toISOString(),
+			// Get count within same transaction
+			const countResult = await tx.select({count: sql<number>`count(*)`}).from(schema.story);
+			const totalStories = countResult[0]?.count ?? 0;
+
+			return {story, totalStories};
+		});
+
+		const storyResult = {
+			...result.story,
+			createdAt: result.story.createdAt.toISOString(),
 		};
+
+		// Publish events with accurate count
+		await this.publishToLibrary({
+			type: "story:create",
+			story: this.toStoryPayload(storyResult),
+		});
+		await this.publishLibraryChange({stories: result.totalStories});
+
+		return storyResult;
 	}
 
 	// Story CRUD methods
@@ -100,7 +196,7 @@ export class Library extends DurableObject<Env> {
 			return await this.getStory(id);
 		}
 
-		return await this.db.transaction(async (tx) => {
+		const storyResult = await this.db.transaction(async (tx) => {
 			const existing = await tx.select().from(schema.story).where(eq(schema.story.id, id)).get();
 			if (!existing) return null;
 
@@ -121,20 +217,45 @@ export class Library extends DurableObject<Env> {
 				createdAt: story.createdAt.toISOString(),
 			};
 		});
+
+		// Publish event if story was updated
+		if (storyResult) {
+			await this.publishToLibrary({
+				type: "story:update",
+				story: this.toStoryPayload(storyResult),
+			});
+		}
+
+		return storyResult;
 	}
 
 	async deleteStory(id: string) {
-		return await this.db.transaction(async (tx) => {
+		const result = await this.db.transaction(async (tx) => {
 			const existing = await tx.select().from(schema.story).where(eq(schema.story.id, id)).get();
-			if (!existing) return false;
+			if (!existing) return {deleted: false, totalStories: 0};
 
 			// Delete tag associations first (cascade)
 			await tx.delete(schema.storyTag).where(eq(schema.storyTag.storyId, id));
 			// Then delete story
 			await tx.delete(schema.story).where(eq(schema.story.id, id));
 
-			return true;
+			// Get count within same transaction
+			const countResult = await tx.select({count: sql<number>`count(*)`}).from(schema.story);
+			const totalStories = countResult[0]?.count ?? 0;
+
+			return {deleted: true, totalStories};
 		});
+
+		// Publish events if story was deleted
+		if (result.deleted) {
+			await this.publishToLibrary({
+				type: "story:delete",
+				deletedStoryId: encodeGlobalId(NodeType.Story, id),
+			});
+			await this.publishLibraryChange({stories: result.totalStories});
+		}
+
+		return result.deleted;
 	}
 
 	// Tag CRUD methods
@@ -166,6 +287,13 @@ export class Library extends DurableObject<Env> {
 			.insert(schema.tag)
 			.values({name, color: color.toLowerCase()})
 			.returning();
+
+		// Publish events
+		await this.publishToLibrary({
+			type: "tag:create",
+			tag: this.toTagPayload(tag),
+		});
+		await this.publishLibraryChange();
 
 		return tag;
 	}
@@ -232,6 +360,12 @@ export class Library extends DurableObject<Env> {
 			.where(eq(schema.tag.id, id))
 			.returning();
 
+		// Publish event
+		await this.publishToLibrary({
+			type: "tag:update",
+			tag: this.toTagPayload(tag),
+		});
+
 		return tag;
 	}
 
@@ -244,6 +378,13 @@ export class Library extends DurableObject<Env> {
 
 		// FK cascade will automatically delete storyTag associations
 		await this.db.delete(schema.tag).where(eq(schema.tag.id, id));
+
+		// Publish events
+		await this.publishToLibrary({
+			type: "tag:delete",
+			deletedTagId: encodeGlobalId(NodeType.Tag, id),
+		});
+		await this.publishLibraryChange();
 	}
 
 	// Story-Tag relationship methods
@@ -280,6 +421,13 @@ export class Library extends DurableObject<Env> {
 				.insert(schema.storyTag)
 				.values(validTagIds.map((tagId) => ({storyId, tagId})))
 				.onConflictDoNothing();
+
+			// Publish event
+			await this.publishToLibrary({
+				type: "story:tag",
+				storyId: encodeGlobalId(NodeType.Story, storyId),
+				tagIds: validTagIds.map((id) => encodeGlobalId(NodeType.Tag, id)),
+			});
 		}
 	}
 
@@ -289,6 +437,13 @@ export class Library extends DurableObject<Env> {
 		await this.db
 			.delete(schema.storyTag)
 			.where(and(eq(schema.storyTag.storyId, storyId), inArray(schema.storyTag.tagId, tagIds)));
+
+		// Publish event
+		await this.publishToLibrary({
+			type: "story:untag",
+			storyId: encodeGlobalId(NodeType.Story, storyId),
+			tagIds: tagIds.map((id) => encodeGlobalId(NodeType.Tag, id)),
+		});
 	}
 
 	async getTagsForStory(storyId: string) {
