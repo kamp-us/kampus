@@ -42,10 +42,250 @@ import {Menu} from "../design/Menu";
 import {TagChip} from "../design/TagChip";
 import {type Tag, TagInput} from "../design/TagInput";
 import {Textarea} from "../design/Textarea";
-import {updateConnectionCount} from "../relay/updateConnectionCount";
+import {getSubscriptionClient} from "../relay/environment";
 import styles from "./Library.module.css";
 
 const DEFAULT_PAGE_SIZE = 20;
+
+// --- Library Channel Subscription Hook ---
+
+interface LibraryChangeEvent {
+	type: "library:change";
+	totalStories: number;
+	totalTags: number;
+}
+
+interface StoryPayload {
+	id: string;
+	url: string;
+	title: string;
+	description: string | null;
+	createdAt: string;
+}
+
+interface StoryCreateEvent {
+	type: "story:create";
+	story: StoryPayload;
+}
+
+interface StoryDeleteEvent {
+	type: "story:delete";
+	deletedStoryId: string;
+}
+
+interface TagPayload {
+	id: string;
+	name: string;
+	color: string;
+	createdAt: string;
+}
+
+interface StoryTagEvent {
+	type: "story:tag";
+	storyId: string;
+	tags: TagPayload[];
+}
+
+interface StoryUntagEvent {
+	type: "story:untag";
+	storyId: string;
+	tagIds: string[];
+}
+
+interface LibraryEvent {
+	type: string;
+	[key: string]: unknown;
+}
+
+/**
+ * Helper to safely update the Relay store with error handling.
+ */
+function safeStoreUpdate(
+	environment: ReturnType<typeof useRelayEnvironment>,
+	eventType: string,
+	updater: (store: Parameters<Parameters<typeof environment.commitUpdate>[0]>[0]) => void,
+): void {
+	try {
+		environment.commitUpdate((store) => {
+			try {
+				updater(store);
+			} catch (error) {
+				console.error(`[Subscription] Failed to update store for ${eventType}:`, error);
+			}
+		});
+	} catch (error) {
+		console.error(`[Subscription] commitUpdate failed for ${eventType}:`, error);
+	}
+}
+
+/**
+ * Hook to subscribe to library channel events and update the Relay store.
+ * Uses the singleton graphql-ws client from environment.ts.
+ */
+function useLibrarySubscription(connectionId: string | null) {
+	const environment = useRelayEnvironment();
+
+	useEffect(() => {
+		if (!connectionId) return;
+
+		// Track if component is mounted to prevent stale updates
+		let mounted = true;
+
+		// Use the singleton client - don't create a new one per component
+		const client = getSubscriptionClient();
+
+		// Subscribe to library channel
+		// The query format matches what UserChannel DO expects
+		const unsubscribe = client.subscribe(
+			{
+				query: 'subscription { channel(name: "library") { type } }',
+			},
+			{
+				next: (result) => {
+					// Guard against stale updates after unmount
+					if (!mounted) return;
+
+					const event = (result.data as {channel: LibraryEvent} | undefined)?.channel;
+					if (!event) return;
+
+					// Handle library:change event - update totalCount in Relay store
+					if (event.type === "library:change") {
+						const changeEvent = event as LibraryChangeEvent;
+						safeStoreUpdate(environment, "library:change", (store) => {
+							const connection = store.get(connectionId);
+							if (connection) {
+								connection.setValue(changeEvent.totalStories, "totalCount");
+							}
+						});
+					}
+
+					// Handle story:create event - add story to connection
+					if (event.type === "story:create") {
+						const createEvent = event as StoryCreateEvent;
+						// NOTE: story.id is a global ID (base64-encoded "Story:story_xxx")
+						// This matches the format used by Relay for the `id` field
+						const globalId = createEvent.story.id;
+						safeStoreUpdate(environment, "story:create", (store) => {
+							const connection = store.get(connectionId);
+							if (!connection) return;
+
+							// Check if story already exists (avoid duplicates from own mutation)
+							// Compare using both getDataID() and id field for robustness
+							const edges = connection.getLinkedRecords("edges") || [];
+							const exists = edges.some((edge) => {
+								const node = edge?.getLinkedRecord("node");
+								if (!node) return false;
+								const nodeId = node.getValue("id");
+								return node.getDataID() === globalId || nodeId === globalId;
+							});
+							if (exists) return;
+
+							// Create story record using global ID as data ID
+							const storyRecord = store.create(globalId, "Story");
+							storyRecord.setValue(globalId, "id");
+							storyRecord.setValue(createEvent.story.url, "url");
+							storyRecord.setValue(createEvent.story.title, "title");
+							storyRecord.setValue(createEvent.story.description, "description");
+							storyRecord.setValue(createEvent.story.createdAt, "createdAt");
+							storyRecord.setLinkedRecords([], "tags");
+
+							// Create edge and prepend to connection
+							const edgeId = `client:edge:${globalId}`;
+							const edge = store.create(edgeId, "StoryEdge");
+							edge.setLinkedRecord(storyRecord, "node");
+							edge.setValue(globalId, "cursor");
+
+							const newEdges = [edge, ...edges];
+							connection.setLinkedRecords(newEdges, "edges");
+						});
+					}
+
+					// Handle story:delete event - remove story from connection
+					if (event.type === "story:delete") {
+						const deleteEvent = event as StoryDeleteEvent;
+						// NOTE: deletedStoryId is a global ID (base64-encoded "Story:story_xxx")
+						const globalId = deleteEvent.deletedStoryId;
+						safeStoreUpdate(environment, "story:delete", (store) => {
+							const connection = store.get(connectionId);
+							if (!connection) return;
+
+							// Filter out the deleted story, comparing both dataID and id field
+							const edges = connection.getLinkedRecords("edges") || [];
+							const newEdges = edges.filter((edge) => {
+								const node = edge?.getLinkedRecord("node");
+								if (!node) return true;
+								const nodeId = node.getValue("id");
+								return node.getDataID() !== globalId && nodeId !== globalId;
+							});
+							connection.setLinkedRecords(newEdges, "edges");
+						});
+					}
+
+					// Handle story:tag event - add tags to story
+					if (event.type === "story:tag") {
+						const tagEvent = event as StoryTagEvent;
+						safeStoreUpdate(environment, "story:tag", (store) => {
+							// Find the story record by global ID
+							const storyRecord = store.get(tagEvent.storyId);
+							if (!storyRecord) return;
+
+							// Get current tags
+							const currentTags = storyRecord.getLinkedRecords("tags") || [];
+							const currentTagIds = new Set(currentTags.map((t) => t.getDataID()).filter(Boolean));
+
+							// Create or get records for new tags and merge
+							const newTagRecords = tagEvent.tags
+								.filter((t) => !currentTagIds.has(t.id))
+								.map((tag) => {
+									let tagRecord = store.get(tag.id);
+									if (!tagRecord) {
+										tagRecord = store.create(tag.id, "Tag");
+										tagRecord.setValue(tag.id, "id");
+										tagRecord.setValue(tag.name, "name");
+										tagRecord.setValue(tag.color, "color");
+									}
+									return tagRecord;
+								});
+
+							// Merge existing and new tags
+							storyRecord.setLinkedRecords([...currentTags, ...newTagRecords], "tags");
+						});
+					}
+
+					// Handle story:untag event - remove tags from story
+					if (event.type === "story:untag") {
+						const untagEvent = event as StoryUntagEvent;
+						safeStoreUpdate(environment, "story:untag", (store) => {
+							const storyRecord = store.get(untagEvent.storyId);
+							if (!storyRecord) return;
+
+							const currentTags = storyRecord.getLinkedRecords("tags") || [];
+							const tagIdsToRemove = new Set(untagEvent.tagIds);
+
+							// Filter out removed tags
+							const remainingTags = currentTags.filter((t) => {
+								const tagId = t.getDataID();
+								return tagId && !tagIdsToRemove.has(tagId);
+							});
+
+							storyRecord.setLinkedRecords(remainingTags, "tags");
+						});
+					}
+				},
+				error: (error) => {
+					console.error("[Library Subscription] Error:", error);
+				},
+				complete: () => {},
+			},
+		);
+
+		// Cleanup: mark as unmounted and unsubscribe
+		return () => {
+			mounted = false;
+			unsubscribe();
+		};
+	}, [connectionId, environment]);
+}
 
 const StoryFragment = graphql`
 	fragment LibraryStoryFragment on Story @refetchable(queryName: "LibraryStoryRefetchQuery") {
@@ -628,9 +868,6 @@ function CreateStoryForm({
 				tagIds,
 				connections: [connectionId],
 			},
-			updater: (store) => {
-				updateConnectionCount(store, connectionId, 1);
-			},
 			onCompleted: (response) => {
 				if (response.createStory.story) {
 					setUrl("");
@@ -987,9 +1224,6 @@ function StoryRow({
 		setError(null);
 		commitDelete({
 			variables: {id: story.id, connections: [connectionId]},
-			updater: (store) => {
-				updateConnectionCount(store, connectionId, -1);
-			},
 			onCompleted: (response) => {
 				setDeleteDialogOpen(false);
 				if (response.deleteStory.error) {
@@ -1172,6 +1406,9 @@ function AuthenticatedLibrary() {
 	const [connectionId, setConnectionId] = useState<string | null>(null);
 	const {activeTag, clearFilter} = useTagFilter();
 	const {tags: availableTags, addTag} = useAvailableTags();
+
+	// Subscribe to library channel for real-time updates
+	useLibrarySubscription(connectionId);
 
 	// Find tag details for the active filter
 	const activeTagDetails = activeTag

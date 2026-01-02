@@ -2,6 +2,7 @@ import {DurableObject} from "cloudflare:workers";
 import {and, desc, eq, inArray, lt, sql} from "drizzle-orm";
 import {drizzle} from "drizzle-orm/durable-sqlite";
 import {migrate} from "drizzle-orm/durable-sqlite/migrator";
+import {encodeGlobalId, NodeType} from "../../graphql/relay";
 import * as schema from "./drizzle/drizzle.schema";
 import migrations from "./drizzle/migrations/migrations";
 import {getNormalizedUrl} from "./getNormalizedUrl";
@@ -12,24 +13,121 @@ import {
 	TagNameExistsError,
 	validateTagName,
 } from "./schema";
+import type {LibraryEvent, StoryPayload, TagPayload} from "./subscription-types";
+
+/** Maximum number of items per page for pagination */
+const MAX_PAGE_SIZE = 100;
+
+/** Maximum length for story fields to prevent oversized WebSocket payloads */
+const MAX_URL_LENGTH = 2000;
+const MAX_TITLE_LENGTH = 500;
+const MAX_DESCRIPTION_LENGTH = 2000;
 
 // keyed by user id
 export class Library extends DurableObject<Env> {
 	db = drizzle(this.ctx.storage, {schema});
+	private ownerId: string | undefined = undefined;
 
 	constructor(ctx: DurableObjectState, env: Env) {
 		super(ctx, env);
 		this.ctx.blockConcurrencyWhile(async () => {
 			await migrate(this.db, migrations);
+			this.ownerId = await this.ctx.storage.get<string>("owner");
 		});
 	}
 
 	async init(owner: string) {
+		// Idempotent - skip if already initialized
+		if (this.ownerId) return;
+		this.ownerId = owner;
 		await this.ctx.storage.put("owner", owner);
+	}
+
+	// --- Subscription helpers ---
+
+	private getUserChannel() {
+		if (!this.ownerId) {
+			throw new Error("Library has no owner");
+		}
+		const channelId = this.env.USER_CHANNEL.idFromName(this.ownerId);
+		return this.env.USER_CHANNEL.get(channelId);
+	}
+
+	private async publishToLibrary(event: LibraryEvent): Promise<void> {
+		try {
+			const userChannel = this.getUserChannel();
+			await userChannel.publish("library", event);
+		} catch (error) {
+			// Log but don't throw - mutation succeeded, broadcast is best-effort
+			console.error("Failed to publish event:", error);
+		}
+	}
+
+	private async publishLibraryChange(counts?: {stories?: number; tags?: number}): Promise<void> {
+		// Use provided counts or query fresh counts
+		const totalStories = counts?.stories ?? (await this.getStoryCount());
+		const totalTags = counts?.tags ?? (await this.getTagCount());
+
+		await this.publishToLibrary({
+			type: "library:change",
+			totalStories,
+			totalTags,
+		});
+	}
+
+	private async getStoryCount(): Promise<number> {
+		const result = await this.db.select({count: sql<number>`count(*)`}).from(schema.story);
+		return result[0]?.count ?? 0;
+	}
+
+	private async getTagCount(): Promise<number> {
+		const result = await this.db.select({count: sql<number>`count(*)`}).from(schema.tag);
+		return result[0]?.count ?? 0;
+	}
+
+	private toStoryPayload(story: {
+		id: string;
+		url: string;
+		title: string;
+		description?: string | null;
+		createdAt: string;
+	}): StoryPayload {
+		return {
+			id: encodeGlobalId(NodeType.Story, story.id),
+			url: story.url,
+			title: story.title,
+			description: story.description ?? null,
+			createdAt: story.createdAt,
+		};
+	}
+
+	private toTagPayload(tag: {
+		id: string;
+		name: string;
+		color: string;
+		createdAt: Date;
+	}): TagPayload {
+		return {
+			id: encodeGlobalId(NodeType.Tag, tag.id),
+			name: tag.name,
+			color: tag.color,
+			createdAt: tag.createdAt.toISOString(),
+		};
 	}
 
 	async createStory(options: {url: string; title: string; description?: string}) {
 		const {url, title, description} = options;
+
+		// Validate field lengths to prevent oversized payloads
+		if (url.length > MAX_URL_LENGTH) {
+			throw new Error("URL too long");
+		}
+		if (title.length > MAX_TITLE_LENGTH) {
+			throw new Error("Title too long");
+		}
+		if (description && description.length > MAX_DESCRIPTION_LENGTH) {
+			throw new Error("Description too long");
+		}
 
 		// Validate URL format
 		try {
@@ -38,21 +136,39 @@ export class Library extends DurableObject<Env> {
 			throw new Error("Invalid URL format");
 		}
 
-		const [story] = await this.db
-			.insert(schema.story)
-			.values({url, normalizedUrl: getNormalizedUrl(url), title, description})
-			.returning();
+		// Use transaction to ensure insert and count are atomic
+		const result = await this.db.transaction(async (tx) => {
+			const [story] = await tx
+				.insert(schema.story)
+				.values({url, normalizedUrl: getNormalizedUrl(url), title, description})
+				.returning();
 
-		return {
-			...story,
-			createdAt: story.createdAt.toISOString(),
+			// Get count within same transaction
+			const countResult = await tx.select({count: sql<number>`count(*)`}).from(schema.story);
+			const totalStories = countResult[0]?.count ?? 0;
+
+			return {story, totalStories};
+		});
+
+		const storyResult = {
+			...result.story,
+			createdAt: result.story.createdAt.toISOString(),
 		};
+
+		// Publish events with accurate count
+		await this.publishToLibrary({
+			type: "story:create",
+			story: this.toStoryPayload(storyResult),
+		});
+		await this.publishLibraryChange({stories: result.totalStories});
+
+		return storyResult;
 	}
 
 	// Story CRUD methods
 
 	async listStories(options?: {first?: number; after?: string}) {
-		const limit = options?.first ?? 20;
+		const limit = Math.min(options?.first ?? 20, MAX_PAGE_SIZE);
 
 		// Build base query - order by ID (ULIDx IDs are time-sortable)
 		let query = this.db.select().from(schema.story).orderBy(desc(schema.story.id));
@@ -100,7 +216,15 @@ export class Library extends DurableObject<Env> {
 			return await this.getStory(id);
 		}
 
-		return await this.db.transaction(async (tx) => {
+		// Validate field lengths
+		if (updates.title !== undefined && updates.title.length > MAX_TITLE_LENGTH) {
+			throw new Error("Title too long");
+		}
+		if (updates.description && updates.description.length > MAX_DESCRIPTION_LENGTH) {
+			throw new Error("Description too long");
+		}
+
+		const storyResult = await this.db.transaction(async (tx) => {
 			const existing = await tx.select().from(schema.story).where(eq(schema.story.id, id)).get();
 			if (!existing) return null;
 
@@ -121,20 +245,45 @@ export class Library extends DurableObject<Env> {
 				createdAt: story.createdAt.toISOString(),
 			};
 		});
+
+		// Publish event if story was updated
+		if (storyResult) {
+			await this.publishToLibrary({
+				type: "story:update",
+				story: this.toStoryPayload(storyResult),
+			});
+		}
+
+		return storyResult;
 	}
 
 	async deleteStory(id: string) {
-		return await this.db.transaction(async (tx) => {
+		const result = await this.db.transaction(async (tx) => {
 			const existing = await tx.select().from(schema.story).where(eq(schema.story.id, id)).get();
-			if (!existing) return false;
+			if (!existing) return {deleted: false, totalStories: 0};
 
 			// Delete tag associations first (cascade)
 			await tx.delete(schema.storyTag).where(eq(schema.storyTag.storyId, id));
 			// Then delete story
 			await tx.delete(schema.story).where(eq(schema.story.id, id));
 
-			return true;
+			// Get count within same transaction
+			const countResult = await tx.select({count: sql<number>`count(*)`}).from(schema.story);
+			const totalStories = countResult[0]?.count ?? 0;
+
+			return {deleted: true, totalStories};
 		});
+
+		// Publish events if story was deleted
+		if (result.deleted) {
+			await this.publishToLibrary({
+				type: "story:delete",
+				deletedStoryId: encodeGlobalId(NodeType.Story, id),
+			});
+			await this.publishLibraryChange({stories: result.totalStories});
+		}
+
+		return result.deleted;
 	}
 
 	// Tag CRUD methods
@@ -166,6 +315,13 @@ export class Library extends DurableObject<Env> {
 			.insert(schema.tag)
 			.values({name, color: color.toLowerCase()})
 			.returning();
+
+		// Publish events
+		await this.publishToLibrary({
+			type: "tag:create",
+			tag: this.toTagPayload(tag),
+		});
+		await this.publishLibraryChange();
 
 		return tag;
 	}
@@ -232,6 +388,12 @@ export class Library extends DurableObject<Env> {
 			.where(eq(schema.tag.id, id))
 			.returning();
 
+		// Publish event
+		await this.publishToLibrary({
+			type: "tag:update",
+			tag: this.toTagPayload(tag),
+		});
+
 		return tag;
 	}
 
@@ -244,6 +406,13 @@ export class Library extends DurableObject<Env> {
 
 		// FK cascade will automatically delete storyTag associations
 		await this.db.delete(schema.tag).where(eq(schema.tag.id, id));
+
+		// Publish events
+		await this.publishToLibrary({
+			type: "tag:delete",
+			deletedTagId: encodeGlobalId(NodeType.Tag, id),
+		});
+		await this.publishLibraryChange();
 	}
 
 	// Story-Tag relationship methods
@@ -264,15 +433,16 @@ export class Library extends DurableObject<Env> {
 			return;
 		}
 
-		// Verify all tags exist before creating associations
+		// Verify all tags exist before creating associations - fetch full tag data
 		const existingTags = await this.db
-			.select({id: schema.tag.id})
+			.select()
 			.from(schema.tag)
 			.where(inArray(schema.tag.id, tagIds))
 			.all();
 
 		const existingTagIds = new Set(existingTags.map((t) => t.id));
 		const validTagIds = tagIds.filter((id) => existingTagIds.has(id));
+		const validTags = existingTags.filter((t) => validTagIds.includes(t.id));
 
 		// Batch insert with ON CONFLICT DO NOTHING for idempotency
 		if (validTagIds.length > 0) {
@@ -280,6 +450,13 @@ export class Library extends DurableObject<Env> {
 				.insert(schema.storyTag)
 				.values(validTagIds.map((tagId) => ({storyId, tagId})))
 				.onConflictDoNothing();
+
+			// Publish event with full tag data
+			await this.publishToLibrary({
+				type: "story:tag",
+				storyId: encodeGlobalId(NodeType.Story, storyId),
+				tags: validTags.map((t) => this.toTagPayload(t)),
+			});
 		}
 	}
 
@@ -289,6 +466,13 @@ export class Library extends DurableObject<Env> {
 		await this.db
 			.delete(schema.storyTag)
 			.where(and(eq(schema.storyTag.storyId, storyId), inArray(schema.storyTag.tagId, tagIds)));
+
+		// Publish event
+		await this.publishToLibrary({
+			type: "story:untag",
+			storyId: encodeGlobalId(NodeType.Story, storyId),
+			tagIds: tagIds.map((id) => encodeGlobalId(NodeType.Tag, id)),
+		});
 	}
 
 	async getTagsForStory(storyId: string) {
@@ -326,7 +510,7 @@ export class Library extends DurableObject<Env> {
 	}
 
 	async getStoriesByTagName(tagName: string, options?: {first?: number; after?: string}) {
-		const limit = options?.first ?? 20;
+		const limit = Math.min(options?.first ?? 20, MAX_PAGE_SIZE);
 
 		// Find tag by name (case-insensitive)
 		const tag = await this.db
