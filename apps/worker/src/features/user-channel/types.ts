@@ -3,9 +3,21 @@
  * Stored via serializeAttachment() and survives DO hibernation.
  */
 
+/**
+ * Rate limiting state for a connection.
+ * Uses a sliding window approach with message count.
+ */
+export interface RateLimitState {
+	/** Timestamp of the start of the current window */
+	windowStart: number;
+	/** Number of messages in the current window */
+	messageCount: number;
+}
+
 export interface AwaitingInitState {
 	state: "awaiting_init";
 	connectedAt: number;
+	rateLimit: RateLimitState;
 }
 
 export interface ReadyState {
@@ -13,6 +25,7 @@ export interface ReadyState {
 	userId: string;
 	/** Map of channel name -> subscription ID (from graphql-ws Subscribe message) */
 	subscriptions: Record<string, string>;
+	rateLimit: RateLimitState;
 }
 
 export type ConnectionState = AwaitingInitState | ReadyState;

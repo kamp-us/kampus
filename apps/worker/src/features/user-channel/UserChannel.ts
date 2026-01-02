@@ -4,6 +4,7 @@ import type {
 	ClientMessage,
 	CompleteMessage,
 	ConnectionState,
+	RateLimitState,
 	ReadyState,
 	SubscribeMessage,
 } from "./types";
@@ -13,6 +14,21 @@ import type {
  * Add new channels here as features are added.
  */
 const ALLOWED_CHANNELS = new Set(["library", "notifications"]);
+
+/**
+ * Rate limiting configuration.
+ */
+const RATE_LIMIT = {
+	/** Time window in milliseconds */
+	WINDOW_MS: 60_000,
+	/** Maximum messages per window */
+	MAX_MESSAGES: 100,
+} as const;
+
+/**
+ * Maximum channel name length to prevent abuse.
+ */
+const MAX_CHANNEL_NAME_LENGTH = 64;
 
 /**
  * UserChannel is a per-user Durable Object that manages WebSocket connections
@@ -62,9 +78,11 @@ export class UserChannel extends DurableObject<Env> {
 
 		this.ctx.acceptWebSocket(server);
 
+		const now = Date.now();
 		server.serializeAttachment({
 			state: "awaiting_init",
-			connectedAt: Date.now(),
+			connectedAt: now,
+			rateLimit: {windowStart: now, messageCount: 0},
 		} satisfies ConnectionState);
 
 		return new Response(null, {
@@ -94,6 +112,16 @@ export class UserChannel extends DurableObject<Env> {
 		}
 
 		const state = ws.deserializeAttachment() as ConnectionState;
+
+		// Rate limiting check
+		const updatedRateLimit = this.checkRateLimit(state.rateLimit);
+		if (!updatedRateLimit) {
+			this.closeWithError(ws, 4429, "Rate limit exceeded");
+			return;
+		}
+
+		// Update rate limit state
+		ws.serializeAttachment({...state, rateLimit: updatedRateLimit});
 
 		switch (parsed.type) {
 			case "connection_init":
@@ -218,6 +246,7 @@ export class UserChannel extends DurableObject<Env> {
 			state: "ready",
 			userId: this.ownerId,
 			subscriptions: {},
+			rateLimit: state.rateLimit,
 		} satisfies ReadyState);
 
 		ws.send(JSON.stringify({type: "connection_ack"}));
@@ -254,6 +283,19 @@ export class UserChannel extends DurableObject<Env> {
 		}
 
 		const channelName = channelMatch[1];
+
+		// Validate channel name length
+		if (channelName.length > MAX_CHANNEL_NAME_LENGTH) {
+			console.log(`[UserChannel] handleSubscribe: channel name too long: ${channelName.length}`);
+			ws.send(
+				JSON.stringify({
+					id: message.id,
+					type: "error",
+					payload: [{message: "Channel name too long"}],
+				}),
+			);
+			return;
+		}
 
 		// Validate against allowed channels
 		if (!ALLOWED_CHANNELS.has(channelName)) {
@@ -302,6 +344,29 @@ export class UserChannel extends DurableObject<Env> {
 		} satisfies ReadyState);
 
 		ws.send(JSON.stringify({id: message.id, type: "complete"}));
+	}
+
+	/**
+	 * Check rate limit and return updated state, or null if limit exceeded.
+	 */
+	private checkRateLimit(rateLimit: RateLimitState): RateLimitState | null {
+		const now = Date.now();
+
+		// Reset window if expired
+		if (now - rateLimit.windowStart >= RATE_LIMIT.WINDOW_MS) {
+			return {windowStart: now, messageCount: 1};
+		}
+
+		// Check if limit exceeded
+		if (rateLimit.messageCount >= RATE_LIMIT.MAX_MESSAGES) {
+			return null;
+		}
+
+		// Increment counter
+		return {
+			windowStart: rateLimit.windowStart,
+			messageCount: rateLimit.messageCount + 1,
+		};
 	}
 
 	private closeWithError(ws: WebSocket, code: number, reason: string): void {
