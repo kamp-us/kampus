@@ -52,8 +52,10 @@ export class UserChannel extends DurableObject<Env> {
 
 	/**
 	 * Set the owner of this channel (called once when user is created).
+	 * Idempotent - skips if already initialized.
 	 */
 	async setOwner(userId: string): Promise<void> {
+		if (this.ownerId) return;
 		this.ownerId = userId;
 		await this.ctx.storage.put("owner", userId);
 	}

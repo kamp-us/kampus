@@ -18,6 +18,11 @@ import type {LibraryEvent, StoryPayload, TagPayload} from "./subscription-types"
 /** Maximum number of items per page for pagination */
 const MAX_PAGE_SIZE = 100;
 
+/** Maximum length for story fields to prevent oversized WebSocket payloads */
+const MAX_URL_LENGTH = 2000;
+const MAX_TITLE_LENGTH = 500;
+const MAX_DESCRIPTION_LENGTH = 2000;
+
 // keyed by user id
 export class Library extends DurableObject<Env> {
 	db = drizzle(this.ctx.storage, {schema});
@@ -113,6 +118,17 @@ export class Library extends DurableObject<Env> {
 	async createStory(options: {url: string; title: string; description?: string}) {
 		const {url, title, description} = options;
 
+		// Validate field lengths to prevent oversized payloads
+		if (url.length > MAX_URL_LENGTH) {
+			throw new Error("URL too long");
+		}
+		if (title.length > MAX_TITLE_LENGTH) {
+			throw new Error("Title too long");
+		}
+		if (description && description.length > MAX_DESCRIPTION_LENGTH) {
+			throw new Error("Description too long");
+		}
+
 		// Validate URL format
 		try {
 			new URL(url);
@@ -198,6 +214,14 @@ export class Library extends DurableObject<Env> {
 		// If no updates provided, just return the existing story
 		if (updates.title === undefined && updates.description === undefined) {
 			return await this.getStory(id);
+		}
+
+		// Validate field lengths
+		if (updates.title !== undefined && updates.title.length > MAX_TITLE_LENGTH) {
+			throw new Error("Title too long");
+		}
+		if (updates.description && updates.description.length > MAX_DESCRIPTION_LENGTH) {
+			throw new Error("Description too long");
 		}
 
 		const storyResult = await this.db.transaction(async (tx) => {
