@@ -15,6 +15,9 @@ import {
 } from "./schema";
 import type {LibraryEvent, StoryPayload, TagPayload} from "./subscription-types";
 
+/** Maximum number of items per page for pagination */
+const MAX_PAGE_SIZE = 100;
+
 // keyed by user id
 export class Library extends DurableObject<Env> {
 	db = drizzle(this.ctx.storage, {schema});
@@ -29,6 +32,8 @@ export class Library extends DurableObject<Env> {
 	}
 
 	async init(owner: string) {
+		// Idempotent - skip if already initialized
+		if (this.ownerId) return;
 		this.ownerId = owner;
 		await this.ctx.storage.put("owner", owner);
 	}
@@ -57,7 +62,6 @@ export class Library extends DurableObject<Env> {
 		// Use provided counts or query fresh counts
 		const totalStories = counts?.stories ?? (await this.getStoryCount());
 		const totalTags = counts?.tags ?? (await this.getTagCount());
-		console.log(`[Library] publishLibraryChange: totalStories=${totalStories}, totalTags=${totalTags}`);
 
 		await this.publishToLibrary({
 			type: "library:change",
@@ -148,7 +152,7 @@ export class Library extends DurableObject<Env> {
 	// Story CRUD methods
 
 	async listStories(options?: {first?: number; after?: string}) {
-		const limit = options?.first ?? 20;
+		const limit = Math.min(options?.first ?? 20, MAX_PAGE_SIZE);
 
 		// Build base query - order by ID (ULIDx IDs are time-sortable)
 		let query = this.db.select().from(schema.story).orderBy(desc(schema.story.id));
@@ -481,7 +485,7 @@ export class Library extends DurableObject<Env> {
 	}
 
 	async getStoriesByTagName(tagName: string, options?: {first?: number; after?: string}) {
-		const limit = options?.first ?? 20;
+		const limit = Math.min(options?.first ?? 20, MAX_PAGE_SIZE);
 
 		// Find tag by name (case-insensitive)
 		const tag = await this.db

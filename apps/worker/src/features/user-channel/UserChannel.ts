@@ -150,34 +150,35 @@ export class UserChannel extends DurableObject<Env> {
 	 */
 	async webSocketClose(
 		_ws: WebSocket,
-		code: number,
-		reason: string,
-		wasClean: boolean,
+		_code: number,
+		_reason: string,
+		_wasClean: boolean,
 	): Promise<void> {
-		console.log(`WebSocket closed: code=${code}, reason=${reason}, clean=${wasClean}`);
+		// Connection closed - no cleanup needed as Cloudflare handles it
+	}
+
+	/**
+	 * Handle WebSocket error.
+	 */
+	async webSocketError(_ws: WebSocket, error: unknown): Promise<void> {
+		console.error("[UserChannel] WebSocket error:", error);
 	}
 
 	/**
 	 * Publish event to all subscribers of a channel.
 	 * Called by other DOs (Library, Notifications, etc.)
+	 * Best-effort delivery - errors are logged but don't fail the call.
 	 */
 	async publish(channel: string, event: ChannelEvent): Promise<void> {
 		const webSockets = this.ctx.getWebSockets();
-		console.log(`[UserChannel] publish(${channel}): ${webSockets.length} WebSockets connected`);
 
 		for (const ws of webSockets) {
 			try {
 				const state = ws.deserializeAttachment() as ConnectionState;
-				console.log(
-					`[UserChannel] WebSocket state:`,
-					state.state,
-					state.state === "ready" ? (state as ReadyState).subscriptions : "",
-				);
 
 				if (state.state === "ready") {
 					const subscriptionId = state.subscriptions[channel];
 					if (subscriptionId) {
-						console.log(`[UserChannel] Sending event to subscription ${subscriptionId}`);
 						ws.send(
 							JSON.stringify({
 								id: subscriptionId,
@@ -189,12 +190,10 @@ export class UserChannel extends DurableObject<Env> {
 								},
 							}),
 						);
-					} else {
-						console.log(`[UserChannel] No subscription for channel ${channel}`);
 					}
 				}
 			} catch (error) {
-				console.error("Failed to send to WebSocket:", error);
+				console.error("[UserChannel] Failed to send to WebSocket:", error);
 			}
 		}
 	}
@@ -257,8 +256,6 @@ export class UserChannel extends DurableObject<Env> {
 		message: SubscribeMessage,
 		state: ConnectionState,
 	): Promise<void> {
-		console.log(`[UserChannel] handleSubscribe: id=${message.id}, state=${state.state}`);
-
 		if (state.state !== "ready") {
 			this.closeWithError(ws, 4401, "Unauthorized");
 			return;
@@ -268,10 +265,6 @@ export class UserChannel extends DurableObject<Env> {
 		// Expected format: subscription { channel(name: "library") { ... } }
 		const channelMatch = message.payload.query.match(/channel\s*\(\s*name\s*:\s*"([^"]+)"\s*\)/);
 		if (!channelMatch) {
-			console.log(
-				`[UserChannel] handleSubscribe: failed to parse channel from query:`,
-				message.payload.query,
-			);
 			ws.send(
 				JSON.stringify({
 					id: message.id,
@@ -286,7 +279,6 @@ export class UserChannel extends DurableObject<Env> {
 
 		// Validate channel name length
 		if (channelName.length > MAX_CHANNEL_NAME_LENGTH) {
-			console.log(`[UserChannel] handleSubscribe: channel name too long: ${channelName.length}`);
 			ws.send(
 				JSON.stringify({
 					id: message.id,
@@ -299,7 +291,6 @@ export class UserChannel extends DurableObject<Env> {
 
 		// Validate against allowed channels
 		if (!ALLOWED_CHANNELS.has(channelName)) {
-			console.log(`[UserChannel] handleSubscribe: invalid channel name: ${channelName}`);
 			ws.send(
 				JSON.stringify({
 					id: message.id,
@@ -309,10 +300,6 @@ export class UserChannel extends DurableObject<Env> {
 			);
 			return;
 		}
-
-		console.log(
-			`[UserChannel] handleSubscribe: registering channel=${channelName}, subId=${message.id}`,
-		);
 
 		// Register subscription
 		const newSubscriptions = {...state.subscriptions, [channelName]: message.id};

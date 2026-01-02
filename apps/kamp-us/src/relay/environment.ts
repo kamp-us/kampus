@@ -55,7 +55,11 @@ function createSubscriptionClient(): Client {
 
 let subscriptionClient: Client | null = null;
 
-function getSubscriptionClient(): Client {
+/**
+ * Get the singleton subscription client.
+ * Creates one if it doesn't exist.
+ */
+export function getSubscriptionClient(): Client {
 	if (!subscriptionClient) {
 		subscriptionClient = createSubscriptionClient();
 	}

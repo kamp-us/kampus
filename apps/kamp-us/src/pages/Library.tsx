@@ -1,4 +1,3 @@
-import {type Client, createClient} from "graphql-ws";
 import {
 	Component,
 	type ReactNode,
@@ -6,7 +5,6 @@ import {
 	useCallback,
 	useEffect,
 	useMemo,
-	useRef,
 	useState,
 } from "react";
 import {
@@ -43,7 +41,7 @@ import {Menu} from "../design/Menu";
 import {TagChip} from "../design/TagChip";
 import {type Tag, TagInput} from "../design/TagInput";
 import {Textarea} from "../design/Textarea";
-import {getWebSocketUrl} from "../lib/websocket";
+import {getSubscriptionClient} from "../relay/environment";
 import styles from "./Library.module.css";
 
 const DEFAULT_PAGE_SIZE = 20;
@@ -81,26 +79,16 @@ interface LibraryEvent {
 
 /**
  * Hook to subscribe to library channel events and update the Relay store.
- * Uses graphql-ws directly since we don't have subscription types in the schema yet.
+ * Uses the singleton graphql-ws client from environment.ts.
  */
 function useLibrarySubscription(connectionId: string | null) {
 	const environment = useRelayEnvironment();
-	const clientRef = useRef<Client | null>(null);
 
 	useEffect(() => {
 		if (!connectionId) return;
 
-		// Create WebSocket client
-		const client = createClient({
-			url: getWebSocketUrl(),
-			retryAttempts: Infinity,
-			shouldRetry: () => true,
-			retryWait: (retryCount) => {
-				const delay = Math.min(1000 * 2 ** retryCount, 30000);
-				return new Promise((resolve) => setTimeout(resolve, delay));
-			},
-		});
-		clientRef.current = client;
+		// Use the singleton client - don't create a new one per component
+		const client = getSubscriptionClient();
 
 		// Subscribe to library channel
 		// The query format matches what UserChannel DO expects
@@ -110,15 +98,12 @@ function useLibrarySubscription(connectionId: string | null) {
 			},
 			{
 				next: (result) => {
-					console.log("[Library Subscription] Received:", result);
 					const event = (result.data as {channel: LibraryEvent} | undefined)?.channel;
-					console.log("[Library Subscription] Parsed event:", event);
 					if (!event) return;
 
 					// Handle library:change event - update totalCount in Relay store
 					if (event.type === "library:change") {
 						const changeEvent = event as LibraryChangeEvent;
-						console.log("[Library Subscription] Updating totalCount to:", changeEvent.totalStories);
 						environment.commitUpdate((store) => {
 							const connection = store.get(connectionId);
 							if (connection) {
@@ -133,7 +118,6 @@ function useLibrarySubscription(connectionId: string | null) {
 						// NOTE: story.id is a global ID (base64-encoded "Story:story_xxx")
 						// This matches the format used by Relay for the `id` field
 						const globalId = createEvent.story.id;
-						console.log("[Library Subscription] Adding story:", globalId);
 						environment.commitUpdate((store) => {
 							const connection = store.get(connectionId);
 							if (!connection) return;
@@ -147,10 +131,7 @@ function useLibrarySubscription(connectionId: string | null) {
 								const nodeId = node.getValue("id");
 								return node.getDataID() === globalId || nodeId === globalId;
 							});
-							if (exists) {
-								console.log("[Library Subscription] Story already exists, skipping");
-								return;
-							}
+							if (exists) return;
 
 							// Create story record using global ID as data ID
 							const storyRecord = store.create(globalId, "Story");
@@ -177,7 +158,6 @@ function useLibrarySubscription(connectionId: string | null) {
 						const deleteEvent = event as StoryDeleteEvent;
 						// NOTE: deletedStoryId is a global ID (base64-encoded "Story:story_xxx")
 						const globalId = deleteEvent.deletedStoryId;
-						console.log("[Library Subscription] Removing story:", globalId);
 						environment.commitUpdate((store) => {
 							const connection = store.get(connectionId);
 							if (!connection) return;
@@ -197,16 +177,13 @@ function useLibrarySubscription(connectionId: string | null) {
 				error: (error) => {
 					console.error("[Library Subscription] Error:", error);
 				},
-				complete: () => {
-					console.log("[Library Subscription] Complete");
-				},
+				complete: () => {},
 			},
 		);
 
+		// Don't dispose the singleton client - just unsubscribe
 		return () => {
 			unsubscribe();
-			client.dispose();
-			clientRef.current = null;
 		};
 	}, [connectionId, environment]);
 }
