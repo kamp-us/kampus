@@ -17,6 +17,7 @@
   "dependencies": {
     "@base-ui/react": "catalog:",
     "@radix-ui/colors": "catalog:",
+    "graphql-ws": "catalog:",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
     "react-relay": "catalog:",
