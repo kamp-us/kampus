@@ -32,7 +32,7 @@ import type {LibraryStoriesPaginationQuery} from "../__generated__/LibraryStorie
 import type {LibraryStoryFragment$key} from "../__generated__/LibraryStoryFragment.graphql";
 import type {LibraryTagsQuery as LibraryTagsQueryType} from "../__generated__/LibraryTagsQuery.graphql";
 import type {LibraryUpdateStoryMutation} from "../__generated__/LibraryUpdateStoryMutation.graphql";
-import {getStoredToken, useAuth} from "../auth/AuthContext";
+import {useAuth} from "../auth/AuthContext";
 import {AlertDialog} from "../design/AlertDialog";
 import {Button} from "../design/Button";
 import {Field} from "../design/Field";
@@ -43,6 +43,7 @@ import {Menu} from "../design/Menu";
 import {TagChip} from "../design/TagChip";
 import {type Tag, TagInput} from "../design/TagInput";
 import {Textarea} from "../design/Textarea";
+import {getWebSocketUrl} from "../lib/websocket";
 import styles from "./Library.module.css";
 
 const DEFAULT_PAGE_SIZE = 20;
@@ -76,18 +77,6 @@ interface StoryDeleteEvent {
 interface LibraryEvent {
 	type: string;
 	[key: string]: unknown;
-}
-
-function getWebSocketUrl(): string {
-	const token = getStoredToken();
-	const tokenParam = token ? `?token=${encodeURIComponent(token)}` : "";
-
-	// In development, connect directly to the backend worker
-	// In production, use the same host (proxied through kamp-us worker)
-	if (import.meta.env.DEV) {
-		return `ws://localhost:8787/graphql${tokenParam}`;
-	}
-	return `${window.location.protocol === "https:" ? "wss:" : "ws:"}//${window.location.host}/graphql${tokenParam}`;
 }
 
 /**
@@ -141,25 +130,31 @@ function useLibrarySubscription(connectionId: string | null) {
 					// Handle story:create event - add story to connection
 					if (event.type === "story:create") {
 						const createEvent = event as StoryCreateEvent;
-						console.log("[Library Subscription] Adding story:", createEvent.story.id);
+						// NOTE: story.id is a global ID (base64-encoded "Story:story_xxx")
+						// This matches the format used by Relay for the `id` field
+						const globalId = createEvent.story.id;
+						console.log("[Library Subscription] Adding story:", globalId);
 						environment.commitUpdate((store) => {
 							const connection = store.get(connectionId);
 							if (!connection) return;
 
 							// Check if story already exists (avoid duplicates from own mutation)
+							// Compare using both getDataID() and id field for robustness
 							const edges = connection.getLinkedRecords("edges") || [];
 							const exists = edges.some((edge) => {
 								const node = edge?.getLinkedRecord("node");
-								return node?.getDataID() === createEvent.story.id;
+								if (!node) return false;
+								const nodeId = node.getValue("id");
+								return node.getDataID() === globalId || nodeId === globalId;
 							});
 							if (exists) {
 								console.log("[Library Subscription] Story already exists, skipping");
 								return;
 							}
 
-							// Create story record
-							const storyRecord = store.create(createEvent.story.id, "Story");
-							storyRecord.setValue(createEvent.story.id, "id");
+							// Create story record using global ID as data ID
+							const storyRecord = store.create(globalId, "Story");
+							storyRecord.setValue(globalId, "id");
 							storyRecord.setValue(createEvent.story.url, "url");
 							storyRecord.setValue(createEvent.story.title, "title");
 							storyRecord.setValue(createEvent.story.description, "description");
@@ -167,10 +162,10 @@ function useLibrarySubscription(connectionId: string | null) {
 							storyRecord.setLinkedRecords([], "tags");
 
 							// Create edge and prepend to connection
-							const edgeId = `client:edge:${createEvent.story.id}`;
+							const edgeId = `client:edge:${globalId}`;
 							const edge = store.create(edgeId, "StoryEdge");
 							edge.setLinkedRecord(storyRecord, "node");
-							edge.setValue(createEvent.story.id, "cursor");
+							edge.setValue(globalId, "cursor");
 
 							const newEdges = [edge, ...edges];
 							connection.setLinkedRecords(newEdges, "edges");
@@ -180,15 +175,20 @@ function useLibrarySubscription(connectionId: string | null) {
 					// Handle story:delete event - remove story from connection
 					if (event.type === "story:delete") {
 						const deleteEvent = event as StoryDeleteEvent;
-						console.log("[Library Subscription] Removing story:", deleteEvent.deletedStoryId);
+						// NOTE: deletedStoryId is a global ID (base64-encoded "Story:story_xxx")
+						const globalId = deleteEvent.deletedStoryId;
+						console.log("[Library Subscription] Removing story:", globalId);
 						environment.commitUpdate((store) => {
 							const connection = store.get(connectionId);
 							if (!connection) return;
 
+							// Filter out the deleted story, comparing both dataID and id field
 							const edges = connection.getLinkedRecords("edges") || [];
 							const newEdges = edges.filter((edge) => {
 								const node = edge?.getLinkedRecord("node");
-								return node?.getDataID() !== deleteEvent.deletedStoryId;
+								if (!node) return true;
+								const nodeId = node.getValue("id");
+								return node.getDataID() !== globalId && nodeId !== globalId;
 							});
 							connection.setLinkedRecords(newEdges, "edges");
 						});

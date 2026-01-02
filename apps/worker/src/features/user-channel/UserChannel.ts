@@ -9,6 +9,12 @@ import type {
 } from "./types";
 
 /**
+ * Allowed channel names for subscriptions.
+ * Add new channels here as features are added.
+ */
+const ALLOWED_CHANNELS = new Set(["library", "notifications"]);
+
+/**
  * UserChannel is a per-user Durable Object that manages WebSocket connections
  * and channel subscriptions. It implements the graphql-ws protocol and provides
  * a publish(channel, event) RPC method for other DOs to broadcast events.
@@ -134,7 +140,11 @@ export class UserChannel extends DurableObject<Env> {
 		for (const ws of webSockets) {
 			try {
 				const state = ws.deserializeAttachment() as ConnectionState;
-				console.log(`[UserChannel] WebSocket state:`, state.state, state.state === "ready" ? (state as ReadyState).subscriptions : "");
+				console.log(
+					`[UserChannel] WebSocket state:`,
+					state.state,
+					state.state === "ready" ? (state as ReadyState).subscriptions : "",
+				);
 
 				if (state.state === "ready") {
 					const subscriptionId = state.subscriptions[channel];
@@ -229,7 +239,10 @@ export class UserChannel extends DurableObject<Env> {
 		// Expected format: subscription { channel(name: "library") { ... } }
 		const channelMatch = message.payload.query.match(/channel\s*\(\s*name\s*:\s*"([^"]+)"\s*\)/);
 		if (!channelMatch) {
-			console.log(`[UserChannel] handleSubscribe: failed to parse channel from query:`, message.payload.query);
+			console.log(
+				`[UserChannel] handleSubscribe: failed to parse channel from query:`,
+				message.payload.query,
+			);
 			ws.send(
 				JSON.stringify({
 					id: message.id,
@@ -241,7 +254,23 @@ export class UserChannel extends DurableObject<Env> {
 		}
 
 		const channelName = channelMatch[1];
-		console.log(`[UserChannel] handleSubscribe: registering channel=${channelName}, subId=${message.id}`);
+
+		// Validate against allowed channels
+		if (!ALLOWED_CHANNELS.has(channelName)) {
+			console.log(`[UserChannel] handleSubscribe: invalid channel name: ${channelName}`);
+			ws.send(
+				JSON.stringify({
+					id: message.id,
+					type: "error",
+					payload: [{message: `Unknown channel: ${channelName}`}],
+				}),
+			);
+			return;
+		}
+
+		console.log(
+			`[UserChannel] handleSubscribe: registering channel=${channelName}, subId=${message.id}`,
+		);
 
 		// Register subscription
 		const newSubscriptions = {...state.subscriptions, [channelName]: message.id};

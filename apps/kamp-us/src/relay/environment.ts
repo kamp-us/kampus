@@ -10,6 +10,7 @@ import {
 	type SubscribeFunction,
 } from "relay-runtime";
 import {getStoredToken} from "../auth/AuthContext";
+import {getWebSocketUrl} from "../lib/websocket";
 
 const fetchQuery: FetchFunction = async (operation, variables) => {
 	const token = getStoredToken();
@@ -33,20 +34,6 @@ const fetchQuery: FetchFunction = async (operation, variables) => {
 
 	return (await response.json()) as GraphQLResponse;
 };
-
-// --- Subscription Client ---
-
-function getWebSocketUrl(): string {
-	const token = getStoredToken();
-	const tokenParam = token ? `?token=${encodeURIComponent(token)}` : "";
-
-	// In development, connect directly to the backend worker
-	// In production, use the same host (proxied through kamp-us worker)
-	if (import.meta.env.DEV) {
-		return `ws://localhost:8787/graphql${tokenParam}`;
-	}
-	return `${window.location.protocol === "https:" ? "wss:" : "ws:"}//${window.location.host}/graphql${tokenParam}`;
-}
 
 function createSubscriptionClient(): Client {
 	return createClient({
