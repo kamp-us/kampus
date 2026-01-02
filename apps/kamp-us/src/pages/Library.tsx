@@ -98,6 +98,27 @@ interface LibraryEvent {
 }
 
 /**
+ * Helper to safely update the Relay store with error handling.
+ */
+function safeStoreUpdate(
+	environment: ReturnType<typeof useRelayEnvironment>,
+	eventType: string,
+	updater: (store: Parameters<Parameters<typeof environment.commitUpdate>[0]>[0]) => void,
+): void {
+	try {
+		environment.commitUpdate((store) => {
+			try {
+				updater(store);
+			} catch (error) {
+				console.error(`[Subscription] Failed to update store for ${eventType}:`, error);
+			}
+		});
+	} catch (error) {
+		console.error(`[Subscription] commitUpdate failed for ${eventType}:`, error);
+	}
+}
+
+/**
  * Hook to subscribe to library channel events and update the Relay store.
  * Uses the singleton graphql-ws client from environment.ts.
  */
@@ -106,6 +127,9 @@ function useLibrarySubscription(connectionId: string | null) {
 
 	useEffect(() => {
 		if (!connectionId) return;
+
+		// Track if component is mounted to prevent stale updates
+		let mounted = true;
 
 		// Use the singleton client - don't create a new one per component
 		const client = getSubscriptionClient();
@@ -118,13 +142,16 @@ function useLibrarySubscription(connectionId: string | null) {
 			},
 			{
 				next: (result) => {
+					// Guard against stale updates after unmount
+					if (!mounted) return;
+
 					const event = (result.data as {channel: LibraryEvent} | undefined)?.channel;
 					if (!event) return;
 
 					// Handle library:change event - update totalCount in Relay store
 					if (event.type === "library:change") {
 						const changeEvent = event as LibraryChangeEvent;
-						environment.commitUpdate((store) => {
+						safeStoreUpdate(environment, "library:change", (store) => {
 							const connection = store.get(connectionId);
 							if (connection) {
 								connection.setValue(changeEvent.totalStories, "totalCount");
@@ -138,7 +165,7 @@ function useLibrarySubscription(connectionId: string | null) {
 						// NOTE: story.id is a global ID (base64-encoded "Story:story_xxx")
 						// This matches the format used by Relay for the `id` field
 						const globalId = createEvent.story.id;
-						environment.commitUpdate((store) => {
+						safeStoreUpdate(environment, "story:create", (store) => {
 							const connection = store.get(connectionId);
 							if (!connection) return;
 
@@ -178,7 +205,7 @@ function useLibrarySubscription(connectionId: string | null) {
 						const deleteEvent = event as StoryDeleteEvent;
 						// NOTE: deletedStoryId is a global ID (base64-encoded "Story:story_xxx")
 						const globalId = deleteEvent.deletedStoryId;
-						environment.commitUpdate((store) => {
+						safeStoreUpdate(environment, "story:delete", (store) => {
 							const connection = store.get(connectionId);
 							if (!connection) return;
 
@@ -197,7 +224,7 @@ function useLibrarySubscription(connectionId: string | null) {
 					// Handle story:tag event - add tags to story
 					if (event.type === "story:tag") {
 						const tagEvent = event as StoryTagEvent;
-						environment.commitUpdate((store) => {
+						safeStoreUpdate(environment, "story:tag", (store) => {
 							// Find the story record by global ID
 							const storyRecord = store.get(tagEvent.storyId);
 							if (!storyRecord) return;
@@ -228,7 +255,7 @@ function useLibrarySubscription(connectionId: string | null) {
 					// Handle story:untag event - remove tags from story
 					if (event.type === "story:untag") {
 						const untagEvent = event as StoryUntagEvent;
-						environment.commitUpdate((store) => {
+						safeStoreUpdate(environment, "story:untag", (store) => {
 							const storyRecord = store.get(untagEvent.storyId);
 							if (!storyRecord) return;
 
@@ -252,8 +279,9 @@ function useLibrarySubscription(connectionId: string | null) {
 			},
 		);
 
-		// Don't dispose the singleton client - just unsubscribe
+		// Cleanup: mark as unmounted and unsubscribe
 		return () => {
+			mounted = false;
 			unsubscribe();
 		};
 	}, [connectionId, environment]);
