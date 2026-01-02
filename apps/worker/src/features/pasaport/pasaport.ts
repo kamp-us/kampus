@@ -80,4 +80,21 @@ export class Pasaport extends DurableObject<Env> {
 			return null;
 		}
 	}
+
+	async validateBearerToken(token: string) {
+		try {
+			const headers = new Headers();
+			headers.set("Authorization", `Bearer ${token}`);
+			const session = await this.auth.api.getSession({headers});
+
+			if (!session?.user) {
+				return null;
+			}
+
+			return session;
+		} catch (error) {
+			console.error("Better Auth validateBearerToken failed:", error);
+			return null;
+		}
+	}
 }
