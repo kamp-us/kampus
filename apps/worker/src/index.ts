@@ -48,6 +48,28 @@ app.on(["POST", "GET"], "/api/auth/*", async (c) => {
 	}
 });
 
+// RPC endpoint - auth + route to Library DO
+app.all("/rpc/library/*", async (c) => {
+	try {
+		const pasaport = c.env.PASAPORT.getByName("kampus");
+		const sessionData = await pasaport.validateSession(c.req.raw.headers);
+
+		if (!sessionData?.user) {
+			return c.json({error: "Unauthorized"}, 401);
+		}
+
+		// Route to user's Library DO
+		const libraryId = c.env.LIBRARY.idFromName(sessionData.user.id);
+		const library = c.env.LIBRARY.get(libraryId);
+
+		// Forward request to Library DO's fetch handler
+		return library.fetch(c.req.raw);
+	} catch (error) {
+		console.error("RPC error:", error);
+		return c.json({error: "Internal server error"}, 500);
+	}
+});
+
 export const ApiKey = Schema.Struct({
 	name: Schema.String,
 	key: Schema.String,
