@@ -1,13 +1,17 @@
 import {Result} from "@effect-atom/atom";
 import {useAtomSet, useAtomValue} from "@effect-atom/atom-react";
-import {type FormEvent, useState} from "react";
-import {Navigate} from "react-router";
+import {type FormEvent, useMemo, useState} from "react";
+import {Link, Navigate} from "react-router";
 import {useAuth} from "../auth/AuthContext";
+import {AlertDialog} from "../design/AlertDialog";
 import {Button} from "../design/Button";
 import {Field} from "../design/Field";
 import {Fieldset} from "../design/Fieldset";
 import {Input} from "../design/Input";
+import {MoreHorizontalIcon} from "../design/icons/MoreHorizontalIcon";
+import {Menu} from "../design/Menu";
 import {TagChip} from "../design/TagChip";
+import {type Tag, TagInput} from "../design/TagInput";
 import {Textarea} from "../design/Textarea";
 import {
 	createStoryMutation,
@@ -15,9 +19,26 @@ import {
 	deleteStoryMutation,
 	storiesAtom,
 	tagsAtom,
+	updateStoryMutation,
 } from "../rpc/atoms";
 import styles from "./Library.module.css";
-import pageStyles from "./LibraryRpc.module.css";
+
+// Default color palette for new tags
+const TAG_COLORS = [
+	"FF6B6B", // red
+	"4ECDC4", // teal
+	"45B7D1", // blue
+	"FFA07A", // orange
+	"98D8C8", // mint
+	"F7DC6F", // yellow
+	"BB8FCE", // purple
+	"85C1E2", // sky
+];
+
+function getNextTagColor(existingTags: Tag[]): string {
+	const index = existingTags.length % TAG_COLORS.length;
+	return TAG_COLORS[index];
+}
 
 // Helper to format relative dates
 function formatRelativeDate(dateStr: string) {
@@ -30,7 +51,7 @@ function formatRelativeDate(dateStr: string) {
 	if (diffDays === 1) return "Yesterday";
 	if (diffDays < 7) return `${diffDays} days ago`;
 	if (diffDays < 30) return `${Math.floor(diffDays / 7)} weeks ago`;
-	return date.toLocaleDateString();
+	return date.toLocaleDateString("en-US", {month: "short", day: "numeric"});
 }
 
 // Helper to extract domain from URL
@@ -48,221 +69,529 @@ type Story = {
 	title: string;
 	description: string | null;
 	createdAt: string;
+	tags?: Array<{id: string; name: string; color: string}>;
 };
 
-function TagsList() {
-	const tagsResult = useAtomValue(tagsAtom);
-
-	return Result.match(tagsResult, {
-		onInitial: () => <div className={styles.loading}>Loading tags...</div>,
-		onFailure: (failure) => <div className={styles.error}>Error: {String(failure.cause)}</div>,
-		onSuccess: (success) => (
-			<div className={styles.tagFilter}>
-				<span className={styles.tagFilterLabel}>Tags ({success.value.length}):</span>
-				<div className={styles.tagList}>
-					{success.value.map((tag) => (
-						<TagChip key={tag.id} name={tag.name} color={tag.color} />
-					))}
-				</div>
-			</div>
-		),
-	});
-}
-
-function CreateTagForm() {
-	const [name, setName] = useState("");
-	const [color, setColor] = useState("3b82f6");
-	const createTag = useAtomSet(createTagMutation);
-	const [isSubmitting, setIsSubmitting] = useState(false);
-
-	const handleSubmit = async (e: FormEvent) => {
-		e.preventDefault();
-		if (!name.trim()) return;
-
-		setIsSubmitting(true);
-		try {
-			await createTag({
-				payload: {name: name.trim(), color},
-				reactivityKeys: ["tags"],
-			});
-			setName("");
-		} catch (err) {
-			console.error("Failed to create tag:", err);
-		} finally {
-			setIsSubmitting(false);
-		}
-	};
-
+function LibrarySkeleton() {
 	return (
-		<form onSubmit={handleSubmit} className={styles.createTagForm}>
-			<Input placeholder="Tag name" value={name} onChange={(e) => setName(e.target.value)} />
-			<Input
-				type="color"
-				value={`#${color}`}
-				onChange={(e) => setColor(e.target.value.replace("#", ""))}
-			/>
-			<Button type="submit" disabled={isSubmitting || !name.trim()}>
-				{isSubmitting ? "Creating..." : "Add Tag"}
-			</Button>
-		</form>
+		<div className={styles.container}>
+			<header className={styles.header}>
+				<h1 className={styles.title}>Library</h1>
+			</header>
+			<div className={styles.skeleton} />
+			<div className={styles.skeleton} />
+			<div className={styles.skeleton} />
+		</div>
 	);
 }
 
-function CreateStoryForm() {
+function TagFilterRow({storyCount}: {storyCount: number}) {
+	const storyLabel = storyCount === 1 ? "story" : "stories";
+
+	return (
+		<div className={styles.tagFilterRow}>
+			<span className={styles.filterLabel}>All stories</span>
+			<span className={styles.storyCount}>
+				{storyCount} {storyLabel}
+			</span>
+		</div>
+	);
+}
+
+function EmptyState({onAddClick}: {onAddClick: () => void}) {
+	return (
+		<div className={styles.emptyState}>
+			<div className={styles.emptyIcon}>📚</div>
+			<h2 className={styles.emptyTitle}>No stories saved yet</h2>
+			<p className={styles.emptyText}>Save articles, docs, and links to revisit later.</p>
+			<Button onClick={onAddClick}>Add your first story</Button>
+		</div>
+	);
+}
+
+function LoadMoreButton({onClick, isLoading}: {onClick: () => void; isLoading: boolean}) {
+	return (
+		<div className={styles.loadMoreContainer}>
+			<Button onClick={onClick} disabled={isLoading}>
+				{isLoading ? "Loading..." : "Load More"}
+			</Button>
+		</div>
+	);
+}
+
+// Hook to manage available tags state
+function useAvailableTags() {
+	const tagsResult = useAtomValue(tagsAtom);
+	const [localTags, setLocalTags] = useState<Tag[]>([]);
+
+	const tags = Result.match(tagsResult, {
+		onInitial: () => [] as Tag[],
+		onFailure: () => [] as Tag[],
+		onSuccess: (success) => success.value as Tag[],
+	});
+
+	const allTags = useMemo(() => {
+		const combined = [...tags, ...localTags];
+		const seen = new Set<string>();
+		return combined.filter((t) => {
+			if (seen.has(t.id)) return false;
+			seen.add(t.id);
+			return true;
+		});
+	}, [tags, localTags]);
+
+	const addTag = (tag: Tag) => {
+		setLocalTags((prev) => [...prev, tag]);
+	};
+
+	return {tags: allTags, addTag};
+}
+
+function CreateStoryForm({
+	isExpanded,
+	onExpand,
+	onCollapse,
+	availableTags,
+	onTagCreate,
+}: {
+	isExpanded: boolean;
+	onExpand: () => void;
+	onCollapse: () => void;
+	availableTags: Tag[];
+	onTagCreate: (tag: Tag) => void;
+}) {
 	const [url, setUrl] = useState("");
 	const [title, setTitle] = useState("");
 	const [description, setDescription] = useState("");
+	const [selectedTags, setSelectedTags] = useState<Tag[]>([]);
+	const [error, setError] = useState<string | null>(null);
+	const [isFetching, setIsFetching] = useState(false);
+	const [fetchError, setFetchError] = useState<string | null>(null);
+
 	const createStory = useAtomSet(createStoryMutation);
+	const createTag = useAtomSet(createTagMutation);
 	const [isSubmitting, setIsSubmitting] = useState(false);
+
+	// Check if URL is valid for fetch
+	const isValidUrl = useMemo(() => {
+		try {
+			const parsed = new URL(url);
+			return ["http:", "https:"].includes(parsed.protocol);
+		} catch {
+			return false;
+		}
+	}, [url]);
+
+	const handleFetchMetadata = async () => {
+		if (!url) return;
+
+		setIsFetching(true);
+		setFetchError(null);
+
+		// TODO: Implement fetchUrlMetadata RPC endpoint
+		// For now, show a message that this feature needs server-side implementation
+		await new Promise((resolve) => setTimeout(resolve, 500));
+		setFetchError("URL metadata fetch requires a server-side RPC endpoint (not yet implemented)");
+		setIsFetching(false);
+	};
+
+	const handleCreateTag = async (name: string): Promise<Tag> => {
+		const color = getNextTagColor(availableTags);
+
+		const result = await createTag({
+			payload: {name, color},
+			reactivityKeys: ["tags"],
+		});
+
+		const newTag = result as Tag;
+		onTagCreate(newTag);
+		return newTag;
+	};
 
 	const handleSubmit = async (e: FormEvent) => {
 		e.preventDefault();
 		if (!url.trim() || !title.trim()) return;
 
+		setError(null);
 		setIsSubmitting(true);
 		try {
+			const tagIds = selectedTags.length > 0 ? selectedTags.map((t) => t.id) : undefined;
+
 			await createStory({
 				payload: {
 					url: url.trim(),
 					title: title.trim(),
 					description: description.trim() || undefined,
+					tagIds,
 				},
 				reactivityKeys: ["stories"],
 			});
 			setUrl("");
 			setTitle("");
 			setDescription("");
+			setSelectedTags([]);
+			onCollapse();
 		} catch (err) {
-			console.error("Failed to create story:", err);
+			setError(err instanceof Error ? err.message : "Failed to create story");
 		} finally {
 			setIsSubmitting(false);
 		}
 	};
 
+	const handleCancel = () => {
+		setUrl("");
+		setTitle("");
+		setDescription("");
+		setSelectedTags([]);
+		setError(null);
+		setFetchError(null);
+		onCollapse();
+	};
+
+	if (!isExpanded) {
+		return (
+			<button type="button" className={styles.addPrompt} onClick={onExpand}>
+				+ Add a story...
+			</button>
+		);
+	}
+
 	return (
-		<form onSubmit={handleSubmit} className={pageStyles.createStoryForm}>
+		<form onSubmit={handleSubmit} className={styles.createForm}>
+			{error && <div className={styles.error}>{error}</div>}
+
 			<Fieldset.Root>
-				<Fieldset.Legend>Add New Story</Fieldset.Legend>
+				<Fieldset.Legend>Add Story</Fieldset.Legend>
+
 				<Field
 					label="URL"
+					error={fetchError ?? undefined}
 					control={
-						<Input
-							placeholder="https://example.com/article"
-							value={url}
-							onChange={(e) => setUrl(e.target.value)}
-						/>
+						<div className={styles.urlFieldContainer}>
+							<Input
+								type="url"
+								value={url}
+								onChange={(e) => setUrl(e.target.value)}
+								required
+								autoFocus
+							/>
+							<Button
+								type="button"
+								onClick={handleFetchMetadata}
+								disabled={!isValidUrl || isFetching}
+							>
+								{isFetching ? "Fetching..." : "Fetch"}
+							</Button>
+						</div>
 					}
 				/>
+
 				<Field
 					label="Title"
 					control={
-						<Input
-							placeholder="Article title"
-							value={title}
-							onChange={(e) => setTitle(e.target.value)}
+						<Input type="text" value={title} onChange={(e) => setTitle(e.target.value)} required />
+					}
+				/>
+
+				<Field
+					label="Tags"
+					control={
+						<TagInput
+							selectedTags={selectedTags}
+							availableTags={availableTags}
+							onChange={setSelectedTags}
+							onCreate={handleCreateTag}
+							placeholder="Add tags..."
 						/>
 					}
 				/>
+
 				<Field
-					label="Description (optional)"
+					label="Description"
 					control={
 						<Textarea
-							placeholder="Brief description"
 							value={description}
 							onChange={(e) => setDescription(e.target.value)}
+							placeholder="Optional description..."
+							rows={3}
 						/>
 					}
 				/>
-				<Button type="submit" disabled={isSubmitting || !url.trim() || !title.trim()}>
-					{isSubmitting ? "Adding..." : "Add Story"}
-				</Button>
 			</Fieldset.Root>
+
+			<div className={styles.formActions}>
+				<Button type="button" onClick={handleCancel}>
+					Cancel
+				</Button>
+				<Button type="submit" disabled={isSubmitting}>
+					{isSubmitting ? "Saving..." : "Save Story"}
+				</Button>
+			</div>
 		</form>
 	);
 }
 
 function StoryRow({story}: {story: Story}) {
+	const domain = extractDomain(story.url);
+	const relativeDate = formatRelativeDate(story.createdAt);
+
+	const [isEditing, setIsEditing] = useState(false);
+	const [editTitle, setEditTitle] = useState(story.title);
+	const [editDescription, setEditDescription] = useState(story.description ?? "");
+	const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+	const [error, setError] = useState<string | null>(null);
+
+	const updateStory = useAtomSet(updateStoryMutation);
 	const deleteStory = useAtomSet(deleteStoryMutation);
+	const [isUpdating, setIsUpdating] = useState(false);
 	const [isDeleting, setIsDeleting] = useState(false);
 
-	const handleDelete = async () => {
-		if (!confirm("Are you sure you want to delete this story?")) return;
+	const handleEdit = () => {
+		setError(null);
+		setEditTitle(story.title);
+		setEditDescription(story.description ?? "");
+		setIsEditing(true);
+	};
 
+	const handleCancelEdit = () => {
+		setEditTitle(story.title);
+		setEditDescription(story.description ?? "");
+		setIsEditing(false);
+		setError(null);
+	};
+
+	const handleSaveEdit = async () => {
+		const trimmedTitle = editTitle.trim();
+		if (trimmedTitle === "") return;
+
+		// Check if anything changed
+		const titleChanged = trimmedTitle !== story.title;
+		const descriptionChanged = editDescription !== (story.description ?? "");
+
+		if (!titleChanged && !descriptionChanged) {
+			setIsEditing(false);
+			return;
+		}
+
+		setError(null);
+		setIsUpdating(true);
+		try {
+			await updateStory({
+				payload: {
+					id: story.id,
+					title: titleChanged ? trimmedTitle : undefined,
+					description: descriptionChanged ? editDescription : undefined,
+				},
+				reactivityKeys: ["stories"],
+			});
+			setIsEditing(false);
+		} catch (err) {
+			setError(err instanceof Error ? err.message : "Failed to update story");
+		} finally {
+			setIsUpdating(false);
+		}
+	};
+
+	const handleKeyDown = (e: React.KeyboardEvent) => {
+		if (e.key === "Enter" && !e.shiftKey) {
+			e.preventDefault();
+			handleSaveEdit();
+		} else if (e.key === "Escape") {
+			handleCancelEdit();
+		}
+	};
+
+	const handleDelete = async () => {
+		setError(null);
 		setIsDeleting(true);
 		try {
 			await deleteStory({
 				payload: {id: story.id},
 				reactivityKeys: ["stories"],
 			});
+			setDeleteDialogOpen(false);
 		} catch (err) {
-			console.error("Failed to delete story:", err);
+			setError(err instanceof Error ? err.message : "Failed to delete story");
+			setDeleteDialogOpen(false);
 		} finally {
 			setIsDeleting(false);
 		}
 	};
 
+	if (isEditing) {
+		return (
+			<article className={styles.storyRow}>
+				{error && <div className={styles.rowError}>{error}</div>}
+				<div className={styles.editRow}>
+					<input
+						type="text"
+						value={editTitle}
+						onChange={(e) => setEditTitle(e.target.value)}
+						onKeyDown={handleKeyDown}
+						className={styles.editInput}
+						placeholder="Title"
+						// biome-ignore lint/a11y/noAutofocus: Focus is intentional when user clicks Edit
+						autoFocus
+					/>
+					<Textarea
+						value={editDescription}
+						onChange={(e) => setEditDescription(e.target.value)}
+						placeholder="Description (optional)"
+						rows={3}
+					/>
+					<div className={styles.editActions}>
+						<Button onClick={handleCancelEdit} disabled={isUpdating}>
+							Cancel
+						</Button>
+						<Button onClick={handleSaveEdit} disabled={isUpdating}>
+							{isUpdating ? "Saving..." : "Save"}
+						</Button>
+					</div>
+				</div>
+				<div className={styles.storyMeta}>
+					{domain} · {relativeDate}
+				</div>
+			</article>
+		);
+	}
+
+	const storyTags = story.tags ?? [];
+
 	return (
 		<article className={styles.storyRow}>
+			{error && <div className={styles.rowError}>{error}</div>}
 			<div className={styles.storyContent}>
-				<a href={story.url} target="_blank" rel="noopener noreferrer" className={styles.storyTitle}>
-					{story.title}
-				</a>
-				<span className={styles.storyDomain}>({extractDomain(story.url)})</span>
-				{story.description && <p className={styles.storyDescription}>{story.description}</p>}
-				<div className={styles.storyMeta}>
-					<span>{formatRelativeDate(story.createdAt)}</span>
+				<div className={styles.storyMain}>
+					<a
+						href={story.url}
+						target="_blank"
+						rel="noopener noreferrer"
+						className={styles.storyTitle}
+						title={story.description ?? undefined}
+					>
+						{story.title}
+					</a>
+					<div className={styles.storyMeta}>
+						{domain} · {relativeDate}
+					</div>
+					{storyTags.length > 0 && (
+						<div className={styles.storyTags}>
+							{storyTags.slice(0, 3).map((tag) => (
+								<TagChip key={tag.id} name={tag.name} color={tag.color} />
+							))}
+							{storyTags.length > 3 && (
+								<span className={styles.moreTags}>+{storyTags.length - 3} more</span>
+							)}
+						</div>
+					)}
 				</div>
+				<Menu.Root>
+					<Menu.Trigger aria-label={`Options for ${story.title}`}>
+						<MoreHorizontalIcon />
+					</Menu.Trigger>
+					<Menu.Portal>
+						<Menu.Positioner>
+							<Menu.Popup>
+								<Menu.Item onClick={handleEdit}>Edit</Menu.Item>
+								<Menu.Separator />
+								<Menu.Item data-danger onClick={() => setDeleteDialogOpen(true)}>
+									Delete
+								</Menu.Item>
+							</Menu.Popup>
+						</Menu.Positioner>
+					</Menu.Portal>
+				</Menu.Root>
 			</div>
-			<div className={styles.storyActions}>
-				<Button variant="ghost" size="small" onClick={handleDelete} disabled={isDeleting}>
-					{isDeleting ? "..." : "Delete"}
-				</Button>
-			</div>
+
+			<AlertDialog.Root open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+				<AlertDialog.Portal>
+					<AlertDialog.Backdrop />
+					<AlertDialog.Popup>
+						<AlertDialog.Title>Delete story?</AlertDialog.Title>
+						<AlertDialog.Description>
+							This will permanently delete "{story.title}". This action cannot be undone.
+						</AlertDialog.Description>
+						<div className={styles.dialogActions}>
+							<AlertDialog.Close render={<Button />}>Cancel</AlertDialog.Close>
+							<Button onClick={handleDelete} disabled={isDeleting}>
+								{isDeleting ? "Deleting..." : "Delete"}
+							</Button>
+						</div>
+					</AlertDialog.Popup>
+				</AlertDialog.Portal>
+			</AlertDialog.Root>
 		</article>
 	);
 }
 
-function StoriesList() {
+function StoriesList({onFormExpand}: {onFormExpand: () => void}) {
 	const storiesResult = useAtomValue(storiesAtom());
+	const [isLoadingMore, setIsLoadingMore] = useState(false);
 
 	return Result.match(storiesResult, {
-		onInitial: () => <div className={styles.loading}>Loading stories...</div>,
+		onInitial: () => <LibrarySkeleton />,
 		onFailure: (failure) => <div className={styles.error}>Error: {String(failure.cause)}</div>,
-		onSuccess: (success) => (
-			<div className={styles.storiesList}>
-				<p className={styles.storiesCount}>{success.value.totalCount} stories</p>
-				{success.value.stories.map((story) => (
-					<StoryRow key={story.id} story={story} />
-				))}
-				{success.value.hasNextPage && (
-					<div className={styles.loadMore}>
-						<Button variant="secondary">Load More</Button>
-					</div>
-				)}
-			</div>
-		),
+		onSuccess: (success) => {
+			const stories = success.value.stories;
+			const hasStories = stories.length > 0;
+			const hasNextPage = success.value.hasNextPage;
+
+			return (
+				<>
+					<TagFilterRow storyCount={success.value.totalCount} />
+
+					{hasStories ? (
+						<>
+							<div className={styles.storyList}>
+								{stories.map((story) => (
+									<StoryRow key={story.id} story={story} />
+								))}
+							</div>
+							{hasNextPage && (
+								<LoadMoreButton
+									onClick={() => {
+										// TODO: Implement pagination with cursor
+										setIsLoadingMore(true);
+										setTimeout(() => setIsLoadingMore(false), 1000);
+									}}
+									isLoading={isLoadingMore}
+								/>
+							)}
+						</>
+					) : (
+						<EmptyState onAddClick={onFormExpand} />
+					)}
+				</>
+			);
+		},
 	});
 }
 
-function LibraryRpcContent() {
+function AuthenticatedLibrary() {
+	const [isFormExpanded, setIsFormExpanded] = useState(false);
+	const {tags: availableTags, addTag} = useAvailableTags();
+
+	const handleExpand = () => setIsFormExpanded(true);
+	const handleCollapse = () => setIsFormExpanded(false);
+
 	return (
 		<div className={styles.container}>
 			<header className={styles.header}>
-				<h1 className={styles.title}>Library (RPC)</h1>
-				<p className={styles.subtitle}>This page uses Effect RPC instead of GraphQL/Relay</p>
+				<h1 className={styles.title}>Library</h1>
+				<Link to="/me/library/tags" className={styles.manageTagsLink}>
+					Manage Tags
+				</Link>
 			</header>
 
-			<section className={styles.section}>
-				<h2>Tags</h2>
-				<TagsList />
-				<CreateTagForm />
-			</section>
+			<CreateStoryForm
+				isExpanded={isFormExpanded}
+				onExpand={handleExpand}
+				onCollapse={handleCollapse}
+				availableTags={availableTags}
+				onTagCreate={addTag}
+			/>
 
-			<section className={styles.section}>
-				<h2>Stories</h2>
-				<CreateStoryForm />
-				<StoriesList />
-			</section>
+			<StoriesList onFormExpand={handleExpand} />
 		</div>
 	);
 }
@@ -274,5 +603,5 @@ export function LibraryRpc() {
 		return <Navigate to="/login" replace />;
 	}
 
-	return <LibraryRpcContent />;
+	return <AuthenticatedLibrary />;
 }
