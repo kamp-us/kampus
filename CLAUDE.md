@@ -386,15 +386,23 @@ class UserNotFound extends Data.TaggedError("UserNotFound")<{
 ```
 
 ### Services
-Use `Effect.Service` for dependency injection:
+Use `Context.Tag` for dependency injection (preferred over `Effect.Service`):
 ```typescript
-export class MyService extends Effect.Service<MyService>()("MyService", {
-  effect: Effect.gen(function* () {
-    // service implementation
-    return { method1, method2 }
-  }),
-}) {}
+class MyService extends Context.Tag("MyService")<MyService, {
+  readonly method1: () => Effect.Effect<void>
+  readonly method2: (input: string) => Effect.Effect<string>
+}>() {}
+
+const MyServiceLive = Layer.succeed(MyService, {
+  method1: () => Effect.void,
+  method2: (input) => Effect.succeed(input.toUpperCase())
+})
 ```
+
+**Why Context.Tag over Effect.Service:**
+- Explicit separation of tag (interface) and layer (implementation)
+- Better composability with Layer combinators (`Layer.provide`, `Layer.merge`)
+- `Effect.Service` is experimental and wraps `Context.Tag` internally
 
 ### Schema
 Use `Schema.Struct()` for data structures (not classes in DO context):
@@ -410,6 +418,94 @@ Wrap external Promise APIs:
 ```typescript
 const result = yield* Effect.promise(() => externalAsyncCall())
 ```
+
+## effect-atom Best Practices
+
+effect-atom is a reactive state management library for Effect with fine-grained atoms and full Effect ecosystem integration.
+
+### Basic Atoms
+```typescript
+import {Atom, Registry} from "@effect-atom/atom"
+
+// Simple writable atom
+const countAtom = Atom.make(0)
+
+// Derived atom (read-only, auto-updates)
+const doubleCountAtom = Atom.make((get) => get(countAtom) * 2)
+
+// Using atoms
+const registry = Registry.make()
+registry.get(countAtom)       // 0
+registry.set(countAtom, 5)
+registry.get(doubleCountAtom) // 10
+```
+
+### Effect-based Atoms
+Async atoms return `Result<A, E>` (Initial | Success | Failure):
+```typescript
+const userAtom = Atom.make(
+  Effect.gen(function*() {
+    const response = yield* HttpClient.get("/api/user")
+    return yield* response.json
+  })
+)
+```
+
+### Runtime Atoms with Services
+Use `Atom.runtime()` for atoms depending on Effect services:
+```typescript
+const runtimeAtom = Atom.runtime(MyService.Default)
+
+// Read-only atom with service
+const dataAtom = runtimeAtom.atom(
+  Effect.gen(function*() {
+    const service = yield* MyService
+    return yield* service.getData()
+  })
+)
+
+// Function atom for mutations
+const updateAtom = runtimeAtom.fn(
+  Effect.fnUntraced(function*(input: string) {
+    const service = yield* MyService
+    return yield* service.update(input)
+  })
+)
+```
+
+### Atom Families
+Dynamic atoms keyed by identifier:
+```typescript
+const userByIdAtom = Atom.family((userId: string) =>
+  runtimeAtom.atom(
+    Effect.gen(function*() {
+      const users = yield* Users
+      return yield* users.findById(userId)
+    })
+  )
+)
+
+const user1 = userByIdAtom("user-1") // Same key = same instance
+```
+
+### React Hooks
+```typescript
+import {useAtomValue, useAtomSet, useAtom, useAtomSuspense} from "@effect-atom/atom-react"
+
+const count = useAtomValue(countAtom)           // Read
+const setCount = useAtomSet(countAtom)          // Write
+const [count, setCount] = useAtom(countAtom)    // Both
+const user = useAtomSuspense(userAtom)          // Suspense for async
+```
+
+### Key Patterns
+- `Atom.make(value)` - simple state
+- `Atom.make((get) => ...)` - derived state
+- `Atom.runtime(layer)` - atoms needing Effect services
+- `runtimeAtom.atom(effect)` - async operations
+- `runtimeAtom.fn(effect)` - mutations/actions
+- `Atom.family(keyFn)` - dynamic/parameterized atoms
+- Wrap React app in `<RegistryProvider>` for hooks
 
 ## Principles
 
@@ -510,26 +606,31 @@ export class Library extends DurableObject<Env> {
 }
 ```
 
-### Effect Service
+### Service with Context.Tag
 
 ```typescript
-export class KampusStateStorage extends Effect.Service<KampusStateStorage>()(
-  "cli/services/KampusStateStorage",
+class KampusStateStorage extends Context.Tag("cli/services/KampusStateStorage")<
+  KampusStateStorage,
   {
-    dependencies: [BunKeyValueStore.layerFileSystem(KAMPUS_DIR)],
-    effect: Effect.gen(function* () {
-      const kv = (yield* KeyValueStore).forSchema(KampusState);
+    readonly loadState: Effect.Effect<KampusState>
+    readonly saveState: (state: KampusState) => Effect.Effect<void>
+  }
+>() {}
 
-      const loadState = Effect.fn("loadState")(function* () {
+const KampusStateStorageLive = Layer.effect(
+  KampusStateStorage,
+  Effect.gen(function* () {
+    const kv = (yield* KeyValueStore).forSchema(KampusState)
+    return {
+      loadState: Effect.gen(function* () {
         return (yield* kv.get("state")).pipe(
           Option.getOrElse(() => KampusState.make({}))
-        );
-      });
-
-      return { loadState, /* ... */ };
-    }),
-  },
-) {}
+        )
+      }),
+      saveState: (state) => kv.set("state", state)
+    }
+  })
+).pipe(Layer.provide(BunKeyValueStore.layerFileSystem(KAMPUS_DIR)))
 ```
 
 ### Tagged Error
@@ -553,3 +654,4 @@ export class KampusConfigError<Method extends string> extends Data.TaggedError(
 | Feature implementations | `apps/worker/src/features/*/` |
 | Relay artifacts | `__generated__/` directories (auto-generated) |
 | Local Effect source | `~/.local/share/effect-solutions/effect/` |
+| Local effect-atom source | `~/code/github.com/usirin/effect-atom/` |
