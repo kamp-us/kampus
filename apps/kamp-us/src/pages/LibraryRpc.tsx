@@ -1,5 +1,5 @@
 import {Result} from "@effect-atom/atom";
-import {useAtom, useAtomValue} from "@effect-atom/atom-react";
+import {useAtomSet, useAtomValue} from "@effect-atom/atom-react";
 import {type FormEvent, useState} from "react";
 import {Navigate} from "react-router";
 import {useAuth} from "../auth/AuthContext";
@@ -17,6 +17,7 @@ import {
 	tagsAtom,
 } from "../rpc/atoms";
 import styles from "./Library.module.css";
+import pageStyles from "./LibraryRpc.module.css";
 
 // Helper to format relative dates
 function formatRelativeDate(dateStr: string) {
@@ -41,17 +42,25 @@ function extractDomain(url: string) {
 	}
 }
 
+type Story = {
+	id: string;
+	url: string;
+	title: string;
+	description: string | null;
+	createdAt: string;
+};
+
 function TagsList() {
 	const tagsResult = useAtomValue(tagsAtom);
 
 	return Result.match(tagsResult, {
 		onInitial: () => <div className={styles.loading}>Loading tags...</div>,
-		onFailure: (error) => <div className={styles.error}>Error: {String(error)}</div>,
-		onSuccess: (tags) => (
+		onFailure: (failure) => <div className={styles.error}>Error: {String(failure.cause)}</div>,
+		onSuccess: (success) => (
 			<div className={styles.tagFilter}>
-				<span className={styles.tagFilterLabel}>Tags ({tags.length}):</span>
+				<span className={styles.tagFilterLabel}>Tags ({success.value.length}):</span>
 				<div className={styles.tagList}>
-					{tags.map((tag) => (
+					{success.value.map((tag) => (
 						<TagChip key={tag.id} name={tag.name} color={tag.color} />
 					))}
 				</div>
@@ -63,7 +72,7 @@ function TagsList() {
 function CreateTagForm() {
 	const [name, setName] = useState("");
 	const [color, setColor] = useState("3b82f6");
-	const [, createTag] = useAtom(createTagMutation);
+	const createTag = useAtomSet(createTagMutation);
 	const [isSubmitting, setIsSubmitting] = useState(false);
 
 	const handleSubmit = async (e: FormEvent) => {
@@ -77,6 +86,8 @@ function CreateTagForm() {
 				reactivityKeys: ["tags"],
 			});
 			setName("");
+		} catch (err) {
+			console.error("Failed to create tag:", err);
 		} finally {
 			setIsSubmitting(false);
 		}
@@ -97,11 +108,11 @@ function CreateTagForm() {
 	);
 }
 
-function CreateStoryForm({onSuccess}: {onSuccess?: () => void}) {
+function CreateStoryForm() {
 	const [url, setUrl] = useState("");
 	const [title, setTitle] = useState("");
 	const [description, setDescription] = useState("");
-	const [, createStory] = useAtom(createStoryMutation);
+	const createStory = useAtomSet(createStoryMutation);
 	const [isSubmitting, setIsSubmitting] = useState(false);
 
 	const handleSubmit = async (e: FormEvent) => {
@@ -121,60 +132,57 @@ function CreateStoryForm({onSuccess}: {onSuccess?: () => void}) {
 			setUrl("");
 			setTitle("");
 			setDescription("");
-			onSuccess?.();
+		} catch (err) {
+			console.error("Failed to create story:", err);
 		} finally {
 			setIsSubmitting(false);
 		}
 	};
 
 	return (
-		<form onSubmit={handleSubmit} className={styles.createStoryForm}>
-			<Fieldset>
+		<form onSubmit={handleSubmit} className={pageStyles.createStoryForm}>
+			<Fieldset.Root>
 				<Fieldset.Legend>Add New Story</Fieldset.Legend>
-				<Field>
-					<Field.Label>URL</Field.Label>
-					<Input
-						placeholder="https://example.com/article"
-						value={url}
-						onChange={(e) => setUrl(e.target.value)}
-					/>
-				</Field>
-				<Field>
-					<Field.Label>Title</Field.Label>
-					<Input
-						placeholder="Article title"
-						value={title}
-						onChange={(e) => setTitle(e.target.value)}
-					/>
-				</Field>
-				<Field>
-					<Field.Label>Description (optional)</Field.Label>
-					<Textarea
-						placeholder="Brief description"
-						value={description}
-						onChange={(e) => setDescription(e.target.value)}
-					/>
-				</Field>
+				<Field
+					label="URL"
+					control={
+						<Input
+							placeholder="https://example.com/article"
+							value={url}
+							onChange={(e) => setUrl(e.target.value)}
+						/>
+					}
+				/>
+				<Field
+					label="Title"
+					control={
+						<Input
+							placeholder="Article title"
+							value={title}
+							onChange={(e) => setTitle(e.target.value)}
+						/>
+					}
+				/>
+				<Field
+					label="Description (optional)"
+					control={
+						<Textarea
+							placeholder="Brief description"
+							value={description}
+							onChange={(e) => setDescription(e.target.value)}
+						/>
+					}
+				/>
 				<Button type="submit" disabled={isSubmitting || !url.trim() || !title.trim()}>
 					{isSubmitting ? "Adding..." : "Add Story"}
 				</Button>
-			</Fieldset>
+			</Fieldset.Root>
 		</form>
 	);
 }
 
-interface StoryRowProps {
-	story: {
-		id: string;
-		url: string;
-		title: string;
-		description: string | null;
-		createdAt: string;
-	};
-}
-
-function StoryRow({story}: StoryRowProps) {
-	const [, deleteStory] = useAtom(deleteStoryMutation);
+function StoryRow({story}: {story: Story}) {
+	const deleteStory = useAtomSet(deleteStoryMutation);
 	const [isDeleting, setIsDeleting] = useState(false);
 
 	const handleDelete = async () => {
@@ -186,6 +194,8 @@ function StoryRow({story}: StoryRowProps) {
 				payload: {id: story.id},
 				reactivityKeys: ["stories"],
 			});
+		} catch (err) {
+			console.error("Failed to delete story:", err);
 		} finally {
 			setIsDeleting(false);
 		}
@@ -217,14 +227,14 @@ function StoriesList() {
 
 	return Result.match(storiesResult, {
 		onInitial: () => <div className={styles.loading}>Loading stories...</div>,
-		onFailure: (error) => <div className={styles.error}>Error: {String(error)}</div>,
-		onSuccess: (data) => (
+		onFailure: (failure) => <div className={styles.error}>Error: {String(failure.cause)}</div>,
+		onSuccess: (success) => (
 			<div className={styles.storiesList}>
-				<p className={styles.storiesCount}>{data.totalCount} stories</p>
-				{data.stories.map((story) => (
+				<p className={styles.storiesCount}>{success.value.totalCount} stories</p>
+				{success.value.stories.map((story) => (
 					<StoryRow key={story.id} story={story} />
 				))}
-				{data.hasNextPage && (
+				{success.value.hasNextPage && (
 					<div className={styles.loadMore}>
 						<Button variant="secondary">Load More</Button>
 					</div>
