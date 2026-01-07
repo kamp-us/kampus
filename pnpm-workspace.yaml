@@ -12,6 +12,7 @@ catalog:
   '@effect/language-service': latest
   '@effect/platform': 0.94.0
   '@effect/platform-bun': ^0.87.0
+  '@effect/rpc': ^0.73.0
   '@gqloom/core': ^0.14.2
   '@gqloom/effect': ^0.13.0
   '@opentui/core': 0.1.63

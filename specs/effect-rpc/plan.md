@@ -219,11 +219,11 @@ A1 → A2 → A3 → A4 → A5 → B1 → B2 → C1 → C2 → C3 → C4 → D1 
 
 | Task | Status | Notes |
 |------|--------|-------|
-| A1 | Pending | |
-| A2 | Pending | |
-| A3 | Pending | |
-| A4 | Pending | |
-| A5 | Pending | |
+| A1 | Done | packages/library/ structure created |
+| A2 | Done | Entity schemas (Story, Tag, etc.) |
+| A3 | Done | Domain errors defined |
+| A4 | Done | LibraryRpcs contract defined |
+| A5 | Done | Exports configured |
 | B1 | Pending | |
 | B2 | Pending | |
 | C1 | Pending | |
