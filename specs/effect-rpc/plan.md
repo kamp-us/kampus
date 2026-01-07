@@ -232,6 +232,6 @@ A1 → A2 → A3 → A4 → A5 → B1 → B2 → C1 → C2 → C3 → C4 → D1 
 | C4 | Done | Frontend worker proxy |
 | D1 | Done | LibraryRpc.tsx with RPC |
 | D2 | Done | /me/library-rpc route |
-| E1 | Pending | Manual testing |
-| E2 | Pending | Type check |
-| E3 | Pending | Lint check |
+| E1 | Pending | Manual testing (user) |
+| E2 | Done | Type check passed |
+| E3 | Done | Lint check passed |
