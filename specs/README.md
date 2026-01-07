@@ -12,3 +12,4 @@ Feature directory with completion status. Each feature follows the [spec-driven 
 - [x] **[frontend-tag-management](./frontend-tag-management/)** - Rename, recolor, delete tags
 - [ ] **[fetch-title-from-url](./fetch-title-from-url/)** - Auto-fetch title and description from URL when submitting stories
 - [x] **[relay-pagination](./relay-pagination/)** - Implement usePaginationFragment for Library "Load More" functionality
+- [ ] **[effect-rpc](./effect-rpc/)** - Replace GraphQL with Effect RPC + effect-atom for Library feature
