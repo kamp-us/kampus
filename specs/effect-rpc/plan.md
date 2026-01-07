@@ -226,10 +226,10 @@ A1 → A2 → A3 → A4 → A5 → B1 → B2 → C1 → C2 → C3 → C4 → D1 
 | A5 | Done | Exports configured |
 | B1 | Done | RPC fetch handler in Library DO |
 | B2 | Done | /rpc/library/* route with auth |
-| C1 | Pending | |
-| C2 | Pending | |
-| C3 | Pending | |
-| C4 | Pending | |
+| C1 | Done | LibraryRpcClient with AtomRpc |
+| C2 | Done | Query/mutation atoms |
+| C3 | Done | RpcProvider component |
+| C4 | Done | Frontend worker proxy |
 | D1 | Pending | |
 | D2 | Pending | |
 | E1 | Pending | |
