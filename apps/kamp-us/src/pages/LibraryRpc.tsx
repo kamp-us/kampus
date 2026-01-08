@@ -175,13 +175,7 @@ function LoadMoreButton({onClick, isLoading}: {onClick: () => void; isLoading: b
 // Hook to manage available tags state - reactivity handles updates automatically
 function useAvailableTags() {
 	const tagsResult = useAtomValue(tagsAtom);
-
-	const tags = Result.match(tagsResult, {
-		onInitial: () => [] as Tag[],
-		onFailure: () => [] as Tag[],
-		onSuccess: (success) => success.value,
-	});
-
+	const tags = Result.getOrElse(tagsResult, () => [] as Tag[]);
 	return {tags};
 }
 
@@ -550,13 +544,13 @@ function AllStoriesList({
 	const storiesResult = useAtomValue(storiesAtom());
 	const [isLoadingMore, setIsLoadingMore] = useState(false);
 
-	return Result.match(storiesResult, {
-		onInitial: () => <LibrarySkeleton />,
-		onFailure: (failure) => <div className={styles.error}>Error: {String(failure.cause)}</div>,
-		onSuccess: (success) => {
-			const stories = success.value.stories;
+	return Result.builder(storiesResult)
+		.onInitial(() => <LibrarySkeleton />)
+		.onDefect((defect) => <div className={styles.error}>Error: {String(defect)}</div>)
+		.onSuccess((data, {waiting}) => {
+			const stories = data.stories;
 			const hasStories = stories.length > 0;
-			const hasNextPage = success.value.hasNextPage;
+			const hasNextPage = data.hasNextPage;
 
 			return (
 				<>
@@ -565,11 +559,12 @@ function AllStoriesList({
 						selectedTagId={null}
 						onTagSelect={onTagSelect}
 						onClearFilter={() => {}}
-						totalCount={success.value.totalCount}
+						totalCount={data.totalCount}
 					/>
 
 					{hasStories ? (
 						<>
+							{waiting && <div className={styles.refreshing}>Refreshing...</div>}
 							<div className={styles.storyList}>
 								{stories.map((story) => (
 									<StoryRow key={story.id} story={story} availableTags={tags} />
@@ -591,8 +586,8 @@ function AllStoriesList({
 					)}
 				</>
 			);
-		},
-	});
+		})
+		.render();
 }
 
 function FilteredStoriesList({
@@ -609,13 +604,13 @@ function FilteredStoriesList({
 	const storiesResult = useAtomValue(storiesByTagAtom(tagId));
 	const [isLoadingMore, setIsLoadingMore] = useState(false);
 
-	return Result.match(storiesResult, {
-		onInitial: () => <LibrarySkeleton />,
-		onFailure: (failure) => <div className={styles.error}>Error: {String(failure.cause)}</div>,
-		onSuccess: (success) => {
-			const stories = success.value.stories;
+	return Result.builder(storiesResult)
+		.onInitial(() => <LibrarySkeleton />)
+		.onDefect((defect) => <div className={styles.error}>Error: {String(defect)}</div>)
+		.onSuccess((data, {waiting}) => {
+			const stories = data.stories;
 			const hasStories = stories.length > 0;
-			const hasNextPage = success.value.hasNextPage;
+			const hasNextPage = data.hasNextPage;
 
 			return (
 				<>
@@ -624,11 +619,12 @@ function FilteredStoriesList({
 						selectedTagId={tagId}
 						onTagSelect={onTagSelect}
 						onClearFilter={onClearFilter}
-						totalCount={success.value.totalCount}
+						totalCount={data.totalCount}
 					/>
 
 					{hasStories ? (
 						<>
+							{waiting && <div className={styles.refreshing}>Refreshing...</div>}
 							<div className={styles.storyList}>
 								{stories.map((story) => (
 									<StoryRow key={story.id} story={story} availableTags={tags} />
@@ -653,8 +649,8 @@ function FilteredStoriesList({
 					)}
 				</>
 			);
-		},
-	});
+		})
+		.render();
 }
 
 function AuthenticatedLibrary() {
