@@ -15,6 +15,12 @@ catalogs:
     '@cloudflare/vite-plugin':
       specifier: ^1.19.0
       version: 1.19.0
+    '@effect-atom/atom':
+      specifier: ^0.4.11
+      version: 0.4.11
+    '@effect-atom/atom-react':
+      specifier: ^0.4.4
+      version: 0.4.4
     '@effect/cli':
       specifier: ^0.73.0
       version: 0.73.0
@@ -27,6 +33,9 @@ catalogs:
     '@effect/platform-bun':
       specifier: ^0.87.0
       version: 0.87.0
+    '@effect/rpc':
+      specifier: ^0.73.0
+      version: 0.73.0
     '@gqloom/core':
       specifier: ^0.14.2
       version: 0.14.2
@@ -171,9 +180,27 @@ importers:
       '@base-ui/react':
         specifier: 'catalog:'
         version: 1.0.0(@types/react@19.2.7)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
+      '@effect-atom/atom':
+        specifier: 'catalog:'
+        version: 0.4.11(@effect/experimental@0.58.0(@effect/platform@0.94.0(effect@3.19.13))(effect@3.19.13))(@effect/platform@0.94.0(effect@3.19.13))(@effect/rpc@0.73.0(@effect/platform@0.94.0(effect@3.19.13))(effect@3.19.13))(effect@3.19.13)
+      '@effect-atom/atom-react':
+        specifier: 'catalog:'
+        version: 0.4.4(@effect/experimental@0.58.0(@effect/platform@0.94.0(effect@3.19.13))(effect@3.19.13))(@effect/platform@0.94.0(effect@3.19.13))(@effect/rpc@0.73.0(@effect/platform@0.94.0(effect@3.19.13))(effect@3.19.13))(effect@3.19.13)(react@19.2.3)(scheduler@0.27.0)
+      '@effect/platform':
+        specifier: 'catalog:'
+        version: 0.94.0(effect@3.19.13)
+      '@effect/rpc':
+        specifier: 'catalog:'
+        version: 0.73.0(@effect/platform@0.94.0(effect@3.19.13))(effect@3.19.13)
+      '@kampus/library':
+        specifier: workspace:*
+        version: link:../../packages/library
       '@radix-ui/colors':
         specifier: 'catalog:'
         version: 3.0.0
+      effect:
+        specifier: 'catalog:'
+        version: 3.19.13
       react:
         specifier: ^19.1.1
         version: 19.2.3
@@ -247,12 +274,18 @@ importers:
       '@effect/platform':
         specifier: 'catalog:'
         version: 0.94.0(effect@3.19.13)
+      '@effect/rpc':
+        specifier: 'catalog:'
+        version: 0.73.0(@effect/platform@0.94.0(effect@3.19.13))(effect@3.19.13)
       '@gqloom/core':
         specifier: 'catalog:'
         version: 0.14.2(graphql@16.12.0)
       '@gqloom/effect':
         specifier: 'catalog:'
         version: 0.13.0(@gqloom/core@0.14.2(graphql@16.12.0))(effect@3.19.13)(graphql@16.12.0)
+      '@kampus/library':
+        specifier: workspace:*
+        version: link:../../packages/library
       '@usirin/forge':
         specifier: 'catalog:'
         version: 0.2.0
@@ -296,6 +329,15 @@ importers:
       wrangler:
         specifier: 'catalog:'
         version: 4.56.0
+
+  packages/library:
+    dependencies:
+      '@effect/rpc':
+        specifier: 'catalog:'
+        version: 0.73.0(@effect/platform@0.94.0(effect@3.19.13))(effect@3.19.13)
+      effect:
+        specifier: 'catalog:'
+        version: 3.19.13
 
 packages:
 
@@ -506,6 +548,21 @@ packages:
 
   '@drizzle-team/brocli@0.10.2':
     resolution: {integrity: sha512-z33Il7l5dKjUgGULTqBsQBQwckHh5AbIuxhdsIxDDiZAzBOrZO6q9ogcWC65kU382AfynTfgNumVcNIjuIua6w==}
+
+  '@effect-atom/atom-react@0.4.4':
+    resolution: {integrity: sha512-EWT9WpB67GNCecxQXJdAZNVMhuk3VxpdDfojxg1wOgWmR5TPaGiXA74Jqa2Y9AEjSB0hMMAk7RNve2CoIikg2w==}
+    peerDependencies:
+      effect: ^3.19
+      react: '>=18 <20'
+      scheduler: '*'
+
+  '@effect-atom/atom@0.4.11':
+    resolution: {integrity: sha512-bahWNw2xQ349HXkqshpls/t4wUu5fbMfjT6/7FhDj1uPjP9BArUAwL1Js5b7EG0ZPonS+G1O9LftpxVWAxr86g==}
+    peerDependencies:
+      '@effect/experimental': ^0.57.0
+      '@effect/platform': ^0.93.0
+      '@effect/rpc': ^0.72.1
+      effect: ^3.19.0
 
   '@effect/cli@0.73.0':
     resolution: {integrity: sha512-KkRtFjfyG52kQ6Z3ZEjwytfKZQACsLzn/RI2jKKxMJDebY9BQganOiE3VGCT4slU3Zisur6SP//ghM0vCLQs4g==}
@@ -3681,6 +3738,24 @@ snapshots:
     optional: true
 
   '@drizzle-team/brocli@0.10.2': {}
+
+  '@effect-atom/atom-react@0.4.4(@effect/experimental@0.58.0(@effect/platform@0.94.0(effect@3.19.13))(effect@3.19.13))(@effect/platform@0.94.0(effect@3.19.13))(@effect/rpc@0.73.0(@effect/platform@0.94.0(effect@3.19.13))(effect@3.19.13))(effect@3.19.13)(react@19.2.3)(scheduler@0.27.0)':
+    dependencies:
+      '@effect-atom/atom': 0.4.11(@effect/experimental@0.58.0(@effect/platform@0.94.0(effect@3.19.13))(effect@3.19.13))(@effect/platform@0.94.0(effect@3.19.13))(@effect/rpc@0.73.0(@effect/platform@0.94.0(effect@3.19.13))(effect@3.19.13))(effect@3.19.13)
+      effect: 3.19.13
+      react: 19.2.3
+      scheduler: 0.27.0
+    transitivePeerDependencies:
+      - '@effect/experimental'
+      - '@effect/platform'
+      - '@effect/rpc'
+
+  '@effect-atom/atom@0.4.11(@effect/experimental@0.58.0(@effect/platform@0.94.0(effect@3.19.13))(effect@3.19.13))(@effect/platform@0.94.0(effect@3.19.13))(@effect/rpc@0.73.0(@effect/platform@0.94.0(effect@3.19.13))(effect@3.19.13))(effect@3.19.13)':
+    dependencies:
+      '@effect/experimental': 0.58.0(@effect/platform@0.94.0(effect@3.19.13))(effect@3.19.13)
+      '@effect/platform': 0.94.0(effect@3.19.13)
+      '@effect/rpc': 0.73.0(@effect/platform@0.94.0(effect@3.19.13))(effect@3.19.13)
+      effect: 3.19.13
 
   '@effect/cli@0.73.0(@effect/platform@0.94.0(effect@3.19.13))(@effect/printer-ansi@0.47.0(@effect/typeclass@0.38.0(effect@3.19.13))(effect@3.19.13))(@effect/printer@0.47.0(@effect/typeclass@0.38.0(effect@3.19.13))(effect@3.19.13))(effect@3.19.13)':
     dependencies:

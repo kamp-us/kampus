@@ -9,10 +9,11 @@ import "./index.css";
 import App from "./App.tsx";
 import {AuthProvider} from "./auth/AuthContext";
 import {Me} from "./components/Me";
-import {Library} from "./pages/Library";
+import {LibraryRpc} from "./pages/LibraryRpc";
 import {Login} from "./pages/Login";
 import {TagManagement} from "./pages/library/TagManagement";
 import {environment} from "./relay/environment";
+import {RpcProvider} from "./rpc/Provider";
 
 const router = createBrowserRouter([
 	{
@@ -29,11 +30,19 @@ const router = createBrowserRouter([
 	},
 	{
 		path: "/me/library",
-		element: <Library />,
+		element: (
+			<RpcProvider>
+				<LibraryRpc />
+			</RpcProvider>
+		),
 	},
 	{
 		path: "/me/library/tags",
-		element: <TagManagement />,
+		element: (
+			<RpcProvider>
+				<TagManagement />
+			</RpcProvider>
+		),
 	},
 ]);
 

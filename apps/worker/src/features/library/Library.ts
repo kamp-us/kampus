@@ -1,21 +1,595 @@
 import {DurableObject} from "cloudflare:workers";
-import {and, desc, eq, inArray, lt, sql} from "drizzle-orm";
-import {drizzle} from "drizzle-orm/durable-sqlite";
-import {migrate} from "drizzle-orm/durable-sqlite/migrator";
-import * as schema from "./drizzle/drizzle.schema";
-import migrations from "./drizzle/migrations/migrations";
-import {getNormalizedUrl} from "./getNormalizedUrl";
+import {HttpServerRequest, HttpServerResponse} from "@effect/platform";
+import {RpcSerialization, RpcServer} from "@effect/rpc";
 import {
 	InvalidTagColorError,
 	InvalidTagNameError,
-	isValidHexColor,
+	InvalidUrlError,
+	LibraryRpcs,
 	TagNameExistsError,
-	validateTagName,
-} from "./schema";
+} from "@kampus/library";
+import {and, desc, eq, inArray, lt, sql} from "drizzle-orm";
+import {drizzle} from "drizzle-orm/durable-sqlite";
+import {migrate} from "drizzle-orm/durable-sqlite/migrator";
+import {Effect, Layer, ManagedRuntime} from "effect";
+import * as schema from "./drizzle/drizzle.schema";
+import migrations from "./drizzle/migrations/migrations";
+import {getNormalizedUrl} from "./getNormalizedUrl";
+import {isValidHexColor, validateTagName} from "./schema";
 
 // keyed by user id
 export class Library extends DurableObject<Env> {
 	db = drizzle(this.ctx.storage, {schema});
+
+	// Helper to fetch tags for multiple stories
+	private getTagsForStories(storyIds: string[]) {
+		if (storyIds.length === 0)
+			return new Map<string, Array<{id: string; name: string; color: string}>>();
+
+		const storyTags = this.db
+			.select({
+				storyId: schema.storyTag.storyId,
+				tagId: schema.tag.id,
+				tagName: schema.tag.name,
+				tagColor: schema.tag.color,
+			})
+			.from(schema.storyTag)
+			.innerJoin(schema.tag, eq(schema.storyTag.tagId, schema.tag.id))
+			.where(inArray(schema.storyTag.storyId, storyIds))
+			.all();
+
+		const tagsByStory = new Map<string, Array<{id: string; name: string; color: string}>>();
+		for (const row of storyTags) {
+			const tags = tagsByStory.get(row.storyId) ?? [];
+			tags.push({id: row.tagId, name: row.tagName, color: row.tagColor});
+			tagsByStory.set(row.storyId, tags);
+		}
+		return tagsByStory;
+	}
+
+	// Effect RPC handlers - all business logic lives here
+	private handlers = {
+		getStory: ({id}: {id: string}) =>
+			Effect.promise(async () => {
+				const story = this.db.select().from(schema.story).where(eq(schema.story.id, id)).get();
+				if (!story) return null;
+
+				const tagsByStory = this.getTagsForStories([id]);
+				return {
+					id: story.id,
+					url: story.url,
+					title: story.title,
+					description: story.description,
+					createdAt: story.createdAt.toISOString(),
+					tags: tagsByStory.get(id) ?? [],
+				};
+			}),
+
+		listStories: ({first, after}: {first?: number; after?: string}) =>
+			Effect.promise(async () => {
+				const limit = first ?? 20;
+
+				let query = this.db.select().from(schema.story).orderBy(desc(schema.story.id));
+				if (after) {
+					query = query.where(lt(schema.story.id, after)) as typeof query;
+				}
+
+				const countResult = this.db.select({count: sql<number>`count(*)`}).from(schema.story).get();
+				const totalCount = countResult?.count ?? 0;
+
+				const dbStories = query.limit(limit + 1).all();
+				const hasNextPage = dbStories.length > limit;
+				const edges = dbStories.slice(0, limit);
+
+				// Fetch tags for all stories in one query
+				const tagsByStory = this.getTagsForStories(edges.map((s) => s.id));
+
+				return {
+					stories: edges.map((s) => ({
+						id: s.id,
+						url: s.url,
+						title: s.title,
+						description: s.description,
+						createdAt: s.createdAt.toISOString(),
+						tags: tagsByStory.get(s.id) ?? [],
+					})),
+					hasNextPage,
+					endCursor: edges.length > 0 ? edges[edges.length - 1].id : null,
+					totalCount,
+				};
+			}),
+
+		listStoriesByTag: ({tagId, first, after}: {tagId: string; first?: number; after?: string}) =>
+			Effect.promise(async () => {
+				const limit = first ?? 20;
+
+				// Build where condition
+				const whereCondition = after
+					? and(eq(schema.storyTag.tagId, tagId), lt(schema.storyTag.storyId, after))
+					: eq(schema.storyTag.tagId, tagId);
+
+				// Get story IDs for this tag, ordered by story ID descending
+				const storyIds = this.db
+					.select({storyId: schema.storyTag.storyId})
+					.from(schema.storyTag)
+					.where(whereCondition)
+					.orderBy(desc(schema.storyTag.storyId))
+					.limit(limit + 1)
+					.all();
+
+				// Count total stories with this tag
+				const countResult = this.db
+					.select({count: sql<number>`count(*)`})
+					.from(schema.storyTag)
+					.where(eq(schema.storyTag.tagId, tagId))
+					.get();
+				const totalCount = countResult?.count ?? 0;
+
+				const hasNextPage = storyIds.length > limit;
+				const paginatedIds = storyIds.slice(0, limit).map((r) => r.storyId);
+
+				if (paginatedIds.length === 0) {
+					return {
+						stories: [],
+						hasNextPage: false,
+						endCursor: null,
+						totalCount,
+					};
+				}
+
+				// Fetch the actual stories
+				const stories = this.db
+					.select()
+					.from(schema.story)
+					.where(inArray(schema.story.id, paginatedIds))
+					.all();
+
+				// Sort stories to match the order from storyTag query
+				const storyMap = new Map(stories.map((s) => [s.id, s]));
+				const orderedStories = paginatedIds
+					.map((id) => storyMap.get(id))
+					.filter((s): s is NonNullable<typeof s> => s !== undefined);
+
+				// Fetch tags for all stories in one query
+				const tagsByStory = this.getTagsForStories(paginatedIds);
+
+				return {
+					stories: orderedStories.map((s) => ({
+						id: s.id,
+						url: s.url,
+						title: s.title,
+						description: s.description,
+						createdAt: s.createdAt.toISOString(),
+						tags: tagsByStory.get(s.id) ?? [],
+					})),
+					hasNextPage,
+					endCursor:
+						orderedStories.length > 0 ? orderedStories[orderedStories.length - 1].id : null,
+					totalCount,
+				};
+			}),
+
+		createStory: ({
+			url,
+			title,
+			description,
+			tagIds,
+		}: {
+			url: string;
+			title: string;
+			description?: string;
+			tagIds?: readonly string[];
+		}) =>
+			Effect.gen(this, function* () {
+				// Validate URL format
+				try {
+					new URL(url);
+				} catch {
+					return yield* Effect.fail(new InvalidUrlError({url}));
+				}
+
+				return yield* Effect.promise(async () => {
+					const result = this.db
+						.insert(schema.story)
+						.values({url, normalizedUrl: getNormalizedUrl(url), title, description})
+						.returning()
+						.get();
+
+					// Tag the story if tagIds provided
+					if (tagIds && tagIds.length > 0) {
+						const existingTags = this.db
+							.select({id: schema.tag.id})
+							.from(schema.tag)
+							.where(inArray(schema.tag.id, [...tagIds]))
+							.all();
+						const validTagIds = tagIds.filter((id) => existingTags.some((t) => t.id === id));
+
+						if (validTagIds.length > 0) {
+							this.db
+								.insert(schema.storyTag)
+								.values(validTagIds.map((tagId) => ({storyId: result.id, tagId})))
+								.onConflictDoNothing()
+								.run();
+						}
+					}
+
+					// Fetch tags for the created story
+					const tagsByStory = this.getTagsForStories([result.id]);
+
+					return {
+						id: result.id,
+						url: result.url,
+						title: result.title,
+						description: result.description,
+						createdAt: result.createdAt.toISOString(),
+						tags: tagsByStory.get(result.id) ?? [],
+					};
+				});
+			}),
+
+		updateStory: ({
+			id,
+			title,
+			description,
+			tagIds,
+		}: {
+			id: string;
+			title?: string;
+			description?: string | null;
+			tagIds?: readonly string[];
+		}) =>
+			Effect.promise(async () => {
+				const existing = this.db.select().from(schema.story).where(eq(schema.story.id, id)).get();
+				if (!existing) return null;
+
+				// Build the set object with only provided fields
+				const setFields: {title?: string; description?: string | null} = {};
+				if (title !== undefined) setFields.title = title;
+				if (description !== undefined) setFields.description = description;
+
+				let story = existing;
+				if (Object.keys(setFields).length > 0) {
+					story = this.db
+						.update(schema.story)
+						.set(setFields)
+						.where(eq(schema.story.id, id))
+						.returning()
+						.get();
+				}
+
+				// Update tags if provided
+				if (tagIds !== undefined) {
+					// Get current tags
+					const currentTags = this.db
+						.select({tagId: schema.storyTag.tagId})
+						.from(schema.storyTag)
+						.where(eq(schema.storyTag.storyId, id))
+						.all();
+					const currentIds = new Set(currentTags.map((t) => t.tagId));
+					const newIds = new Set(tagIds);
+
+					// Remove old tags
+					const toRemove = [...currentIds].filter((tid) => !newIds.has(tid));
+					if (toRemove.length > 0) {
+						this.db
+							.delete(schema.storyTag)
+							.where(and(eq(schema.storyTag.storyId, id), inArray(schema.storyTag.tagId, toRemove)))
+							.run();
+					}
+
+					// Add new tags
+					const toAdd = [...newIds].filter((tid) => !currentIds.has(tid));
+					if (toAdd.length > 0) {
+						// Verify tags exist
+						const existingTags = this.db
+							.select({id: schema.tag.id})
+							.from(schema.tag)
+							.where(inArray(schema.tag.id, toAdd))
+							.all();
+						const validTagIds = toAdd.filter((tid) => existingTags.some((t) => t.id === tid));
+
+						if (validTagIds.length > 0) {
+							this.db
+								.insert(schema.storyTag)
+								.values(validTagIds.map((tagId) => ({storyId: id, tagId})))
+								.onConflictDoNothing()
+								.run();
+						}
+					}
+				}
+
+				// Fetch tags for the updated story
+				const tagsByStory = this.getTagsForStories([id]);
+
+				return {
+					id: story.id,
+					url: story.url,
+					title: story.title,
+					description: story.description,
+					createdAt: story.createdAt.toISOString(),
+					tags: tagsByStory.get(id) ?? [],
+				};
+			}),
+
+		deleteStory: ({id}: {id: string}) =>
+			Effect.promise(async () => {
+				const existing = this.db.select().from(schema.story).where(eq(schema.story.id, id)).get();
+				if (!existing) return {deleted: false};
+
+				// Delete tag associations first
+				this.db.delete(schema.storyTag).where(eq(schema.storyTag.storyId, id)).run();
+				// Then delete story
+				this.db.delete(schema.story).where(eq(schema.story.id, id)).run();
+
+				return {deleted: true};
+			}),
+
+		listTags: () =>
+			Effect.promise(async () => {
+				// Get tags with story counts using a subquery
+				const tags = this.db
+					.select({
+						id: schema.tag.id,
+						name: schema.tag.name,
+						color: schema.tag.color,
+						createdAt: schema.tag.createdAt,
+						storyCount: sql<number>`(
+							SELECT COUNT(*) FROM ${schema.storyTag}
+							WHERE ${schema.storyTag.tagId} = ${schema.tag.id}
+						)`,
+					})
+					.from(schema.tag)
+					.all();
+				return tags.map((tag) => ({
+					id: tag.id,
+					name: tag.name,
+					color: tag.color,
+					createdAt: tag.createdAt.toISOString(),
+					storyCount: tag.storyCount,
+				}));
+			}),
+
+		createTag: ({name, color}: {name: string; color: string}) =>
+			Effect.gen(this, function* () {
+				// Validate tag name
+				const nameValidation = validateTagName(name);
+				if (!nameValidation.valid) {
+					return yield* Effect.fail(new InvalidTagNameError({name, reason: nameValidation.reason}));
+				}
+
+				// Validate color format
+				if (!isValidHexColor(color)) {
+					return yield* Effect.fail(new InvalidTagColorError({color}));
+				}
+
+				// Check uniqueness (case-insensitive)
+				const existing = this.db
+					.select()
+					.from(schema.tag)
+					.where(sql`lower(${schema.tag.name}) = lower(${name})`)
+					.get();
+
+				if (existing) {
+					return yield* Effect.fail(new TagNameExistsError({tagName: name}));
+				}
+
+				const tag = this.db
+					.insert(schema.tag)
+					.values({name, color: color.toLowerCase()})
+					.returning()
+					.get();
+
+				return {
+					id: tag.id,
+					name: tag.name,
+					color: tag.color,
+					createdAt: tag.createdAt.toISOString(),
+					storyCount: 0, // New tags have no stories
+				};
+			}),
+
+		updateTag: ({id, name, color}: {id: string; name?: string; color?: string}) =>
+			Effect.gen(this, function* () {
+				// Validate tag name if provided
+				if (name) {
+					const nameValidation = validateTagName(name);
+					if (!nameValidation.valid) {
+						return yield* Effect.fail(
+							new InvalidTagNameError({name, reason: nameValidation.reason}),
+						);
+					}
+				}
+
+				// Validate color format if provided
+				if (color && !isValidHexColor(color)) {
+					return yield* Effect.fail(new InvalidTagColorError({color}));
+				}
+
+				const existing = this.db.select().from(schema.tag).where(eq(schema.tag.id, id)).get();
+				if (!existing) return null;
+
+				// Helper to get story count for a tag
+				const getStoryCount = () => {
+					const result = this.db
+						.select({count: sql<number>`count(*)`})
+						.from(schema.storyTag)
+						.where(eq(schema.storyTag.tagId, id))
+						.get();
+					return result?.count ?? 0;
+				};
+
+				const updateValues: {name?: string; color?: string} = {};
+				if (name) updateValues.name = name;
+				if (color) updateValues.color = color.toLowerCase();
+
+				// If no updates provided, return existing tag unchanged
+				if (Object.keys(updateValues).length === 0) {
+					return {
+						id: existing.id,
+						name: existing.name,
+						color: existing.color,
+						createdAt: existing.createdAt.toISOString(),
+						storyCount: getStoryCount(),
+					};
+				}
+
+				// If updating name, check uniqueness (excluding current tag)
+				if (name) {
+					const duplicate = this.db
+						.select()
+						.from(schema.tag)
+						.where(sql`lower(${schema.tag.name}) = lower(${name}) AND ${schema.tag.id} != ${id}`)
+						.get();
+
+					if (duplicate) {
+						return yield* Effect.fail(new TagNameExistsError({tagName: name}));
+					}
+				}
+
+				const tag = this.db
+					.update(schema.tag)
+					.set(updateValues)
+					.where(eq(schema.tag.id, id))
+					.returning()
+					.get();
+
+				return {
+					id: tag.id,
+					name: tag.name,
+					color: tag.color,
+					createdAt: tag.createdAt.toISOString(),
+					storyCount: getStoryCount(),
+				};
+			}),
+
+		deleteTag: ({id}: {id: string}) =>
+			Effect.promise(async () => {
+				const existing = this.db.select().from(schema.tag).where(eq(schema.tag.id, id)).get();
+				if (!existing) return {deleted: false};
+
+				// FK cascade will automatically delete storyTag associations
+				this.db.delete(schema.tag).where(eq(schema.tag.id, id)).run();
+
+				return {deleted: true};
+			}),
+
+		getTagsForStory: ({storyId}: {storyId: string}) =>
+			Effect.promise(async () => {
+				const results = this.db
+					.select({
+						id: schema.tag.id,
+						name: schema.tag.name,
+						color: schema.tag.color,
+						createdAt: schema.tag.createdAt,
+						storyCount: sql<number>`(
+							SELECT COUNT(*) FROM ${schema.storyTag} st
+							WHERE st.tag_id = ${schema.tag.id}
+						)`,
+					})
+					.from(schema.storyTag)
+					.innerJoin(schema.tag, eq(schema.storyTag.tagId, schema.tag.id))
+					.where(eq(schema.storyTag.storyId, storyId))
+					.all();
+
+				return results.map((tag) => ({
+					id: tag.id,
+					name: tag.name,
+					color: tag.color,
+					createdAt: tag.createdAt.toISOString(),
+					storyCount: tag.storyCount,
+				}));
+			}),
+
+		setStoryTags: ({storyId, tagIds}: {storyId: string; tagIds: readonly string[]}) =>
+			Effect.promise(async () => {
+				// Get current tags
+				const currentTags = this.db
+					.select({tagId: schema.storyTag.tagId})
+					.from(schema.storyTag)
+					.where(eq(schema.storyTag.storyId, storyId))
+					.all();
+				const currentIds = new Set(currentTags.map((t) => t.tagId));
+				const newIds = new Set(tagIds);
+
+				// Remove old tags
+				const toRemove = [...currentIds].filter((id) => !newIds.has(id));
+				if (toRemove.length > 0) {
+					this.db
+						.delete(schema.storyTag)
+						.where(
+							and(eq(schema.storyTag.storyId, storyId), inArray(schema.storyTag.tagId, toRemove)),
+						)
+						.run();
+				}
+
+				// Add new tags
+				const toAdd = [...newIds].filter((id) => !currentIds.has(id));
+				if (toAdd.length > 0) {
+					// Verify tags exist
+					const existingTags = this.db
+						.select({id: schema.tag.id})
+						.from(schema.tag)
+						.where(inArray(schema.tag.id, toAdd))
+						.all();
+					const validTagIds = toAdd.filter((id) => existingTags.some((t) => t.id === id));
+
+					if (validTagIds.length > 0) {
+						this.db
+							.insert(schema.storyTag)
+							.values(validTagIds.map((tagId) => ({storyId, tagId})))
+							.onConflictDoNothing()
+							.run();
+					}
+				}
+
+				return {success: true};
+			}),
+
+		fetchUrlMetadata: ({url}: {url: string}) =>
+			Effect.promise(async () => {
+				// Validate URL format
+				let parsedUrl: URL;
+				try {
+					parsedUrl = new URL(url);
+				} catch {
+					return {title: null, description: null, error: "Invalid URL format"};
+				}
+
+				// Only allow http/https (SSRF prevention)
+				if (!["http:", "https:"].includes(parsedUrl.protocol)) {
+					return {title: null, description: null, error: "Only HTTP/HTTPS URLs are allowed"};
+				}
+
+				try {
+					// Use normalized URL as DO key for deduplication
+					const normalizedUrl = getNormalizedUrl(url);
+					const parserId = this.env.WEB_PAGE_PARSER.idFromName(normalizedUrl);
+					const parser = this.env.WEB_PAGE_PARSER.get(parserId);
+
+					await parser.init(url);
+					const metadata = await parser.getMetadata();
+
+					return {
+						title: metadata.title || null,
+						description: metadata.description || null,
+						error: null,
+					};
+				} catch (err) {
+					const message = err instanceof Error ? err.message : "Failed to fetch metadata";
+					return {title: null, description: null, error: message};
+				}
+			}),
+	};
+
+	// Layer provides handlers + JSON serialization + Scope
+	private handlerLayer = Layer.mergeAll(
+		LibraryRpcs.toLayer(this.handlers),
+		RpcSerialization.layerJson,
+		Layer.scope,
+	);
+
+	// ManagedRuntime for running effects with the handler layer
+	private runtime = ManagedRuntime.make(this.handlerLayer);
 
 	constructor(ctx: DurableObjectState, env: Env) {
 		super(ctx, env);
@@ -24,390 +598,19 @@ export class Library extends DurableObject<Env> {
 		});
 	}
 
-	async init(owner: string) {
-		await this.ctx.storage.put("owner", owner);
-	}
-
-	async createStory(options: {url: string; title: string; description?: string}) {
-		const {url, title, description} = options;
-
-		// Validate URL format
-		try {
-			new URL(url);
-		} catch {
-			throw new Error("Invalid URL format");
-		}
-
-		const [story] = await this.db
-			.insert(schema.story)
-			.values({url, normalizedUrl: getNormalizedUrl(url), title, description})
-			.returning();
-
-		return {
-			...story,
-			createdAt: story.createdAt.toISOString(),
-		};
-	}
-
-	// Story CRUD methods
-
-	async listStories(options?: {first?: number; after?: string}) {
-		const limit = options?.first ?? 20;
-
-		// Build base query - order by ID (ULIDx IDs are time-sortable)
-		let query = this.db.select().from(schema.story).orderBy(desc(schema.story.id));
-
-		// Apply cursor if provided
-		if (options?.after) {
-			query = query.where(lt(schema.story.id, options.after)) as typeof query;
-		}
-
-		// Get total count (independent of pagination)
-		const countResult = await this.db.select({count: sql<number>`count(*)`}).from(schema.story);
-		const totalCount = countResult[0]?.count ?? 0;
-
-		const dbStories = await query.limit(limit + 1).all();
-		const hasNextPage = dbStories.length > limit;
-		const edges = dbStories.slice(0, limit);
-
-		// Convert Date objects to ISO strings for RPC serialization
-		return {
-			edges: edges.map((s) => ({
-				...s,
-				createdAt: s.createdAt.toISOString(),
-			})),
-			hasNextPage,
-			endCursor: edges.length > 0 ? edges[edges.length - 1].id : null,
-			totalCount,
-		};
-	}
-
-	async getStory(id: string) {
-		const story = await this.db.select().from(schema.story).where(eq(schema.story.id, id)).get();
-
-		if (!story) return null;
-
-		// Convert Date to ISO string for RPC
-		return {
-			...story,
-			createdAt: story.createdAt.toISOString(),
-		};
-	}
-
-	async updateStory(id: string, updates: {title?: string; description?: string | null}) {
-		// If no updates provided, just return the existing story
-		if (updates.title === undefined && updates.description === undefined) {
-			return await this.getStory(id);
-		}
-
-		return await this.db.transaction(async (tx) => {
-			const existing = await tx.select().from(schema.story).where(eq(schema.story.id, id)).get();
-			if (!existing) return null;
-
-			// Build the set object with only provided fields
-			const setFields: {title?: string; description?: string | null} = {};
-			if (updates.title !== undefined) setFields.title = updates.title;
-			if (updates.description !== undefined) setFields.description = updates.description;
-
-			const [story] = await tx
-				.update(schema.story)
-				.set(setFields)
-				.where(eq(schema.story.id, id))
-				.returning();
-
-			// Convert Date to ISO string for RPC
-			return {
-				...story,
-				createdAt: story.createdAt.toISOString(),
-			};
+	async fetch(request: Request): Promise<Response> {
+		// Build the full effect: get httpApp, provide request, run, convert response
+		const program = Effect.gen(function* () {
+			const httpApp = yield* RpcServer.toHttpApp(LibraryRpcs);
+			const response = yield* httpApp.pipe(
+				Effect.provideService(
+					HttpServerRequest.HttpServerRequest,
+					HttpServerRequest.fromWeb(request),
+				),
+			);
+			return HttpServerResponse.toWeb(response);
 		});
-	}
 
-	async deleteStory(id: string) {
-		return await this.db.transaction(async (tx) => {
-			const existing = await tx.select().from(schema.story).where(eq(schema.story.id, id)).get();
-			if (!existing) return false;
-
-			// Delete tag associations first (cascade)
-			await tx.delete(schema.storyTag).where(eq(schema.storyTag.storyId, id));
-			// Then delete story
-			await tx.delete(schema.story).where(eq(schema.story.id, id));
-
-			return true;
-		});
-	}
-
-	// Tag CRUD methods
-
-	async createTag(name: string, color: string) {
-		// Validate tag name
-		const nameValidation = validateTagName(name);
-		if (!nameValidation.valid) {
-			throw new InvalidTagNameError({name, reason: nameValidation.reason});
-		}
-
-		// Validate color format
-		if (!isValidHexColor(color)) {
-			throw new InvalidTagColorError({color});
-		}
-
-		// Check uniqueness (case-insensitive)
-		const existing = await this.db
-			.select()
-			.from(schema.tag)
-			.where(sql`lower(${schema.tag.name}) = lower(${name})`)
-			.get();
-
-		if (existing) {
-			throw new TagNameExistsError({tagName: name});
-		}
-
-		const [tag] = await this.db
-			.insert(schema.tag)
-			.values({name, color: color.toLowerCase()})
-			.returning();
-
-		return tag;
-	}
-
-	async getTag(id: string) {
-		const tag = await this.db.select().from(schema.tag).where(eq(schema.tag.id, id)).get();
-
-		return tag ?? null;
-	}
-
-	async listTags() {
-		const tags = await this.db.select().from(schema.tag).all();
-
-		return tags;
-	}
-
-	async updateTag(id: string, updates: {name?: string; color?: string}) {
-		// Validate tag name if provided
-		if (updates.name) {
-			const nameValidation = validateTagName(updates.name);
-			if (!nameValidation.valid) {
-				throw new InvalidTagNameError({name: updates.name, reason: nameValidation.reason});
-			}
-		}
-
-		// Validate color format if provided
-		if (updates.color && !isValidHexColor(updates.color)) {
-			throw new InvalidTagColorError({color: updates.color});
-		}
-
-		const existing = await this.getTag(id);
-
-		if (!existing) {
-			return null;
-		}
-
-		const updateValues: {name?: string; color?: string} = {};
-		if (updates.name) updateValues.name = updates.name;
-		if (updates.color) updateValues.color = updates.color.toLowerCase();
-
-		// If no updates provided, return existing tag unchanged
-		if (Object.keys(updateValues).length === 0) {
-			return existing;
-		}
-
-		// If updating name, check uniqueness (excluding current tag)
-		if (updates.name) {
-			const duplicate = await this.db
-				.select()
-				.from(schema.tag)
-				.where(
-					sql`lower(${schema.tag.name}) = lower(${updates.name}) AND ${schema.tag.id} != ${id}`,
-				)
-				.get();
-
-			if (duplicate) {
-				throw new TagNameExistsError({tagName: updates.name});
-			}
-		}
-
-		const [tag] = await this.db
-			.update(schema.tag)
-			.set(updateValues)
-			.where(eq(schema.tag.id, id))
-			.returning();
-
-		return tag;
-	}
-
-	async deleteTag(id: string) {
-		const existing = await this.getTag(id);
-
-		if (!existing) {
-			return;
-		}
-
-		// FK cascade will automatically delete storyTag associations
-		await this.db.delete(schema.tag).where(eq(schema.tag.id, id));
-	}
-
-	// Story-Tag relationship methods
-
-	async tagStory(storyId: string, tagIds: string[]) {
-		if (tagIds.length === 0) {
-			return;
-		}
-
-		// Verify story exists
-		const story = await this.db
-			.select()
-			.from(schema.story)
-			.where(eq(schema.story.id, storyId))
-			.get();
-
-		if (!story) {
-			return;
-		}
-
-		// Verify all tags exist before creating associations
-		const existingTags = await this.db
-			.select({id: schema.tag.id})
-			.from(schema.tag)
-			.where(inArray(schema.tag.id, tagIds))
-			.all();
-
-		const existingTagIds = new Set(existingTags.map((t) => t.id));
-		const validTagIds = tagIds.filter((id) => existingTagIds.has(id));
-
-		// Batch insert with ON CONFLICT DO NOTHING for idempotency
-		if (validTagIds.length > 0) {
-			await this.db
-				.insert(schema.storyTag)
-				.values(validTagIds.map((tagId) => ({storyId, tagId})))
-				.onConflictDoNothing();
-		}
-	}
-
-	async untagStory(storyId: string, tagIds: string[]) {
-		if (tagIds.length === 0) return;
-
-		await this.db
-			.delete(schema.storyTag)
-			.where(and(eq(schema.storyTag.storyId, storyId), inArray(schema.storyTag.tagId, tagIds)));
-	}
-
-	async getTagsForStory(storyId: string) {
-		const results = await this.db
-			.select({
-				id: schema.tag.id,
-				name: schema.tag.name,
-				color: schema.tag.color,
-				createdAt: schema.tag.createdAt,
-			})
-			.from(schema.storyTag)
-			.innerJoin(schema.tag, eq(schema.storyTag.tagId, schema.tag.id))
-			.where(eq(schema.storyTag.storyId, storyId))
-			.all();
-
-		return results;
-	}
-
-	async getStoriesByTag(tagId: string) {
-		const results = await this.db
-			.select({
-				id: schema.story.id,
-				url: schema.story.url,
-				normalizedUrl: schema.story.normalizedUrl,
-				title: schema.story.title,
-				description: schema.story.description,
-				createdAt: schema.story.createdAt,
-			})
-			.from(schema.storyTag)
-			.innerJoin(schema.story, eq(schema.storyTag.storyId, schema.story.id))
-			.where(eq(schema.storyTag.tagId, tagId))
-			.all();
-
-		return results;
-	}
-
-	async getStoriesByTagName(tagName: string, options?: {first?: number; after?: string}) {
-		const limit = options?.first ?? 20;
-
-		// Find tag by name (case-insensitive)
-		const tag = await this.db
-			.select()
-			.from(schema.tag)
-			.where(sql`lower(${schema.tag.name}) = lower(${tagName})`)
-			.get();
-
-		if (!tag) {
-			// Tag doesn't exist - return empty result
-			return {
-				edges: [],
-				hasNextPage: false,
-				endCursor: null,
-				totalCount: 0,
-			};
-		}
-
-		// Get total count for this tag (independent of pagination)
-		const countResult = await this.db
-			.select({count: sql<number>`count(*)`})
-			.from(schema.storyTag)
-			.where(eq(schema.storyTag.tagId, tag.id));
-		const totalCount = countResult[0]?.count ?? 0;
-
-		// Build where condition
-		const whereCondition = options?.after
-			? and(eq(schema.storyTag.tagId, tag.id), lt(schema.story.id, options.after))
-			: eq(schema.storyTag.tagId, tag.id);
-
-		// Query for stories with this tag, ordered by ID (ULIDx IDs are time-sortable)
-		const dbStories = await this.db
-			.select({
-				id: schema.story.id,
-				url: schema.story.url,
-				normalizedUrl: schema.story.normalizedUrl,
-				title: schema.story.title,
-				description: schema.story.description,
-				createdAt: schema.story.createdAt,
-			})
-			.from(schema.storyTag)
-			.innerJoin(schema.story, eq(schema.storyTag.storyId, schema.story.id))
-			.where(whereCondition)
-			.orderBy(desc(schema.story.id))
-			.limit(limit + 1)
-			.all();
-
-		const hasNextPage = dbStories.length > limit;
-		const edges = dbStories.slice(0, limit);
-
-		return {
-			edges: edges.map((s) => ({
-				...s,
-				createdAt: s.createdAt.toISOString(),
-			})),
-			hasNextPage,
-			endCursor: edges.length > 0 ? edges[edges.length - 1].id : null,
-			totalCount,
-		};
-	}
-
-	/**
-	 * Atomically sets the tags for a story by computing the diff
-	 * and using tagStory/untagStory internally.
-	 */
-	async setStoryTags(storyId: string, tagIds: string[]) {
-		// Get current tags for this story
-		const currentTags = await this.getTagsForStory(storyId);
-		const currentIds = new Set(currentTags.map((t) => t.id));
-		const newIds = new Set(tagIds);
-
-		// Compute diff
-		const toRemove = currentTags.filter((t) => !newIds.has(t.id)).map((t) => t.id);
-		const toAdd = tagIds.filter((id) => !currentIds.has(id));
-
-		// Apply changes using existing methods
-		if (toRemove.length > 0) {
-			await this.untagStory(storyId, toRemove);
-		}
-		if (toAdd.length > 0) {
-			await this.tagStory(storyId, toAdd);
-		}
+		return this.runtime.runPromise(program);
 	}
 }

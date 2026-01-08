@@ -17,8 +17,6 @@ turbo run build           # Build all apps
 ```bash
 # Frontend (kamp-us)
 pnpm --filter kamp-us run dev          # Vite dev server
-pnpm --filter kamp-us run schema:fetch # Fetch GraphQL schema from backend
-pnpm --filter kamp-us run relay        # Compile Relay artifacts
 
 # Backend (worker)
 pnpm --filter worker run dev           # Wrangler dev server
@@ -42,14 +40,14 @@ Note: `biome.jsonc` excludes `__generated__/` directories via `files.includes`. 
 ```
 apps/
 ├── kamp-us/   # React frontend (Cloudflare Worker)
-├── worker/    # Backend GraphQL API (Cloudflare Worker)
+├── worker/    # Backend API (Cloudflare Worker + Durable Objects)
 └── cli/       # Effect-based CLI application
 ```
 
 **Request flow:**
 ```
 Browser → kamp-us Worker → Backend Worker (service binding)
-           ├─ /graphql    → GraphQL Yoga
+           ├─ /rpc/*      → Effect RPC (Durable Objects)
            ├─ /api/auth/* → Better Auth
            └─ static      → Vite assets
 ```
@@ -238,18 +236,15 @@ The `kamp-us` app uses:
 
 - **React 19** - UI framework
 - **Vite** - Build tool and dev server
-- **React Relay** - GraphQL client with compiler
-- **react-router** - Client-side routing (NOT `react-router-dom`)
+- **effect-atom** - Reactive state management with Effect integration
+- **@effect/rpc** - Type-safe RPC client
+- **react-router** - Client-side routing
 - **CSS Modules** - Scoped styling (`.module.css` files)
 - **Base UI** - Unstyled component primitives
 
 **Important:** Import from `react-router`, not `react-router-dom`:
 ```typescript
-// Correct
 import {Link, useSearchParams, useNavigate} from "react-router";
-
-// Wrong - don't use this
-import {Link} from "react-router-dom";
 ```
 
 ### Backend Features
@@ -270,92 +265,6 @@ feature-name/
 - Use `Schema.Struct()` not `Schema.Class()` (DOs can't return class instances)
 - ID generation: `id("prefix")` from `@usirin/forge` (e.g., `id("story")`, `id("user")`)
 - Export DO classes from `src/index.ts`, add bindings in `wrangler.jsonc`
-
-### GraphQL (Backend)
-
-- **GQLoom** (`@gqloom/core`, `@gqloom/effect`) for schema definition using Effect Schema
-- **Relay** patterns for global IDs and cursor-based pagination
-- Helpers in `apps/worker/src/graphql/relay.ts`: `encodeGlobalId`, `decodeGlobalId`
-
-**Backend gotchas for Relay compatibility:**
-- Use `Schema.NullishOr` (not `NullOr`) for optional params - Relay sends `undefined`
-- Use `Schema.Int` (not `Number`) for pagination `first` param - Relay expects Int
-- Add `{identifier: "ulid"}` annotation to ID fields used with `@deleteEdge`
-- Types need Node interface for `@refetchable` - add to `NodeType` enum
-
-**Connection pattern:**
-```typescript
-// 1. Define connection schema inline in index.ts
-const StoryEdge = Schema.Struct({
-  node: Story,
-  cursor: Schema.String,
-}).annotations({title: "StoryEdge"});
-
-const StoryConnection = Schema.Struct({
-  edges: Schema.Array(StoryEdge),
-  pageInfo: PageInfo,
-}).annotations({title: "StoryConnection"});
-
-// 2. Library DO returns simple shape
-async listStories(...) {
-  return { edges, hasNextPage, endCursor };
-}
-
-// 3. Resolver transforms to connection shape
-resolve: async () => {
-  const result = await library.listStories(...);
-  return {
-    edges: result.edges.map(story => ({
-      node: toStoryNode(story),
-      cursor: encodeGlobalId(NodeType.Story, story.id),
-    })),
-    pageInfo: {
-      hasNextPage: result.hasNextPage,
-      hasPreviousPage: false,
-      startCursor: result.edges[0] ? encodeGlobalId(...) : null,
-      endCursor: result.endCursor ? encodeGlobalId(...) : null,
-    },
-  };
-}
-```
-
-### Relay (Frontend)
-
-**Pagination with `usePaginationFragment`:**
-```graphql
-fragment LibraryStoriesFragment on Library
-  @argumentDefinitions(first: {type: "Int", defaultValue: 20}, after: {type: "String"})
-  @refetchable(queryName: "LibraryStoriesPaginationQuery") {
-  stories(first: $first, after: $after) @connection(key: "Library_stories") {
-    __id        # Connection ID for mutations
-    totalCount  # For display (not auto-updated by directives)
-    edges { node { ...StoryFragment } }
-  }
-}
-```
-
-**Declarative mutation directives:**
-```graphql
-# Add to connection - use @prependNode with edgeTypeName
-mutation CreateStory($connections: [ID!]!) {
-  createStory(...) {
-    story @prependNode(connections: $connections, edgeTypeName: "StoryEdge") { id }
-  }
-}
-
-# Remove from connection - use @deleteEdge (field must be ID type)
-mutation DeleteStory($connections: [ID!]!) {
-  deleteStory(id: $id) {
-    deletedStoryId @deleteEdge(connections: $connections)
-  }
-}
-```
-
-**Key patterns:**
-- Query `__id` on connections to get connection ID for mutations
-- Declarative directives only update edges, not scalar fields like `totalCount`
-- Use `updater` function to manually update `totalCount` after mutations
-- Parent type must implement Node interface for `@refetchable` to work
 
 ### Code Style
 
@@ -386,15 +295,23 @@ class UserNotFound extends Data.TaggedError("UserNotFound")<{
 ```
 
 ### Services
-Use `Effect.Service` for dependency injection:
+Use `Context.Tag` for dependency injection (preferred over `Effect.Service`):
 ```typescript
-export class MyService extends Effect.Service<MyService>()("MyService", {
-  effect: Effect.gen(function* () {
-    // service implementation
-    return { method1, method2 }
-  }),
-}) {}
+class MyService extends Context.Tag("MyService")<MyService, {
+  readonly method1: () => Effect.Effect<void>
+  readonly method2: (input: string) => Effect.Effect<string>
+}>() {}
+
+const MyServiceLive = Layer.succeed(MyService, {
+  method1: () => Effect.void,
+  method2: (input) => Effect.succeed(input.toUpperCase())
+})
 ```
+
+**Why Context.Tag over Effect.Service:**
+- Explicit separation of tag (interface) and layer (implementation)
+- Better composability with Layer combinators (`Layer.provide`, `Layer.merge`)
+- `Effect.Service` is experimental and wraps `Context.Tag` internally
 
 ### Schema
 Use `Schema.Struct()` for data structures (not classes in DO context):
@@ -410,6 +327,325 @@ Wrap external Promise APIs:
 ```typescript
 const result = yield* Effect.promise(() => externalAsyncCall())
 ```
+
+## Effect RPC
+
+`@effect/rpc` provides type-safe RPC with automatic serialization. Used for communication between frontend and Durable Objects.
+
+### Defining RPC Schemas (Shared Package)
+
+Define schemas in a shared package (e.g., `packages/library/src/rpc.ts`):
+```typescript
+import {Rpc, RpcGroup} from "@effect/rpc";
+import {Schema} from "effect";
+
+// Define request/response schemas
+const GetStory = Rpc.make("getStory", {
+  payload: Schema.Struct({id: Schema.String}),
+  success: Schema.NullOr(StorySchema),
+});
+
+const ListStories = Rpc.make("listStories", {
+  payload: Schema.Struct({
+    first: Schema.optional(Schema.Number),
+    after: Schema.optional(Schema.String),
+  }),
+  success: Schema.Struct({
+    stories: Schema.Array(StorySchema),
+    hasNextPage: Schema.Boolean,
+    endCursor: Schema.NullOr(Schema.String),
+    totalCount: Schema.Number,
+  }),
+});
+
+// Group all RPCs together
+export const LibraryRpcs = RpcGroup.make(GetStory, ListStories, CreateStory, /* ... */);
+```
+
+### RPC Server in Durable Object
+
+Use `RpcServer.toHttpApp` with `ManagedRuntime` - **never use `as any` type casts**:
+```typescript
+import {HttpServerRequest, HttpServerResponse} from "@effect/platform";
+import {RpcSerialization, RpcServer} from "@effect/rpc";
+import {LibraryRpcs} from "@kampus/library";
+import {Effect, Layer, ManagedRuntime} from "effect";
+
+export class Library extends DurableObject<Env> {
+  db = drizzle(this.ctx.storage, {schema});
+
+  // Handlers use Effect.promise for Drizzle operations
+  private handlers = {
+    getStory: ({id}: {id: string}) =>
+      Effect.promise(async () => {
+        const story = this.db.select().from(schema.story)
+          .where(eq(schema.story.id, id)).get();
+        if (!story) return null;
+        return {
+          id: story.id,
+          title: story.title,
+          createdAt: story.createdAt.toISOString(),
+        };
+      }),
+
+    listStories: ({first, after}: {first?: number; after?: string}) =>
+      Effect.promise(async () => {
+        // ... database queries using .get(), .all()
+        return {stories, hasNextPage, endCursor, totalCount};
+      }),
+  };
+
+  // Layer provides handlers + JSON serialization + Scope
+  private handlerLayer = Layer.mergeAll(
+    LibraryRpcs.toLayer(this.handlers),
+    RpcSerialization.layerJson,
+    Layer.scope,
+  );
+
+  // ManagedRuntime for running effects
+  private runtime = ManagedRuntime.make(this.handlerLayer);
+
+  constructor(ctx: DurableObjectState, env: Env) {
+    super(ctx, env);
+    this.ctx.blockConcurrencyWhile(async () => {
+      await migrate(this.db, migrations);
+    });
+  }
+
+  async fetch(request: Request): Promise<Response> {
+    const program = Effect.gen(function* () {
+      const httpApp = yield* RpcServer.toHttpApp(LibraryRpcs);
+      const response = yield* httpApp.pipe(
+        Effect.provideService(
+          HttpServerRequest.HttpServerRequest,
+          HttpServerRequest.fromWeb(request)
+        )
+      );
+      return HttpServerResponse.toWeb(response);
+    });
+    return this.runtime.runPromise(program);
+  }
+}
+```
+
+**Key patterns:**
+- Use arrow functions for handlers to preserve `this` binding
+- Include `Layer.scope` in the handler layer for `toHttpApp`
+- `ManagedRuntime.make(layer)` provides proper type inference
+- `HttpServerRequest.fromWeb(request)` converts web Request
+- `HttpServerResponse.toWeb(response)` converts back (returns Response directly, not Effect)
+- **Never use `toWebHandler` in DOs** - it requires `HttpRouter.DefaultServices` (HttpPlatform, FileSystem, etc.)
+
+### RPC Error Handling
+
+Define typed errors in the shared package using `Schema.TaggedError`:
+```typescript
+// packages/library/src/errors.ts
+export class InvalidUrlError extends Schema.TaggedError<InvalidUrlError>()(
+  "InvalidUrlError",
+  {url: Schema.String}
+) {}
+
+// Add error channel to RPC definition
+Rpc.make("createStory", {
+  payload: {...},
+  success: Story,
+  error: InvalidUrlError,  // Typed error channel
+})
+```
+
+**Use `Effect.gen` + `Effect.fail` for typed errors** (not `throw` inside `Effect.promise`):
+```typescript
+// ❌ DON'T: throw inside Effect.promise (becomes untyped defect)
+createStory: ({url}) => Effect.promise(async () => {
+  if (!isValidUrl(url)) throw new Error("Invalid URL");  // Lost type info!
+})
+
+// ✅ DO: Use Effect.gen with Effect.fail for typed errors
+createStory: ({url}) => Effect.gen(this, function* () {
+  if (!isValidUrl(url)) {
+    return yield* Effect.fail(new InvalidUrlError({url}));
+  }
+  // Sync DB operations work directly in generator (Drizzle is sync)
+  return this.db.insert(schema.story).values({url}).returning().get();
+})
+```
+
+### RPC Client with effect-atom
+
+Use `AtomRpc.Tag` for type-safe RPC client with auth and error handling:
+```typescript
+import {FetchHttpClient, HttpClient, HttpClientRequest} from "@effect/platform";
+import {RpcClient, RpcSerialization} from "@effect/rpc";
+import {AtomRpc} from "@effect-atom/atom";
+import {LibraryRpcs, UnauthorizedError} from "@kampus/library";
+import {Effect, Layer} from "effect";
+
+export class LibraryRpc extends AtomRpc.Tag<LibraryRpc>()("LibraryRpc", {
+  group: LibraryRpcs,
+  protocol: RpcClient.layerProtocolHttp({
+    url: "/rpc/library",
+    transformClient: (client) => client.pipe(
+      // Add auth header
+      HttpClient.mapRequest((req) => {
+        const token = getStoredToken();
+        return token ? HttpClientRequest.bearerToken(req, token) : req;
+      }),
+      // Handle 401 with typed error
+      HttpClient.transformResponse(
+        Effect.flatMap((r) => r.status === 401
+          ? Effect.fail(new UnauthorizedError())
+          : Effect.succeed(r))
+      ),
+    ),
+  }).pipe(Layer.provide(RpcSerialization.layerJson), Layer.provide(FetchHttpClient.layer)),
+}) {}
+```
+
+Define query and mutation atoms with `reactivityKeys` for cache invalidation:
+```typescript
+// Query atoms - invalidated when matching mutation fires
+export const storiesAtom = LibraryRpc.query("listStories", {}, {
+  reactivityKeys: ["stories"],
+});
+
+export const tagsAtom = LibraryRpc.query("listTags", undefined, {
+  reactivityKeys: ["tags"],
+});
+
+// Mutation atoms
+export const createStoryMutation = LibraryRpc.mutation("createStory");
+export const deleteStoryMutation = LibraryRpc.mutation("deleteStory");
+```
+
+## effect-atom Best Practices
+
+effect-atom is a reactive state management library for Effect with fine-grained atoms and full Effect ecosystem integration.
+
+### Basic Atoms
+```typescript
+import {Atom, Registry} from "@effect-atom/atom"
+
+// Simple writable atom
+const countAtom = Atom.make(0)
+
+// Derived atom (read-only, auto-updates)
+const doubleCountAtom = Atom.make((get) => get(countAtom) * 2)
+
+// Using atoms
+const registry = Registry.make()
+registry.get(countAtom)       // 0
+registry.set(countAtom, 5)
+registry.get(doubleCountAtom) // 10
+```
+
+### Effect-based Atoms
+Async atoms return `Result<A, E>` (Initial | Success | Failure):
+```typescript
+const userAtom = Atom.make(
+  Effect.gen(function*() {
+    const response = yield* HttpClient.get("/api/user")
+    return yield* response.json
+  })
+)
+```
+
+### Runtime Atoms with Services
+Use `Atom.runtime()` for atoms depending on Effect services:
+```typescript
+const runtimeAtom = Atom.runtime(MyService.Default)
+
+// Read-only atom with service
+const dataAtom = runtimeAtom.atom(
+  Effect.gen(function*() {
+    const service = yield* MyService
+    return yield* service.getData()
+  })
+)
+
+// Function atom for mutations
+const updateAtom = runtimeAtom.fn(
+  Effect.fnUntraced(function*(input: string) {
+    const service = yield* MyService
+    return yield* service.update(input)
+  })
+)
+```
+
+### Atom Families
+Dynamic atoms keyed by identifier:
+```typescript
+const userByIdAtom = Atom.family((userId: string) =>
+  runtimeAtom.atom(
+    Effect.gen(function*() {
+      const users = yield* Users
+      return yield* users.findById(userId)
+    })
+  )
+)
+
+const user1 = userByIdAtom("user-1") // Same key = same instance
+```
+
+### React Hooks
+```typescript
+import {useAtomValue, useAtomSet, useAtom} from "@effect-atom/atom-react"
+
+const count = useAtomValue(countAtom)           // Read
+const setCount = useAtomSet(countAtom)          // Write
+const [count, setCount] = useAtom(countAtom)    // Both
+```
+
+### Result.builder for UI Rendering
+
+Use `Result.builder` (not `Result.match`) for rendering async results:
+```tsx
+function StoriesList() {
+  const storiesResult = useAtomValue(storiesAtom);
+
+  return Result.builder(storiesResult)
+    .onDefect((defect) => <div>Error: {String(defect)}</div>)
+    .onSuccess((data, {waiting}) => (
+      <>
+        {waiting && <div>Refreshing...</div>}
+        {data.stories.map(story => <StoryRow key={story.id} story={story} />)}
+      </>
+    ))
+    .render();
+}
+```
+
+**Why `Result.builder` over `Result.match`:**
+- `onSuccess` receives unwrapped value `T`, not `Success<T>` wrapper
+- Second arg `{waiting}` indicates background refresh in progress
+- `.render()` returns `null` for initial state (no skeleton flash)
+
+### Fire-and-Forget Mutations
+
+Mutations don't need return values when using `reactivityKeys`:
+```typescript
+const createStory = useAtomSet(createStoryMutation);
+
+const handleSubmit = () => {
+  createStory({
+    payload: {title, url},
+    reactivityKeys: ["stories"],  // Invalidates storiesAtom
+  });
+  // Reset form immediately - don't await
+  setTitle(""); setUrl("");
+};
+```
+
+The mutation fires, `reactivityKeys` triggers cache invalidation, queries refetch automatically.
+
+### Key Patterns
+- `Atom.make(value)` - simple state
+- `Atom.make((get) => ...)` - derived state
+- `Atom.runtime(layer)` - atoms needing Effect services
+- `runtimeAtom.atom(effect)` - async operations
+- `runtimeAtom.fn(effect)` - mutations/actions
+- `Atom.family(keyFn)` - dynamic/parameterized atoms
+- Wrap React app in `<RegistryProvider>` for hooks
 
 ## Principles
 
@@ -445,11 +681,11 @@ describe('Feature', () => {
 
 - **DO can't return class instances** - Use `Schema.Struct()`, not `Schema.Class()`
 - **Don't run `turbo dev` automatically** - User starts dev servers manually
-- **Effect in worker** - Used via GQLoom's EffectWeaver, not direct Effect.gen
-- **Relay artifacts** - Run `pnpm --filter kamp-us run relay` after schema changes
 - **Design system className** - Props intentionally omit it; don't try to add styles
-- **Relay @refetchable requires Node** - Parent type must implement Node interface
-- **Relay pagination types** - Use `Schema.Int` not `Number`, `NullishOr` not `NullOr`
+- **Result.builder vs Result.match** - `onSuccess` in `Result.match` gets `Success<T>` wrapper; `Result.builder` unwraps to `T`
+- **Effect.promise swallows error types** - Use `Effect.gen` + `Effect.fail` for typed RPC errors
+- **Import errors from shared package** - Use `Schema.TaggedError` from `@kampus/library`, not `Data.TaggedError` locally
+- **401 in RPC client** - Add `HttpClient.transformResponse` to convert HTTP 401 to typed `UnauthorizedError`
 
 ## Reference Implementations
 
@@ -510,26 +746,31 @@ export class Library extends DurableObject<Env> {
 }
 ```
 
-### Effect Service
+### Service with Context.Tag
 
 ```typescript
-export class KampusStateStorage extends Effect.Service<KampusStateStorage>()(
-  "cli/services/KampusStateStorage",
+class KampusStateStorage extends Context.Tag("cli/services/KampusStateStorage")<
+  KampusStateStorage,
   {
-    dependencies: [BunKeyValueStore.layerFileSystem(KAMPUS_DIR)],
-    effect: Effect.gen(function* () {
-      const kv = (yield* KeyValueStore).forSchema(KampusState);
+    readonly loadState: Effect.Effect<KampusState>
+    readonly saveState: (state: KampusState) => Effect.Effect<void>
+  }
+>() {}
 
-      const loadState = Effect.fn("loadState")(function* () {
+const KampusStateStorageLive = Layer.effect(
+  KampusStateStorage,
+  Effect.gen(function* () {
+    const kv = (yield* KeyValueStore).forSchema(KampusState)
+    return {
+      loadState: Effect.gen(function* () {
         return (yield* kv.get("state")).pipe(
           Option.getOrElse(() => KampusState.make({}))
-        );
-      });
-
-      return { loadState, /* ... */ };
-    }),
-  },
-) {}
+        )
+      }),
+      saveState: (state) => kv.set("state", state)
+    }
+  })
+).pipe(Layer.provide(BunKeyValueStore.layerFileSystem(KAMPUS_DIR)))
 ```
 
 ### Tagged Error
@@ -549,7 +790,10 @@ export class KampusConfigError<Method extends string> extends Data.TaggedError(
 | ------ | ------- |
 | Feature specs | `specs/[feature-name]/` |
 | Design tokens | `apps/kamp-us/src/design/phoenix.{ts,css}` |
-| GraphQL schema | `apps/worker/src/graphql/` |
+| RPC definitions | `packages/library/src/rpc.ts` |
+| Domain errors | `packages/library/src/errors.ts` |
+| RPC client | `apps/kamp-us/src/rpc/client.ts` |
+| RPC atoms | `apps/kamp-us/src/rpc/atoms.ts` |
 | Feature implementations | `apps/worker/src/features/*/` |
-| Relay artifacts | `__generated__/` directories (auto-generated) |
 | Local Effect source | `~/.local/share/effect-solutions/effect/` |
+| Local effect-atom source | `~/code/github.com/usirin/effect-atom/` |

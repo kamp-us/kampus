@@ -1,9 +1,7 @@
-import {Component, type ReactNode, Suspense, useRef, useState} from "react";
-import {graphql, useLazyLoadQuery, useMutation} from "react-relay";
+import {Result} from "@effect-atom/atom";
+import {useAtomSet, useAtomValue} from "@effect-atom/atom-react";
+import {Component, type ReactNode, useRef, useState} from "react";
 import {Link, Navigate} from "react-router";
-import type {TagManagementDeleteTagMutation} from "../../__generated__/TagManagementDeleteTagMutation.graphql";
-import type {TagManagementQuery as TagManagementQueryType} from "../../__generated__/TagManagementQuery.graphql";
-import type {TagManagementUpdateTagMutation} from "../../__generated__/TagManagementUpdateTagMutation.graphql";
 import {useAuth} from "../../auth/AuthContext";
 import {AlertDialog} from "../../design/AlertDialog";
 import {Button} from "../../design/Button";
@@ -12,63 +10,8 @@ import {Input} from "../../design/Input";
 import {MoreHorizontalIcon} from "../../design/icons/MoreHorizontalIcon";
 import {Menu} from "../../design/Menu";
 import {TagChip} from "../../design/TagChip";
+import {deleteTagMutation, tagsAtom, updateTagMutation} from "../../rpc/atoms";
 import styles from "./TagManagement.module.css";
-
-const TagManagementQuery = graphql`
-	query TagManagementQuery {
-		me {
-			library {
-				tags {
-					id
-					name
-					color
-					stories(first: 0) {
-						totalCount
-					}
-				}
-			}
-		}
-	}
-`;
-
-const UpdateTagMutation = graphql`
-	mutation TagManagementUpdateTagMutation($id: String!, $name: String, $color: String) {
-		updateTag(id: $id, name: $name, color: $color) {
-			tag {
-				id
-				name
-				color
-			}
-			error {
-				... on TagNameExistsError {
-					code
-					message
-				}
-				... on InvalidTagNameError {
-					code
-					message
-				}
-				... on TagNotFoundError {
-					code
-					message
-				}
-			}
-		}
-	}
-`;
-
-const DeleteTagMutation = graphql`
-	mutation TagManagementDeleteTagMutation($id: String!) {
-		deleteTag(id: $id) {
-			success
-			deletedTagId
-			error {
-				code
-				message
-			}
-		}
-	}
-`;
 
 class ErrorBoundary extends Component<
 	{children: ReactNode; fallback: ReactNode},
@@ -129,20 +72,20 @@ type TagData = {
 	readonly id: string;
 	readonly name: string;
 	readonly color: string;
-	readonly stories: {
-		readonly totalCount: number;
-	};
+	readonly storyCount: number;
 };
 
-function TagRow({tag, onDeleted}: {tag: TagData; onDeleted: () => void}) {
+function TagRow({tag}: {tag: TagData}) {
 	const [state, setState] = useState<TagRowState>({mode: "view"});
 	const [error, setError] = useState<string | null>(null);
+	const [isUpdating, setIsUpdating] = useState(false);
+	const [isDeleting, setIsDeleting] = useState(false);
 	const menuTriggerRef = useRef<HTMLButtonElement>(null);
 
-	const [commitUpdate, isUpdating] = useMutation<TagManagementUpdateTagMutation>(UpdateTagMutation);
-	const [commitDelete, isDeleting] = useMutation<TagManagementDeleteTagMutation>(DeleteTagMutation);
+	const updateTag = useAtomSet(updateTagMutation);
+	const deleteTag = useAtomSet(deleteTagMutation);
 
-	const handleRename = (newName: string) => {
+	const handleRename = async (newName: string) => {
 		const trimmed = newName.trim();
 		if (!trimmed || trimmed === tag.name) {
 			setState({mode: "view"});
@@ -150,61 +93,60 @@ function TagRow({tag, onDeleted}: {tag: TagData; onDeleted: () => void}) {
 		}
 
 		setError(null);
-		commitUpdate({
-			variables: {id: tag.id, name: trimmed, color: null},
-			onCompleted: (response) => {
-				if (response.updateTag.error) {
-					setError(response.updateTag.error.message ?? "Failed to rename tag");
-				} else {
-					setState({mode: "view"});
-				}
-			},
-			onError: (err) => setError(err.message),
-		});
+		setIsUpdating(true);
+		try {
+			await updateTag({
+				payload: {id: tag.id, name: trimmed},
+				reactivityKeys: ["tags"],
+			});
+			setState({mode: "view"});
+		} catch (err) {
+			setError(err instanceof Error ? err.message : "Failed to rename tag");
+		} finally {
+			setIsUpdating(false);
+		}
 	};
 
-	const handleColorChange = (newColor: string) => {
+	const handleColorChange = async (newColor: string) => {
 		if (newColor.toLowerCase() === tag.color.toLowerCase()) {
 			setState({mode: "view"});
 			return;
 		}
 
 		setError(null);
-		commitUpdate({
-			variables: {id: tag.id, name: null, color: newColor},
-			onCompleted: (response) => {
-				if (response.updateTag.error) {
-					setError(response.updateTag.error.message ?? "Failed to update color");
-				}
-				setState({mode: "view"});
-			},
-			onError: (err) => {
-				setError(err.message);
-				setState({mode: "view"});
-			},
-		});
+		setIsUpdating(true);
+		try {
+			await updateTag({
+				payload: {id: tag.id, color: newColor},
+				reactivityKeys: ["tags"],
+			});
+			setState({mode: "view"});
+		} catch (err) {
+			setError(err instanceof Error ? err.message : "Failed to update color");
+			setState({mode: "view"});
+		} finally {
+			setIsUpdating(false);
+		}
 	};
 
-	const handleDelete = () => {
+	const handleDelete = async () => {
 		setError(null);
-		commitDelete({
-			variables: {id: tag.id},
-			onCompleted: (response) => {
-				if (response.deleteTag.error) {
-					setError(response.deleteTag.error.message);
-					setState({mode: "view"});
-				} else if (response.deleteTag.success) {
-					onDeleted();
-				}
-			},
-			onError: (err) => {
-				setError(err.message);
-				setState({mode: "view"});
-			},
-		});
+		setIsDeleting(true);
+		try {
+			await deleteTag({
+				payload: {id: tag.id},
+				reactivityKeys: ["tags"],
+			});
+			setState({mode: "view"});
+		} catch (err) {
+			setError(err instanceof Error ? err.message : "Failed to delete tag");
+			setState({mode: "view"});
+		} finally {
+			setIsDeleting(false);
+		}
 	};
 
-	const storyLabel = tag.stories.totalCount === 1 ? "story" : "stories";
+	const storyLabel = tag.storyCount === 1 ? "story" : "stories";
 
 	return (
 		<div className={styles.tagRow}>
@@ -223,7 +165,7 @@ function TagRow({tag, onDeleted}: {tag: TagData; onDeleted: () => void}) {
 						<>
 							<TagChip name={tag.name} color={tag.color} />
 							<span className={styles.storyCount}>
-								{tag.stories.totalCount} {storyLabel}
+								{tag.storyCount} {storyLabel}
 							</span>
 						</>
 					)}
@@ -267,8 +209,8 @@ function TagRow({tag, onDeleted}: {tag: TagData; onDeleted: () => void}) {
 					<AlertDialog.Popup>
 						<AlertDialog.Title>Delete "{tag.name}"?</AlertDialog.Title>
 						<AlertDialog.Description>
-							This will remove the tag from {tag.stories.totalCount} {storyLabel}. The stories
-							themselves will not be deleted.
+							This will remove the tag from {tag.storyCount} {storyLabel}. The stories themselves
+							will not be deleted.
 						</AlertDialog.Description>
 						<div className={styles.dialogActions}>
 							<AlertDialog.Close render={<Button />}>Cancel</AlertDialog.Close>
@@ -342,43 +284,47 @@ function EmptyState() {
 }
 
 function AuthenticatedTagManagement() {
-	const [fetchKey, setFetchKey] = useState(0);
-	const data = useLazyLoadQuery<TagManagementQueryType>(
-		TagManagementQuery,
-		{},
-		{fetchKey, fetchPolicy: fetchKey > 0 ? "network-only" : "store-or-network"},
-	);
+	const tagsResult = useAtomValue(tagsAtom);
 
-	const tags = [...data.me.library.tags].sort((a, b) => a.name.localeCompare(b.name));
-	const hasTags = tags.length > 0;
-
-	const handleRefetch = () => {
-		setFetchKey((k) => k + 1);
-	};
-
-	return (
-		<div className={styles.container}>
-			<header className={styles.header}>
-				<div className={styles.headerLeft}>
-					<Link to="/me/library" className={styles.backLink}>
-						← Library
-					</Link>
-					<h1 className={styles.title}>Manage Tags</h1>
+	return Result.builder(tagsResult)
+		.onDefect((defect) => (
+			<div className={styles.container}>
+				<div className={styles.card}>
+					<p>Failed to load tags: {String(defect)}</p>
 				</div>
-				<span className={styles.tagCount}>{tags.length} tags</span>
-			</header>
+			</div>
+		))
+		.onSuccess((tags, {waiting}) => {
+			const sortedTags = [...tags].sort((a, b) => a.name.localeCompare(b.name));
+			const hasTags = sortedTags.length > 0;
 
-			{hasTags ? (
-				<div className={styles.tagList}>
-					{tags.map((tag) => (
-						<TagRow key={tag.id} tag={tag} onDeleted={handleRefetch} />
-					))}
+			return (
+				<div className={styles.container}>
+					<header className={styles.header}>
+						<div className={styles.headerLeft}>
+							<Link to="/me/library" className={styles.backLink}>
+								← Library
+							</Link>
+							<h1 className={styles.title}>Manage Tags</h1>
+						</div>
+						<span className={styles.tagCount}>
+							{waiting ? "Refreshing..." : `${sortedTags.length} tags`}
+						</span>
+					</header>
+
+					{hasTags ? (
+						<div className={styles.tagList}>
+							{sortedTags.map((tag) => (
+								<TagRow key={tag.id} tag={tag} />
+							))}
+						</div>
+					) : (
+						<EmptyState />
+					)}
 				</div>
-			) : (
-				<EmptyState />
-			)}
-		</div>
-	);
+			);
+		})
+		.render();
 }
 
 function TagManagementContent() {
@@ -394,9 +340,7 @@ function TagManagementContent() {
 export function TagManagement() {
 	return (
 		<ErrorBoundary fallback={<NotLoggedIn />}>
-			<Suspense fallback={<TagManagementSkeleton />}>
-				<TagManagementContent />
-			</Suspense>
+			<TagManagementContent />
 		</ErrorBoundary>
 	);
 }

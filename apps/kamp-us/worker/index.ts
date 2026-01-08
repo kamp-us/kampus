@@ -16,6 +16,11 @@ export default {
 			return env.BACKEND.fetch(request);
 		}
 
+		// Proxy RPC requests to the backend worker
+		if (url.pathname.startsWith("/rpc/")) {
+			return env.BACKEND.fetch(request);
+		}
+
 		return new Response(null, {status: 404});
 	},
 } satisfies ExportedHandler<Env>;
