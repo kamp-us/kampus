@@ -67,19 +67,6 @@ function extractDomain(url: string) {
 	}
 }
 
-function LibrarySkeleton() {
-	return (
-		<div className={styles.container}>
-			<header className={styles.header}>
-				<h1 className={styles.title}>Library</h1>
-			</header>
-			<div className={styles.skeleton} />
-			<div className={styles.skeleton} />
-			<div className={styles.skeleton} />
-		</div>
-	);
-}
-
 // Hook to manage tag filter via URL search params (using effect-atom)
 function useTagFilter() {
 	const [tagId, setTagId] = useAtom(tagFilterAtom);
@@ -545,7 +532,6 @@ function AllStoriesList({
 	const [isLoadingMore, setIsLoadingMore] = useState(false);
 
 	return Result.builder(storiesResult)
-		.onInitial(() => <LibrarySkeleton />)
 		.onDefect((defect) => <div className={styles.error}>Error: {String(defect)}</div>)
 		.onSuccess((data, {waiting}) => {
 			const stories = data.stories;
@@ -605,7 +591,6 @@ function FilteredStoriesList({
 	const [isLoadingMore, setIsLoadingMore] = useState(false);
 
 	return Result.builder(storiesResult)
-		.onInitial(() => <LibrarySkeleton />)
 		.onDefect((defect) => <div className={styles.error}>Error: {String(defect)}</div>)
 		.onSuccess((data, {waiting}) => {
 			const stories = data.stories;
