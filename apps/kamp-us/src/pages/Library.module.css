@@ -302,14 +302,22 @@
 	max-width: 280px;
 }
 
-/* Tag filter row */
+/* Tag filter section */
+.tagFilterSection {
+	border-bottom: 1px solid var(--gray-6);
+	margin-bottom: var(--space-8);
+}
+
 .tagFilterRow {
 	display: flex;
 	align-items: center;
 	gap: var(--space-8);
 	padding: var(--space-12) 0;
-	border-bottom: 1px solid var(--gray-6);
-	margin-bottom: var(--space-8);
+}
+
+.tagFilterSection .tagFilterRow {
+	border-bottom: none;
+	padding-bottom: var(--space-8);
 }
 
 .filterLabel {
@@ -321,6 +329,47 @@
 	font-size: var(--font-size-2);
 	color: var(--gray-9);
 	margin-left: auto;
+}
+
+.tagFilterList {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--space-8);
+	padding-bottom: var(--space-12);
+}
+
+.tagFilterButton {
+	all: unset;
+	cursor: pointer;
+	border-radius: var(--radius-2);
+	transition: opacity 0.15s;
+}
+
+.tagFilterButton:hover {
+	opacity: 0.8;
+}
+
+.tagFilterButton:focus-visible {
+	outline: 2px solid var(--sky-8);
+	outline-offset: 2px;
+}
+
+.activeFilter {
+	display: flex;
+	align-items: center;
+	gap: var(--space-8);
+}
+
+.clearFilter {
+	all: unset;
+	font-size: var(--font-size-2);
+	color: var(--gray-10);
+	cursor: pointer;
+}
+
+.clearFilter:hover {
+	color: var(--gray-12);
+	text-decoration: underline;
 }
 
 .dismissButton {

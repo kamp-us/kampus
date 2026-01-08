@@ -1,5 +1,5 @@
 import {Result} from "@effect-atom/atom";
-import {useAtomSet, useAtomValue} from "@effect-atom/atom-react";
+import {useAtom, useAtomSet, useAtomValue} from "@effect-atom/atom-react";
 import {type FormEvent, useMemo, useState} from "react";
 import {Link, Navigate} from "react-router";
 import {useAuth} from "../auth/AuthContext";
@@ -18,6 +18,8 @@ import {
 	createTagMutation,
 	deleteStoryMutation,
 	storiesAtom,
+	storiesByTagAtom,
+	tagFilterAtom,
 	tagsAtom,
 	updateStoryMutation,
 } from "../rpc/atoms";
@@ -85,15 +87,73 @@ function LibrarySkeleton() {
 	);
 }
 
-function TagFilterRow({storyCount}: {storyCount: number}) {
-	const storyLabel = storyCount === 1 ? "story" : "stories";
+// Hook to manage tag filter via URL search params (using effect-atom)
+function useTagFilter() {
+	const [tagId, setTagId] = useAtom(tagFilterAtom);
+
+	const setTagFilter = (newTagId: string | null) => {
+		setTagId(newTagId);
+	};
+
+	const clearFilter = () => setTagId(null);
+
+	return {tagId, setTagFilter, clearFilter};
+}
+
+function TagFilterBar({
+	tags,
+	selectedTagId,
+	onTagSelect,
+	onClearFilter,
+	totalCount,
+}: {
+	tags: Tag[];
+	selectedTagId: string | null;
+	onTagSelect: (tagId: string) => void;
+	onClearFilter: () => void;
+	totalCount: number;
+}) {
+	const selectedTag = selectedTagId ? tags.find((t) => t.id === selectedTagId) : null;
+	const storyLabel = totalCount === 1 ? "story" : "stories";
+
+	if (selectedTag) {
+		return (
+			<div className={styles.tagFilterRow}>
+				<div className={styles.activeFilter}>
+					<TagChip name={selectedTag.name} color={selectedTag.color} />
+					<button type="button" className={styles.clearFilter} onClick={onClearFilter}>
+						× Clear filter
+					</button>
+				</div>
+				<span className={styles.storyCount}>
+					{totalCount} {storyLabel}
+				</span>
+			</div>
+		);
+	}
 
 	return (
-		<div className={styles.tagFilterRow}>
-			<span className={styles.filterLabel}>All stories</span>
-			<span className={styles.storyCount}>
-				{storyCount} {storyLabel}
-			</span>
+		<div className={styles.tagFilterSection}>
+			<div className={styles.tagFilterRow}>
+				<span className={styles.filterLabel}>All stories</span>
+				<span className={styles.storyCount}>
+					{totalCount} {storyLabel}
+				</span>
+			</div>
+			{tags.length > 0 && (
+				<div className={styles.tagFilterList}>
+					{tags.map((tag) => (
+						<button
+							key={tag.id}
+							type="button"
+							className={styles.tagFilterButton}
+							onClick={() => onTagSelect(tag.id)}
+						>
+							<TagChip name={tag.name} color={tag.color} />
+						</button>
+					))}
+				</div>
+			)}
 		</div>
 	);
 }
@@ -200,7 +260,7 @@ function CreateStoryForm({
 
 		const result = await createTag({
 			payload: {name, color},
-			reactivityKeys: ["tags"],
+			reactivityKeys: ["tags", "stories"],
 		});
 
 		const newTag = result as Tag;
@@ -224,7 +284,7 @@ function CreateStoryForm({
 					description: description.trim() || undefined,
 					tagIds,
 				},
-				reactivityKeys: ["stories"],
+				reactivityKeys: ["stories", "tags"],
 			});
 			setUrl("");
 			setTitle("");
@@ -331,18 +391,28 @@ function CreateStoryForm({
 	);
 }
 
-function StoryRow({story}: {story: Story}) {
+function StoryRow({
+	story,
+	availableTags,
+	onTagCreate,
+}: {
+	story: Story;
+	availableTags: Tag[];
+	onTagCreate: (tag: Tag) => void;
+}) {
 	const domain = extractDomain(story.url);
 	const relativeDate = formatRelativeDate(story.createdAt);
 
 	const [isEditing, setIsEditing] = useState(false);
 	const [editTitle, setEditTitle] = useState(story.title);
 	const [editDescription, setEditDescription] = useState(story.description ?? "");
+	const [editTags, setEditTags] = useState<Tag[]>(story.tags ?? []);
 	const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 
 	const updateStory = useAtomSet(updateStoryMutation);
 	const deleteStory = useAtomSet(deleteStoryMutation);
+	const createTag = useAtomSet(createTagMutation);
 	const [isUpdating, setIsUpdating] = useState(false);
 	const [isDeleting, setIsDeleting] = useState(false);
 
@@ -350,14 +420,27 @@ function StoryRow({story}: {story: Story}) {
 		setError(null);
 		setEditTitle(story.title);
 		setEditDescription(story.description ?? "");
+		setEditTags(story.tags ?? []);
 		setIsEditing(true);
 	};
 
 	const handleCancelEdit = () => {
 		setEditTitle(story.title);
 		setEditDescription(story.description ?? "");
+		setEditTags(story.tags ?? []);
 		setIsEditing(false);
 		setError(null);
+	};
+
+	const handleCreateTag = async (name: string): Promise<Tag> => {
+		const color = getNextTagColor(availableTags);
+		const result = await createTag({
+			payload: {name, color},
+			reactivityKeys: ["tags", "stories"],
+		});
+		const newTag = result as Tag;
+		onTagCreate(newTag);
+		return newTag;
 	};
 
 	const handleSaveEdit = async () => {
@@ -367,8 +450,11 @@ function StoryRow({story}: {story: Story}) {
 		// Check if anything changed
 		const titleChanged = trimmedTitle !== story.title;
 		const descriptionChanged = editDescription !== (story.description ?? "");
+		const currentTagIds = (story.tags ?? []).map((t) => t.id).sort();
+		const newTagIds = editTags.map((t) => t.id).sort();
+		const tagsChanged = JSON.stringify(currentTagIds) !== JSON.stringify(newTagIds);
 
-		if (!titleChanged && !descriptionChanged) {
+		if (!titleChanged && !descriptionChanged && !tagsChanged) {
 			setIsEditing(false);
 			return;
 		}
@@ -381,8 +467,9 @@ function StoryRow({story}: {story: Story}) {
 					id: story.id,
 					title: titleChanged ? trimmedTitle : undefined,
 					description: descriptionChanged ? editDescription : undefined,
+					tagIds: tagsChanged ? editTags.map((t) => t.id) : undefined,
 				},
-				reactivityKeys: ["stories"],
+				reactivityKeys: ["stories", "tags"],
 			});
 			setIsEditing(false);
 		} catch (err) {
@@ -407,7 +494,7 @@ function StoryRow({story}: {story: Story}) {
 		try {
 			await deleteStory({
 				payload: {id: story.id},
-				reactivityKeys: ["stories"],
+				reactivityKeys: ["stories", "tags"],
 			});
 			setDeleteDialogOpen(false);
 		} catch (err) {
@@ -432,6 +519,13 @@ function StoryRow({story}: {story: Story}) {
 						placeholder="Title"
 						// biome-ignore lint/a11y/noAutofocus: Focus is intentional when user clicks Edit
 						autoFocus
+					/>
+					<TagInput
+						selectedTags={editTags}
+						availableTags={availableTags}
+						onChange={setEditTags}
+						onCreate={handleCreateTag}
+						placeholder="Add tags..."
 					/>
 					<Textarea
 						value={editDescription}
@@ -524,7 +618,17 @@ function StoryRow({story}: {story: Story}) {
 	);
 }
 
-function StoriesList({onFormExpand}: {onFormExpand: () => void}) {
+function AllStoriesList({
+	onFormExpand,
+	tags,
+	onTagSelect,
+	onTagCreate,
+}: {
+	onFormExpand: () => void;
+	tags: Tag[];
+	onTagSelect: (tagId: string) => void;
+	onTagCreate: (tag: Tag) => void;
+}) {
 	const storiesResult = useAtomValue(storiesAtom());
 	const [isLoadingMore, setIsLoadingMore] = useState(false);
 
@@ -538,13 +642,24 @@ function StoriesList({onFormExpand}: {onFormExpand: () => void}) {
 
 			return (
 				<>
-					<TagFilterRow storyCount={success.value.totalCount} />
+					<TagFilterBar
+						tags={tags}
+						selectedTagId={null}
+						onTagSelect={onTagSelect}
+						onClearFilter={() => {}}
+						totalCount={success.value.totalCount}
+					/>
 
 					{hasStories ? (
 						<>
 							<div className={styles.storyList}>
 								{stories.map((story) => (
-									<StoryRow key={story.id} story={story} />
+									<StoryRow
+										key={story.id}
+										story={story}
+										availableTags={tags}
+										onTagCreate={onTagCreate}
+									/>
 								))}
 							</div>
 							{hasNextPage && (
@@ -567,9 +682,79 @@ function StoriesList({onFormExpand}: {onFormExpand: () => void}) {
 	});
 }
 
+function FilteredStoriesList({
+	tagId,
+	tags,
+	onTagSelect,
+	onClearFilter,
+	onTagCreate,
+}: {
+	tagId: string;
+	tags: Tag[];
+	onTagSelect: (tagId: string) => void;
+	onClearFilter: () => void;
+	onTagCreate: (tag: Tag) => void;
+}) {
+	const storiesResult = useAtomValue(storiesByTagAtom(tagId));
+	const [isLoadingMore, setIsLoadingMore] = useState(false);
+
+	return Result.match(storiesResult, {
+		onInitial: () => <LibrarySkeleton />,
+		onFailure: (failure) => <div className={styles.error}>Error: {String(failure.cause)}</div>,
+		onSuccess: (success) => {
+			const stories = success.value.stories;
+			const hasStories = stories.length > 0;
+			const hasNextPage = success.value.hasNextPage;
+
+			return (
+				<>
+					<TagFilterBar
+						tags={tags}
+						selectedTagId={tagId}
+						onTagSelect={onTagSelect}
+						onClearFilter={onClearFilter}
+						totalCount={success.value.totalCount}
+					/>
+
+					{hasStories ? (
+						<>
+							<div className={styles.storyList}>
+								{stories.map((story) => (
+									<StoryRow
+										key={story.id}
+										story={story}
+										availableTags={tags}
+										onTagCreate={onTagCreate}
+									/>
+								))}
+							</div>
+							{hasNextPage && (
+								<LoadMoreButton
+									onClick={() => {
+										// TODO: Implement pagination with cursor
+										setIsLoadingMore(true);
+										setTimeout(() => setIsLoadingMore(false), 1000);
+									}}
+									isLoading={isLoadingMore}
+								/>
+							)}
+						</>
+					) : (
+						<div className={styles.emptyState}>
+							<p className={styles.emptyText}>No stories with this tag yet.</p>
+							<Button onClick={onClearFilter}>Show all stories</Button>
+						</div>
+					)}
+				</>
+			);
+		},
+	});
+}
+
 function AuthenticatedLibrary() {
 	const [isFormExpanded, setIsFormExpanded] = useState(false);
 	const {tags: availableTags, addTag} = useAvailableTags();
+	const {tagId, setTagFilter, clearFilter} = useTagFilter();
 
 	const handleExpand = () => setIsFormExpanded(true);
 	const handleCollapse = () => setIsFormExpanded(false);
@@ -591,7 +776,22 @@ function AuthenticatedLibrary() {
 				onTagCreate={addTag}
 			/>
 
-			<StoriesList onFormExpand={handleExpand} />
+			{tagId ? (
+				<FilteredStoriesList
+					tagId={tagId}
+					tags={availableTags}
+					onTagSelect={setTagFilter}
+					onClearFilter={clearFilter}
+					onTagCreate={addTag}
+				/>
+			) : (
+				<AllStoriesList
+					onFormExpand={handleExpand}
+					tags={availableTags}
+					onTagSelect={setTagFilter}
+					onTagCreate={addTag}
+				/>
+			)}
 		</div>
 	);
 }
