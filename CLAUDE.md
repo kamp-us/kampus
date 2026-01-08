@@ -17,8 +17,6 @@ turbo run build           # Build all apps
 ```bash
 # Frontend (kamp-us)
 pnpm --filter kamp-us run dev          # Vite dev server
-pnpm --filter kamp-us run schema:fetch # Fetch GraphQL schema from backend
-pnpm --filter kamp-us run relay        # Compile Relay artifacts
 
 # Backend (worker)
 pnpm --filter worker run dev           # Wrangler dev server
@@ -42,14 +40,14 @@ Note: `biome.jsonc` excludes `__generated__/` directories via `files.includes`. 
 ```
 apps/
 ├── kamp-us/   # React frontend (Cloudflare Worker)
-├── worker/    # Backend GraphQL API (Cloudflare Worker)
+├── worker/    # Backend API (Cloudflare Worker + Durable Objects)
 └── cli/       # Effect-based CLI application
 ```
 
 **Request flow:**
 ```
 Browser → kamp-us Worker → Backend Worker (service binding)
-           ├─ /graphql    → GraphQL Yoga
+           ├─ /rpc/*      → Effect RPC (Durable Objects)
            ├─ /api/auth/* → Better Auth
            └─ static      → Vite assets
 ```
@@ -238,18 +236,15 @@ The `kamp-us` app uses:
 
 - **React 19** - UI framework
 - **Vite** - Build tool and dev server
-- **React Relay** - GraphQL client with compiler
-- **react-router** - Client-side routing (NOT `react-router-dom`)
+- **effect-atom** - Reactive state management with Effect integration
+- **@effect/rpc** - Type-safe RPC client
+- **react-router** - Client-side routing
 - **CSS Modules** - Scoped styling (`.module.css` files)
 - **Base UI** - Unstyled component primitives
 
 **Important:** Import from `react-router`, not `react-router-dom`:
 ```typescript
-// Correct
 import {Link, useSearchParams, useNavigate} from "react-router";
-
-// Wrong - don't use this
-import {Link} from "react-router-dom";
 ```
 
 ### Backend Features
@@ -270,92 +265,6 @@ feature-name/
 - Use `Schema.Struct()` not `Schema.Class()` (DOs can't return class instances)
 - ID generation: `id("prefix")` from `@usirin/forge` (e.g., `id("story")`, `id("user")`)
 - Export DO classes from `src/index.ts`, add bindings in `wrangler.jsonc`
-
-### GraphQL (Backend)
-
-- **GQLoom** (`@gqloom/core`, `@gqloom/effect`) for schema definition using Effect Schema
-- **Relay** patterns for global IDs and cursor-based pagination
-- Helpers in `apps/worker/src/graphql/relay.ts`: `encodeGlobalId`, `decodeGlobalId`
-
-**Backend gotchas for Relay compatibility:**
-- Use `Schema.NullishOr` (not `NullOr`) for optional params - Relay sends `undefined`
-- Use `Schema.Int` (not `Number`) for pagination `first` param - Relay expects Int
-- Add `{identifier: "ulid"}` annotation to ID fields used with `@deleteEdge`
-- Types need Node interface for `@refetchable` - add to `NodeType` enum
-
-**Connection pattern:**
-```typescript
-// 1. Define connection schema inline in index.ts
-const StoryEdge = Schema.Struct({
-  node: Story,
-  cursor: Schema.String,
-}).annotations({title: "StoryEdge"});
-
-const StoryConnection = Schema.Struct({
-  edges: Schema.Array(StoryEdge),
-  pageInfo: PageInfo,
-}).annotations({title: "StoryConnection"});
-
-// 2. Library DO returns simple shape
-async listStories(...) {
-  return { edges, hasNextPage, endCursor };
-}
-
-// 3. Resolver transforms to connection shape
-resolve: async () => {
-  const result = await library.listStories(...);
-  return {
-    edges: result.edges.map(story => ({
-      node: toStoryNode(story),
-      cursor: encodeGlobalId(NodeType.Story, story.id),
-    })),
-    pageInfo: {
-      hasNextPage: result.hasNextPage,
-      hasPreviousPage: false,
-      startCursor: result.edges[0] ? encodeGlobalId(...) : null,
-      endCursor: result.endCursor ? encodeGlobalId(...) : null,
-    },
-  };
-}
-```
-
-### Relay (Frontend)
-
-**Pagination with `usePaginationFragment`:**
-```graphql
-fragment LibraryStoriesFragment on Library
-  @argumentDefinitions(first: {type: "Int", defaultValue: 20}, after: {type: "String"})
-  @refetchable(queryName: "LibraryStoriesPaginationQuery") {
-  stories(first: $first, after: $after) @connection(key: "Library_stories") {
-    __id        # Connection ID for mutations
-    totalCount  # For display (not auto-updated by directives)
-    edges { node { ...StoryFragment } }
-  }
-}
-```
-
-**Declarative mutation directives:**
-```graphql
-# Add to connection - use @prependNode with edgeTypeName
-mutation CreateStory($connections: [ID!]!) {
-  createStory(...) {
-    story @prependNode(connections: $connections, edgeTypeName: "StoryEdge") { id }
-  }
-}
-
-# Remove from connection - use @deleteEdge (field must be ID type)
-mutation DeleteStory($connections: [ID!]!) {
-  deleteStory(id: $id) {
-    deletedStoryId @deleteEdge(connections: $connections)
-  }
-}
-```
-
-**Key patterns:**
-- Query `__id` on connections to get connection ID for mutations
-- Declarative directives only update edges, not scalar fields like `totalCount`
-- Use `updater` function to manually update `totalCount` after mutations
-- Parent type must implement Node interface for `@refetchable` to work
 
 ### Code Style
 
@@ -520,7 +429,6 @@ export class Library extends DurableObject<Env> {
 ```
 
 **Key patterns:**
-- Use `Effect.promise(async () => ...)` for Drizzle operations
 - Use arrow functions for handlers to preserve `this` binding
 - Include `Layer.scope` in the handler layer for `toHttpApp`
 - `ManagedRuntime.make(layer)` provides proper type inference
@@ -528,37 +436,86 @@ export class Library extends DurableObject<Env> {
 - `HttpServerResponse.toWeb(response)` converts back (returns Response directly, not Effect)
 - **Never use `toWebHandler` in DOs** - it requires `HttpRouter.DefaultServices` (HttpPlatform, FileSystem, etc.)
 
+### RPC Error Handling
+
+Define typed errors in the shared package using `Schema.TaggedError`:
+```typescript
+// packages/library/src/errors.ts
+export class InvalidUrlError extends Schema.TaggedError<InvalidUrlError>()(
+  "InvalidUrlError",
+  {url: Schema.String}
+) {}
+
+// Add error channel to RPC definition
+Rpc.make("createStory", {
+  payload: {...},
+  success: Story,
+  error: InvalidUrlError,  // Typed error channel
+})
+```
+
+**Use `Effect.gen` + `Effect.fail` for typed errors** (not `throw` inside `Effect.promise`):
+```typescript
+// ❌ DON'T: throw inside Effect.promise (becomes untyped defect)
+createStory: ({url}) => Effect.promise(async () => {
+  if (!isValidUrl(url)) throw new Error("Invalid URL");  // Lost type info!
+})
+
+// ✅ DO: Use Effect.gen with Effect.fail for typed errors
+createStory: ({url}) => Effect.gen(this, function* () {
+  if (!isValidUrl(url)) {
+    return yield* Effect.fail(new InvalidUrlError({url}));
+  }
+  // Sync DB operations work directly in generator (Drizzle is sync)
+  return this.db.insert(schema.story).values({url}).returning().get();
+})
+```
+
 ### RPC Client with effect-atom
 
+Use `AtomRpc.Tag` for type-safe RPC client with auth and error handling:
 ```typescript
+import {FetchHttpClient, HttpClient, HttpClientRequest} from "@effect/platform";
 import {RpcClient, RpcSerialization} from "@effect/rpc";
 import {AtomRpc} from "@effect-atom/atom";
-import {FetchHttpClient, HttpClient} from "@effect/platform";
-import {LibraryRpcs} from "@kampus/library";
-import {Layer} from "effect";
+import {LibraryRpcs, UnauthorizedError} from "@kampus/library";
+import {Effect, Layer} from "effect";
 
-// HTTP client with credentials for session cookies
-const HttpClientWithCredentials = Layer.effect(
-  HttpClient.HttpClient,
-  Effect.map(FetchHttpClient.HttpClient, (client) =>
-    client.pipe(HttpClient.withFetchOptions({credentials: "include"}))
-  )
-).pipe(Layer.provide(FetchHttpClient.layer));
+export class LibraryRpc extends AtomRpc.Tag<LibraryRpc>()("LibraryRpc", {
+  group: LibraryRpcs,
+  protocol: RpcClient.layerProtocolHttp({
+    url: "/rpc/library",
+    transformClient: (client) => client.pipe(
+      // Add auth header
+      HttpClient.mapRequest((req) => {
+        const token = getStoredToken();
+        return token ? HttpClientRequest.bearerToken(req, token) : req;
+      }),
+      // Handle 401 with typed error
+      HttpClient.transformResponse(
+        Effect.flatMap((r) => r.status === 401
+          ? Effect.fail(new UnauthorizedError())
+          : Effect.succeed(r))
+      ),
+    ),
+  }).pipe(Layer.provide(RpcSerialization.layerJson), Layer.provide(FetchHttpClient.layer)),
+}) {}
+```
 
-// RPC client layer
-const RpcClientLayer = RpcClient.layerHttp(LibraryRpcs, {
-  url: "/rpc/library",
-}).pipe(
-  Layer.provide(HttpClientWithCredentials),
-  Layer.provide(RpcSerialization.layerJson),
-);
+Define query and mutation atoms with `reactivityKeys` for cache invalidation:
+```typescript
+// Query atoms - invalidated when matching mutation fires
+export const storiesAtom = LibraryRpc.query("listStories", {}, {
+  reactivityKeys: ["stories"],
+});
 
-// Create atoms from RPC client
-export const libraryRpc = AtomRpc.make(LibraryRpcs, RpcClientLayer);
+export const tagsAtom = LibraryRpc.query("listTags", undefined, {
+  reactivityKeys: ["tags"],
+});
 
-// Usage in React
-const storiesAtom = libraryRpc.listStories({first: 20});
-const createStoryAtom = libraryRpc.fn.createStory;
+// Mutation atoms
+export const createStoryMutation = LibraryRpc.mutation("createStory");
+export const deleteStoryMutation = LibraryRpc.mutation("deleteStory");
 ```
 
 ## effect-atom Best Practices
@@ -632,13 +589,54 @@ const user1 = userByIdAtom("user-1") // Same key = same instance
 
 ### React Hooks
 ```typescript
-import {useAtomValue, useAtomSet, useAtom, useAtomSuspense} from "@effect-atom/atom-react"
+import {useAtomValue, useAtomSet, useAtom} from "@effect-atom/atom-react"
 
 const count = useAtomValue(countAtom)           // Read
 const setCount = useAtomSet(countAtom)          // Write
 const [count, setCount] = useAtom(countAtom)    // Both
-const user = useAtomSuspense(userAtom)          // Suspense for async
 ```
+
+### Result.builder for UI Rendering
+
+Use `Result.builder` (not `Result.match`) for rendering async results:
+```tsx
+function StoriesList() {
+  const storiesResult = useAtomValue(storiesAtom);
+
+  return Result.builder(storiesResult)
+    .onDefect((defect) => <div>Error: {String(defect)}</div>)
+    .onSuccess((data, {waiting}) => (
+      <>
+        {waiting && <div>Refreshing...</div>}
+        {data.stories.map(story => <StoryRow key={story.id} story={story} />)}
+      </>
+    ))
+    .render();
+}
+```
+
+**Why `Result.builder` over `Result.match`:**
+- `onSuccess` receives unwrapped value `T`, not `Success<T>` wrapper
+- Second arg `{waiting}` indicates background refresh in progress
+- `.render()` returns `null` for initial state (no skeleton flash)
+
+### Fire-and-Forget Mutations
+
+Mutations don't need return values when using `reactivityKeys`:
+```typescript
+const createStory = useAtomSet(createStoryMutation);
+
+const handleSubmit = () => {
+  createStory({
+    payload: {title, url},
+    reactivityKeys: ["stories"],  // Invalidates storiesAtom
+  });
+  // Reset form immediately - don't await
+  setTitle(""); setUrl("");
+};
+```
+
+The mutation fires, `reactivityKeys` triggers cache invalidation, queries refetch automatically.
 
 ### Key Patterns
 - `Atom.make(value)` - simple state
@@ -683,11 +681,11 @@ describe('Feature', () => {
 
 - **DO can't return class instances** - Use `Schema.Struct()`, not `Schema.Class()`
 - **Don't run `turbo dev` automatically** - User starts dev servers manually
-- **Effect in worker** - Used via GQLoom's EffectWeaver, not direct Effect.gen
-- **Relay artifacts** - Run `pnpm --filter kamp-us run relay` after schema changes
 - **Design system className** - Props intentionally omit it; don't try to add styles
-- **Relay @refetchable requires Node** - Parent type must implement Node interface
-- **Relay pagination types** - Use `Schema.Int` not `Number`, `NullishOr` not `NullOr`
+- **Result.builder vs Result.match** - `onSuccess` in `Result.match` gets `Success<T>` wrapper; `Result.builder` unwraps to `T`
+- **Effect.promise swallows error types** - Use `Effect.gen` + `Effect.fail` for typed RPC errors
+- **Import errors from shared package** - Use `Schema.TaggedError` from `@kampus/library`, not `Data.TaggedError` locally
+- **401 in RPC client** - Add `HttpClient.transformResponse` to convert HTTP 401 to typed `UnauthorizedError`
 
 ## Reference Implementations
 
@@ -792,8 +790,10 @@ export class KampusConfigError<Method extends string> extends Data.TaggedError(
 | ------ | ------- |
 | Feature specs | `specs/[feature-name]/` |
 | Design tokens | `apps/kamp-us/src/design/phoenix.{ts,css}` |
-| GraphQL schema | `apps/worker/src/graphql/` |
+| RPC definitions | `packages/library/src/rpc.ts` |
+| Domain errors | `packages/library/src/errors.ts` |
+| RPC client | `apps/kamp-us/src/rpc/client.ts` |
+| RPC atoms | `apps/kamp-us/src/rpc/atoms.ts` |
 | Feature implementations | `apps/worker/src/features/*/` |
-| Relay artifacts | `__generated__/` directories (auto-generated) |
 | Local Effect source | `~/.local/share/effect-solutions/effect/` |
 | Local effect-atom source | `~/code/github.com/usirin/effect-atom/` |
