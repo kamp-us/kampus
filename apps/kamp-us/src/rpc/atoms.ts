@@ -1,15 +1,24 @@
+import {Atom} from "@effect-atom/atom";
 import {LibraryRpc} from "./client";
 
-// Story queries
-export const storiesAtom = (options?: {first?: number; after?: string}) =>
-	LibraryRpc.query("listStories", options ?? {});
+// URL search param atoms
+export const tagFilterAtom = Atom.searchParam("tag");
 
-export const storyAtom = (id: string) => LibraryRpc.query("getStory", {id});
+// Story queries - reactivityKeys allow mutations to invalidate these caches
+export const storiesAtom = (options?: {first?: number; after?: string}) =>
+	LibraryRpc.query("listStories", options ?? {}, {reactivityKeys: ["stories"]});
+
+export const storiesByTagAtom = (tagId: string, options?: {first?: number; after?: string}) =>
+	LibraryRpc.query("listStoriesByTag", {tagId, ...options}, {reactivityKeys: ["stories"]});
+
+export const storyAtom = (id: string) =>
+	LibraryRpc.query("getStory", {id}, {reactivityKeys: ["stories"]});
 
 // Tag queries
-export const tagsAtom = LibraryRpc.query("listTags", undefined);
+export const tagsAtom = LibraryRpc.query("listTags", undefined, {reactivityKeys: ["tags"]});
 
-export const storyTagsAtom = (storyId: string) => LibraryRpc.query("getTagsForStory", {storyId});
+export const storyTagsAtom = (storyId: string) =>
+	LibraryRpc.query("getTagsForStory", {storyId}, {reactivityKeys: ["stories", "tags"]});
 
 // Story mutations
 export const createStoryMutation = LibraryRpc.mutation("createStory");
