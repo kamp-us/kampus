@@ -1,6 +1,6 @@
 import {Result} from "@effect-atom/atom";
 import {useAtom, useAtomSet, useAtomValue} from "@effect-atom/atom-react";
-import {type FormEvent, useMemo, useState} from "react";
+import {type FormEvent, useEffect, useMemo, useState} from "react";
 import {Link, Navigate} from "react-router";
 import {useAuth} from "../auth/AuthContext";
 import {AlertDialog} from "../design/AlertDialog";
@@ -17,6 +17,7 @@ import {
 	createStoryMutation,
 	createTagMutation,
 	deleteStoryMutation,
+	fetchUrlMetadataMutation,
 	storiesAtom,
 	storiesByTagAtom,
 	tagFilterAtom,
@@ -230,6 +231,7 @@ function CreateStoryForm({
 
 	const createStory = useAtomSet(createStoryMutation);
 	const createTag = useAtomSet(createTagMutation);
+	const [fetchResult, triggerFetch] = useAtom(fetchUrlMetadataMutation);
 	const [isSubmitting, setIsSubmitting] = useState(false);
 
 	// Check if URL is valid for fetch
@@ -242,17 +244,35 @@ function CreateStoryForm({
 		}
 	}, [url]);
 
-	const handleFetchMetadata = async () => {
-		if (!url) return;
+	// React to fetch result changes
+	useEffect(() => {
+		Result.match(fetchResult, {
+			onInitial: () => {
+				setIsFetching(false);
+			},
+			onSuccess: (success) => {
+				setIsFetching(false);
+				const metadata = success.value;
+				if (metadata.error) {
+					setFetchError(metadata.error);
+				} else {
+					setFetchError(null);
+					if (metadata.title) setTitle(metadata.title);
+					if (metadata.description) setDescription(metadata.description);
+				}
+			},
+			onFailure: (failure) => {
+				setIsFetching(false);
+				setFetchError(String(failure.cause));
+			},
+		});
+	}, [fetchResult]);
 
+	const handleFetchMetadata = () => {
+		if (!url) return;
 		setIsFetching(true);
 		setFetchError(null);
-
-		// TODO: Implement fetchUrlMetadata RPC endpoint
-		// For now, show a message that this feature needs server-side implementation
-		await new Promise((resolve) => setTimeout(resolve, 500));
-		setFetchError("URL metadata fetch requires a server-side RPC endpoint (not yet implemented)");
-		setIsFetching(false);
+		triggerFetch({payload: {url}});
 	};
 
 	const handleCreateTag = async (name: string): Promise<Tag> => {

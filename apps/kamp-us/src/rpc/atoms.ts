@@ -32,3 +32,6 @@ export const deleteTagMutation = LibraryRpc.mutation("deleteTag");
 
 // Tag-Story mutations
 export const setStoryTagsMutation = LibraryRpc.mutation("setStoryTags");
+
+// URL metadata
+export const fetchUrlMetadataMutation = LibraryRpc.mutation("fetchUrlMetadata");

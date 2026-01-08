@@ -540,6 +540,41 @@ export class Library extends DurableObject<Env> {
 
 				return {success: true};
 			}),
+
+		fetchUrlMetadata: ({url}: {url: string}) =>
+			Effect.promise(async () => {
+				// Validate URL format
+				let parsedUrl: URL;
+				try {
+					parsedUrl = new URL(url);
+				} catch {
+					return {title: null, description: null, error: "Invalid URL format"};
+				}
+
+				// Only allow http/https (SSRF prevention)
+				if (!["http:", "https:"].includes(parsedUrl.protocol)) {
+					return {title: null, description: null, error: "Only HTTP/HTTPS URLs are allowed"};
+				}
+
+				try {
+					// Use normalized URL as DO key for deduplication
+					const normalizedUrl = getNormalizedUrl(url);
+					const parserId = this.env.WEB_PAGE_PARSER.idFromName(normalizedUrl);
+					const parser = this.env.WEB_PAGE_PARSER.get(parserId);
+
+					await parser.init(url);
+					const metadata = await parser.getMetadata();
+
+					return {
+						title: metadata.title || null,
+						description: metadata.description || null,
+						error: null,
+					};
+				} catch (err) {
+					const message = err instanceof Error ? err.message : "Failed to fetch metadata";
+					return {title: null, description: null, error: message};
+				}
+			}),
 	};
 
 	// Layer provides handlers + JSON serialization + Scope

@@ -44,3 +44,11 @@ export const StoriesPage = Schema.Struct({
 	totalCount: Schema.Int,
 });
 export type StoriesPage = typeof StoriesPage.Type;
+
+// URL metadata
+export const UrlMetadata = Schema.Struct({
+	title: Schema.NullOr(Schema.String),
+	description: Schema.NullOr(Schema.String),
+	error: Schema.NullOr(Schema.String),
+});
+export type UrlMetadata = typeof UrlMetadata.Type;

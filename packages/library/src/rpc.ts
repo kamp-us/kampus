@@ -1,7 +1,7 @@
 import {Rpc, RpcGroup} from "@effect/rpc";
 import {Schema} from "effect";
 import * as Errors from "./errors.js";
-import {PaginationInput, StoriesPage, Story, Tag} from "./schema.js";
+import {PaginationInput, StoriesPage, Story, Tag, UrlMetadata} from "./schema.js";
 
 export const LibraryRpcs = RpcGroup.make(
 	// Story operations
@@ -95,6 +95,12 @@ export const LibraryRpcs = RpcGroup.make(
 	Rpc.make("setStoryTags", {
 		payload: {storyId: Schema.String, tagIds: Schema.Array(Schema.String)},
 		success: Schema.Struct({success: Schema.Boolean}),
+	}),
+
+	// URL metadata
+	Rpc.make("fetchUrlMetadata", {
+		payload: {url: Schema.String},
+		success: UrlMetadata,
 	}),
 );
 
