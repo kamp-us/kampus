@@ -28,3 +28,7 @@ export class InvalidTagColorError extends Schema.TaggedError<InvalidTagColorErro
 	"InvalidTagColorError",
 	{color: Schema.String},
 ) {}
+
+export class InvalidUrlError extends Schema.TaggedError<InvalidUrlError>()("InvalidUrlError", {
+	url: Schema.String,
+}) {}

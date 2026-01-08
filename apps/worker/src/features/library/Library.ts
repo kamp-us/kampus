@@ -1,7 +1,7 @@
 import {DurableObject} from "cloudflare:workers";
 import {HttpServerRequest, HttpServerResponse} from "@effect/platform";
 import {RpcSerialization, RpcServer} from "@effect/rpc";
-import {LibraryRpcs} from "@kampus/library";
+import {InvalidUrlError, LibraryRpcs} from "@kampus/library";
 import {and, desc, eq, inArray, lt, sql} from "drizzle-orm";
 import {drizzle} from "drizzle-orm/durable-sqlite";
 import {migrate} from "drizzle-orm/durable-sqlite/migrator";
@@ -180,49 +180,51 @@ export class Library extends DurableObject<Env> {
 			description?: string;
 			tagIds?: readonly string[];
 		}) =>
-			Effect.promise(async () => {
+			Effect.gen(this, function* () {
 				// Validate URL format
 				try {
 					new URL(url);
 				} catch {
-					throw new Error("Invalid URL format");
+					return yield* Effect.fail(new InvalidUrlError({url}));
 				}
 
-				const result = this.db
-					.insert(schema.story)
-					.values({url, normalizedUrl: getNormalizedUrl(url), title, description})
-					.returning()
-					.get();
+				return yield* Effect.promise(async () => {
+					const result = this.db
+						.insert(schema.story)
+						.values({url, normalizedUrl: getNormalizedUrl(url), title, description})
+						.returning()
+						.get();
 
-				// Tag the story if tagIds provided
-				if (tagIds && tagIds.length > 0) {
-					const existingTags = this.db
-						.select({id: schema.tag.id})
-						.from(schema.tag)
-						.where(inArray(schema.tag.id, [...tagIds]))
-						.all();
-					const validTagIds = tagIds.filter((id) => existingTags.some((t) => t.id === id));
+					// Tag the story if tagIds provided
+					if (tagIds && tagIds.length > 0) {
+						const existingTags = this.db
+							.select({id: schema.tag.id})
+							.from(schema.tag)
+							.where(inArray(schema.tag.id, [...tagIds]))
+							.all();
+						const validTagIds = tagIds.filter((id) => existingTags.some((t) => t.id === id));
 
-					if (validTagIds.length > 0) {
-						this.db
-							.insert(schema.storyTag)
-							.values(validTagIds.map((tagId) => ({storyId: result.id, tagId})))
-							.onConflictDoNothing()
-							.run();
+						if (validTagIds.length > 0) {
+							this.db
+								.insert(schema.storyTag)
+								.values(validTagIds.map((tagId) => ({storyId: result.id, tagId})))
+								.onConflictDoNothing()
+								.run();
+						}
 					}
-				}
 
-				// Fetch tags for the created story
-				const tagsByStory = this.getTagsForStories([result.id]);
+					// Fetch tags for the created story
+					const tagsByStory = this.getTagsForStories([result.id]);
 
-				return {
-					id: result.id,
-					url: result.url,
-					title: result.title,
-					description: result.description,
-					createdAt: result.createdAt.toISOString(),
-					tags: tagsByStory.get(result.id) ?? [],
-				};
+					return {
+						id: result.id,
+						url: result.url,
+						title: result.title,
+						description: result.description,
+						createdAt: result.createdAt.toISOString(),
+						tags: tagsByStory.get(result.id) ?? [],
+					};
+				});
 			}),
 
 		updateStory: ({

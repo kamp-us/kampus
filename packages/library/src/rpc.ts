@@ -32,6 +32,7 @@ export const LibraryRpcs = RpcGroup.make(
 			tagIds: Schema.optional(Schema.Array(Schema.String)),
 		},
 		success: Story,
+		error: Errors.InvalidUrlError,
 	}),
 
 	Rpc.make("updateStory", {
