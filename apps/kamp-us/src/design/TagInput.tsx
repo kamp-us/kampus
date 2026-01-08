@@ -1,13 +1,13 @@
 import {Combobox} from "@base-ui/react/combobox";
-import {useId, useMemo, useRef, useState} from "react";
+import {useEffect, useId, useMemo, useRef, useState} from "react";
 
 import {TagChip} from "./TagChip";
 import styles from "./TagInput.module.css";
 
 export type Tag = {
-	id: string;
-	name: string;
-	color: string;
+	readonly id: string;
+	readonly name: string;
+	readonly color: string;
 };
 
 type TagItem = Tag & {
@@ -16,13 +16,13 @@ type TagItem = Tag & {
 
 type TagInputProps = {
 	/** Currently selected tags */
-	selectedTags: Tag[];
+	selectedTags: readonly Tag[];
 	/** All available tags for selection */
-	availableTags: Tag[];
+	availableTags: readonly Tag[];
 	/** Called when selection changes */
-	onChange: (tags: Tag[]) => void;
-	/** Called when a new tag should be created */
-	onCreate: (name: string) => Promise<Tag>;
+	onChange: (tags: readonly Tag[]) => void;
+	/** Called when a new tag should be created - fires mutation, reactivity handles the rest */
+	onCreate: (name: string) => void;
 	/** Placeholder text */
 	placeholder?: string;
 	/** Label for the input */
@@ -42,12 +42,27 @@ export function TagInput({
 
 	const [query, setQuery] = useState("");
 	const highlightedItemRef = useRef<TagItem | undefined>(undefined);
+	// Track pending tag creation for auto-selection when it appears via reactivity
+	const [pendingTagName, setPendingTagName] = useState<string | null>(null);
 
 	// Filter out already selected tags
 	const unselectedTags = useMemo(() => {
 		const selectedIds = new Set(selectedTags.map((t) => t.id));
 		return availableTags.filter((t) => !selectedIds.has(t.id));
 	}, [availableTags, selectedTags]);
+
+	// Auto-select tag when it appears in availableTags after creation
+	useEffect(() => {
+		if (!pendingTagName) return;
+
+		const lowered = pendingTagName.toLowerCase();
+		const newTag = availableTags.find((t) => t.name.toLowerCase() === lowered);
+
+		if (newTag && !selectedTags.some((t) => t.id === newTag.id)) {
+			onChange([...selectedTags, newTag]);
+			setPendingTagName(null);
+		}
+	}, [availableTags, pendingTagName, selectedTags, onChange]);
 
 	// Build items list with "Create" option when needed
 	const items = useMemo((): TagItem[] => {
@@ -73,7 +88,7 @@ export function TagInput({
 		return unselectedTags;
 	}, [query, unselectedTags, availableTags, selectedTags]);
 
-	async function handleCreate(name: string) {
+	function handleCreate(name: string) {
 		const trimmed = name.trim();
 		if (!trimmed) return;
 
@@ -89,21 +104,10 @@ export function TagInput({
 			return;
 		}
 
-		// Create new tag - wrap in try-catch to handle race conditions
-		// (e.g., another request created the same tag name)
-		try {
-			const newTag = await onCreate(trimmed);
-			onChange([...selectedTags, newTag]);
-			setQuery("");
-		} catch {
-			// Tag creation failed (likely TagNameExistsError from race condition)
-			// Re-check availableTags in case it was updated
-			const nowExisting = availableTags.find((t) => t.name.toLowerCase() === lowered);
-			if (nowExisting && !selectedTags.some((t) => t.id === nowExisting.id)) {
-				onChange([...selectedTags, nowExisting]);
-			}
-			setQuery("");
-		}
+		// Fire mutation and track pending name for auto-selection via useEffect
+		onCreate(trimmed);
+		setPendingTagName(trimmed);
+		setQuery("");
 	}
 
 	function handleInputKeyDown(event: React.KeyboardEvent<HTMLInputElement>) {
@@ -120,14 +124,14 @@ export function TagInput({
 		handleCreate(trimmed);
 	}
 
-	async function handleValueChange(nextTags: TagItem[]) {
+	function handleValueChange(nextTags: TagItem[]) {
 		// Check if user selected a "creatable" option
 		const creatableTag = nextTags.find(
 			(t) => t.creatable && !selectedTags.some((s) => s.id === t.id),
 		);
 
 		if (creatableTag?.creatable) {
-			await handleCreate(creatableTag.creatable);
+			handleCreate(creatableTag.creatable);
 			return;
 		}
 
