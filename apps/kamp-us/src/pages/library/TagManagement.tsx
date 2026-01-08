@@ -286,16 +286,15 @@ function EmptyState() {
 function AuthenticatedTagManagement() {
 	const tagsResult = useAtomValue(tagsAtom);
 
-	return Result.match(tagsResult, {
-		onInitial: () => <TagManagementSkeleton />,
-		onFailure: () => (
+	return Result.builder(tagsResult)
+		.onDefect((defect) => (
 			<div className={styles.container}>
 				<div className={styles.card}>
-					<p>Failed to load tags. Please try again.</p>
+					<p>Failed to load tags: {String(defect)}</p>
 				</div>
 			</div>
-		),
-		onSuccess: (tags) => {
+		))
+		.onSuccess((tags, {waiting}) => {
 			const sortedTags = [...tags].sort((a, b) => a.name.localeCompare(b.name));
 			const hasTags = sortedTags.length > 0;
 
@@ -308,7 +307,9 @@ function AuthenticatedTagManagement() {
 							</Link>
 							<h1 className={styles.title}>Manage Tags</h1>
 						</div>
-						<span className={styles.tagCount}>{sortedTags.length} tags</span>
+						<span className={styles.tagCount}>
+							{waiting ? "Refreshing..." : `${sortedTags.length} tags`}
+						</span>
 					</header>
 
 					{hasTags ? (
@@ -322,8 +323,8 @@ function AuthenticatedTagManagement() {
 					)}
 				</div>
 			);
-		},
-	});
+		})
+		.render();
 }
 
 function TagManagementContent() {
