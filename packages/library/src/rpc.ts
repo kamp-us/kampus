@@ -15,6 +15,15 @@ export const LibraryRpcs = RpcGroup.make(
 		success: StoriesPage,
 	}),
 
+	Rpc.make("listStoriesByTag", {
+		payload: Schema.Struct({
+			tagId: Schema.String,
+			first: Schema.optional(Schema.Int.pipe(Schema.positive())),
+			after: Schema.optional(Schema.String),
+		}),
+		success: StoriesPage,
+	}),
+
 	Rpc.make("createStory", {
 		payload: {
 			url: Schema.String,

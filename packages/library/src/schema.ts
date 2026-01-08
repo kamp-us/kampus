@@ -2,12 +2,21 @@ import {Schema} from "effect";
 
 // Core entities
 
+// Tag reference (without storyCount, for embedding in stories)
+export const TagRef = Schema.Struct({
+	id: Schema.String,
+	name: Schema.String,
+	color: Schema.String,
+});
+export type TagRef = typeof TagRef.Type;
+
 export const Story = Schema.Struct({
 	id: Schema.String,
 	url: Schema.String,
 	title: Schema.String,
 	description: Schema.NullOr(Schema.String),
 	createdAt: Schema.String,
+	tags: Schema.Array(TagRef),
 });
 export type Story = typeof Story.Type;
 
@@ -16,6 +25,7 @@ export const Tag = Schema.Struct({
 	name: Schema.String,
 	color: Schema.String,
 	createdAt: Schema.String,
+	storyCount: Schema.Int,
 });
 export type Tag = typeof Tag.Type;
 
