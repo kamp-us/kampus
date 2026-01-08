@@ -29,169 +29,151 @@ function toTagDtoFromDb(tag: {id: string; name: string; color: string; createdAt
 // keyed by user id
 export class Library extends DurableObject<Env> {
 	db = drizzle(this.ctx.storage, {schema});
-	private rpcHandler: ((request: Request) => Promise<Response>) | null = null;
+
+	// Effect RPC handlers - defined as arrow functions to preserve `this` binding
+	private handlers = {
+		getStory: ({id}: {id: string}) =>
+			Effect.promise(async () => {
+				const story = await this.getStory(id);
+				if (!story) return null;
+				return {
+					id: story.id,
+					url: story.url,
+					title: story.title,
+					description: story.description,
+					createdAt: story.createdAt,
+				};
+			}),
+
+		listStories: ({first, after}: {first?: number; after?: string}) =>
+			Effect.promise(async () => {
+				const result = await this.listStories({first, after});
+				return {
+					stories: result.edges.map((s) => ({
+						id: s.id,
+						url: s.url,
+						title: s.title,
+						description: s.description,
+						createdAt: s.createdAt,
+					})),
+					hasNextPage: result.hasNextPage,
+					endCursor: result.endCursor,
+					totalCount: result.totalCount,
+				};
+			}),
+
+		createStory: ({
+			url,
+			title,
+			description,
+			tagIds,
+		}: {
+			url: string;
+			title: string;
+			description?: string;
+			tagIds?: readonly string[];
+		}) =>
+			Effect.promise(async () => {
+				const story = await this.createStory({url, title, description});
+				if (tagIds && tagIds.length > 0) {
+					await this.tagStory(story.id, [...tagIds]);
+				}
+				return {
+					id: story.id,
+					url: story.url,
+					title: story.title,
+					description: story.description,
+					createdAt: story.createdAt,
+				};
+			}),
+
+		updateStory: ({
+			id,
+			title,
+			description,
+			tagIds,
+		}: {
+			id: string;
+			title?: string;
+			description?: string | null;
+			tagIds?: readonly string[];
+		}) =>
+			Effect.promise(async () => {
+				const story = await this.updateStory(id, {title, description});
+				if (!story) return null;
+				if (tagIds !== undefined) {
+					await this.setStoryTags(id, [...tagIds]);
+				}
+				return {
+					id: story.id,
+					url: story.url,
+					title: story.title,
+					description: story.description,
+					createdAt: story.createdAt,
+				};
+			}),
+
+		deleteStory: ({id}: {id: string}) =>
+			Effect.promise(async () => {
+				const deleted = await this.deleteStory(id);
+				return {deleted};
+			}),
+
+		listTags: () =>
+			Effect.promise(async () => {
+				const tags = await this.listTags();
+				return tags.map(toTagDtoFromDb);
+			}),
+
+		createTag: ({name, color}: {name: string; color: string}) =>
+			Effect.promise(async () => {
+				const tag = await this.createTag(name, color);
+				return toTagDtoFromDb(tag);
+			}),
+
+		updateTag: ({id, name, color}: {id: string; name?: string; color?: string}) =>
+			Effect.promise(async () => {
+				const tag = await this.updateTag(id, {name, color});
+				if (!tag) return null;
+				return toTagDtoFromDb(tag);
+			}),
+
+		deleteTag: ({id}: {id: string}) =>
+			Effect.promise(async () => {
+				await this.deleteTag(id);
+				return {deleted: true};
+			}),
+
+		getTagsForStory: ({storyId}: {storyId: string}) =>
+			Effect.promise(async () => {
+				const tags = await this.getTagsForStory(storyId);
+				return tags.map(toTagDtoFromDb);
+			}),
+
+		setStoryTags: ({storyId, tagIds}: {storyId: string; tagIds: readonly string[]}) =>
+			Effect.promise(async () => {
+				await this.setStoryTags(storyId, [...tagIds]);
+				return {success: true};
+			}),
+	};
+
+	// RPC web handler - created once from handlers
+	private rpcHandler = RpcServer.toWebHandler(LibraryRpcs, {
+		layer: Layer.mergeAll(
+			LibraryRpcs.toLayer(this.handlers),
+			RpcSerialization.layerJson,
+			Layer.scope,
+		) as any,
+	}).handler;
 
 	constructor(ctx: DurableObjectState, env: Env) {
 		super(ctx, env);
 		this.ctx.blockConcurrencyWhile(async () => {
 			await migrate(this.db, migrations);
-			// Initialize RPC handler
-			this.rpcHandler = this.createRpcHandler();
 		});
 	}
 
-	private createRpcHandler(): (request: Request) => Promise<Response> {
-		// Create Effect-based handlers that call existing DO methods
-		const handlers = {
-			// Story operations
-			getStory: ({id}: {id: string}) =>
-				Effect.promise(async () => {
-					const story = await this.getStory(id);
-					if (!story) return null;
-					return {
-						id: story.id,
-						url: story.url,
-						title: story.title,
-						description: story.description,
-						createdAt: story.createdAt,
-					};
-				}),
-
-			listStories: ({first, after}: {first?: number; after?: string}) =>
-				Effect.promise(async () => {
-					const result = await this.listStories({first, after});
-					return {
-						stories: result.edges.map((s) => ({
-							id: s.id,
-							url: s.url,
-							title: s.title,
-							description: s.description,
-							createdAt: s.createdAt,
-						})),
-						hasNextPage: result.hasNextPage,
-						endCursor: result.endCursor,
-						totalCount: result.totalCount,
-					};
-				}),
-
-			createStory: ({
-				url,
-				title,
-				description,
-				tagIds,
-			}: {
-				url: string;
-				title: string;
-				description?: string;
-				tagIds?: readonly string[];
-			}) =>
-				Effect.promise(async () => {
-					const story = await this.createStory({url, title, description});
-					if (tagIds && tagIds.length > 0) {
-						await this.tagStory(story.id, [...tagIds]);
-					}
-					return {
-						id: story.id,
-						url: story.url,
-						title: story.title,
-						description: story.description,
-						createdAt: story.createdAt,
-					};
-				}),
-
-			updateStory: ({
-				id,
-				title,
-				description,
-				tagIds,
-			}: {
-				id: string;
-				title?: string;
-				description?: string | null;
-				tagIds?: readonly string[];
-			}) =>
-				Effect.promise(async () => {
-					const story = await this.updateStory(id, {title, description});
-					if (!story) return null;
-					if (tagIds !== undefined) {
-						await this.setStoryTags(id, [...tagIds]);
-					}
-					return {
-						id: story.id,
-						url: story.url,
-						title: story.title,
-						description: story.description,
-						createdAt: story.createdAt,
-					};
-				}),
-
-			deleteStory: ({id}: {id: string}) =>
-				Effect.promise(async () => {
-					const deleted = await this.deleteStory(id);
-					return {deleted};
-				}),
-
-			// Tag operations
-			listTags: () =>
-				Effect.promise(async () => {
-					const tags = await this.listTags();
-					return tags.map(toTagDtoFromDb);
-				}),
-
-			createTag: ({name, color}: {name: string; color: string}) =>
-				Effect.promise(async () => {
-					const tag = await this.createTag(name, color);
-					return toTagDtoFromDb(tag);
-				}),
-
-			updateTag: ({id, name, color}: {id: string; name?: string; color?: string}) =>
-				Effect.promise(async () => {
-					const tag = await this.updateTag(id, {name, color});
-					if (!tag) return null;
-					return toTagDtoFromDb(tag);
-				}),
-
-			deleteTag: ({id}: {id: string}) =>
-				Effect.promise(async () => {
-					await this.deleteTag(id);
-					return {deleted: true};
-				}),
-
-			// Tag-Story relationships
-			getTagsForStory: ({storyId}: {storyId: string}) =>
-				Effect.promise(async () => {
-					const tags = await this.getTagsForStory(storyId);
-					return tags.map(toTagDtoFromDb);
-				}),
-
-			setStoryTags: ({storyId, tagIds}: {storyId: string; tagIds: readonly string[]}) =>
-				Effect.promise(async () => {
-					await this.setStoryTags(storyId, [...tagIds]);
-					return {success: true};
-				}),
-		};
-
-		// Create the RPC web handler with Effect handlers and JSON serialization
-		// Note: toWebHandler expects HttpRouter.DefaultServices but we provide minimal layers for DO context
-		const rpcLayer = Layer.mergeAll(
-			LibraryRpcs.toLayer(handlers),
-			RpcSerialization.layerJson,
-			Layer.scope,
-		);
-
-		const {handler} = RpcServer.toWebHandler(LibraryRpcs, {
-			// biome-ignore lint/suspicious/noExplicitAny: Cloudflare DO doesn't need full HttpPlatform
-			layer: rpcLayer,
-		});
-
-		return handler;
-	}
-
-	// RPC fetch handler
-	async fetch(request: Request): Promise<Response> {
-		if (!this.rpcHandler) {
-			return new Response("RPC not initialized", {status: 503});
-		}
+	fetch(request: Request): Promise<Response> {
 		return this.rpcHandler(request);
 	}
 
@@ -254,7 +236,7 @@ export class Library extends DurableObject<Env> {
 	}
 
 	async getStory(id: string) {
-		const story = await this.db.select().from(schema.story).where(eq(schema.story.id, id)).get();
+		const story = this.db.select().from(schema.story).where(eq(schema.story.id, id)).get();
 
 		if (!story) return null;
 
