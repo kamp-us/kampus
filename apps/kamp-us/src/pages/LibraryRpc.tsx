@@ -1,5 +1,6 @@
 import {Result} from "@effect-atom/atom";
 import {useAtom, useAtomSet, useAtomValue} from "@effect-atom/atom-react";
+import type {Story} from "@kampus/library";
 import {type FormEvent, useEffect, useMemo, useState} from "react";
 import {Link, Navigate} from "react-router";
 import {useAuth} from "../auth/AuthContext";
@@ -38,7 +39,7 @@ const TAG_COLORS = [
 	"85C1E2", // sky
 ];
 
-function getNextTagColor(existingTags: Tag[]): string {
+function getNextTagColor(existingTags: readonly Tag[]): string {
 	const index = existingTags.length % TAG_COLORS.length;
 	return TAG_COLORS[index];
 }
@@ -66,15 +67,6 @@ function extractDomain(url: string) {
 	}
 }
 
-type Story = {
-	id: string;
-	url: string;
-	title: string;
-	description: string | null;
-	createdAt: string;
-	tags?: Array<{id: string; name: string; color: string}>;
-};
-
 function LibrarySkeleton() {
 	return (
 		<div className={styles.container}>
@@ -93,10 +85,10 @@ function useTagFilter() {
 	const [tagId, setTagId] = useAtom(tagFilterAtom);
 
 	const setTagFilter = (newTagId: string | null) => {
-		setTagId(newTagId);
+		setTagId(newTagId ?? "");
 	};
 
-	const clearFilter = () => setTagId(null);
+	const clearFilter = () => setTagId("");
 
 	return {tagId, setTagFilter, clearFilter};
 }
@@ -108,7 +100,7 @@ function TagFilterBar({
 	onClearFilter,
 	totalCount,
 }: {
-	tags: Tag[];
+	tags: readonly Tag[];
 	selectedTagId: string | null;
 	onTagSelect: (tagId: string) => void;
 	onClearFilter: () => void;
@@ -180,32 +172,17 @@ function LoadMoreButton({onClick, isLoading}: {onClick: () => void; isLoading: b
 	);
 }
 
-// Hook to manage available tags state
+// Hook to manage available tags state - reactivity handles updates automatically
 function useAvailableTags() {
 	const tagsResult = useAtomValue(tagsAtom);
-	const [localTags, setLocalTags] = useState<Tag[]>([]);
 
 	const tags = Result.match(tagsResult, {
 		onInitial: () => [] as Tag[],
 		onFailure: () => [] as Tag[],
-		onSuccess: (success) => success.value as Tag[],
+		onSuccess: (success) => success.value,
 	});
 
-	const allTags = useMemo(() => {
-		const combined = [...tags, ...localTags];
-		const seen = new Set<string>();
-		return combined.filter((t) => {
-			if (seen.has(t.id)) return false;
-			seen.add(t.id);
-			return true;
-		});
-	}, [tags, localTags]);
-
-	const addTag = (tag: Tag) => {
-		setLocalTags((prev) => [...prev, tag]);
-	};
-
-	return {tags: allTags, addTag};
+	return {tags};
 }
 
 function CreateStoryForm({
@@ -213,26 +190,20 @@ function CreateStoryForm({
 	onExpand,
 	onCollapse,
 	availableTags,
-	onTagCreate,
 }: {
 	isExpanded: boolean;
 	onExpand: () => void;
 	onCollapse: () => void;
-	availableTags: Tag[];
-	onTagCreate: (tag: Tag) => void;
+	availableTags: readonly Tag[];
 }) {
 	const [url, setUrl] = useState("");
 	const [title, setTitle] = useState("");
 	const [description, setDescription] = useState("");
-	const [selectedTags, setSelectedTags] = useState<Tag[]>([]);
-	const [error, setError] = useState<string | null>(null);
-	const [isFetching, setIsFetching] = useState(false);
-	const [fetchError, setFetchError] = useState<string | null>(null);
+	const [selectedTags, setSelectedTags] = useState<readonly Tag[]>([]);
 
 	const createStory = useAtomSet(createStoryMutation);
 	const createTag = useAtomSet(createTagMutation);
 	const [fetchResult, triggerFetch] = useAtom(fetchUrlMetadataMutation);
-	const [isSubmitting, setIsSubmitting] = useState(false);
 
 	// Check if URL is valid for fetch
 	const isValidUrl = useMemo(() => {
@@ -244,78 +215,57 @@ function CreateStoryForm({
 		}
 	}, [url]);
 
-	// React to fetch result changes
+	// Derive fetch state from Result
+	const isFetching = Result.isInitial(fetchResult) ? false : Result.isWaiting(fetchResult);
+	const fetchError = Result.match(fetchResult, {
+		onInitial: () => null,
+		onSuccess: (s) => s.value.error,
+		onFailure: (f) => String(f.cause),
+	});
+
+	// Apply fetched metadata to form
 	useEffect(() => {
-		Result.match(fetchResult, {
-			onInitial: () => {
-				setIsFetching(false);
-			},
-			onSuccess: (success) => {
-				setIsFetching(false);
-				const metadata = success.value;
-				if (metadata.error) {
-					setFetchError(metadata.error);
-				} else {
-					setFetchError(null);
-					if (metadata.title) setTitle(metadata.title);
-					if (metadata.description) setDescription(metadata.description);
-				}
-			},
-			onFailure: (failure) => {
-				setIsFetching(false);
-				setFetchError(String(failure.cause));
-			},
-		});
+		if (Result.isSuccess(fetchResult)) {
+			const metadata = fetchResult.value;
+			if (metadata.title) setTitle(metadata.title);
+			if (metadata.description) setDescription(metadata.description);
+		}
 	}, [fetchResult]);
 
 	const handleFetchMetadata = () => {
 		if (!url) return;
-		setIsFetching(true);
-		setFetchError(null);
 		triggerFetch({payload: {url}});
 	};
 
-	const handleCreateTag = async (name: string): Promise<Tag> => {
+	// Fire and forget - reactivity handles tag list update
+	const handleCreateTag = (name: string) => {
 		const color = getNextTagColor(availableTags);
-
-		const result = await createTag({
-			payload: {name, color},
-			reactivityKeys: ["tags", "stories"],
-		});
-
-		const newTag = result as Tag;
-		onTagCreate(newTag);
-		return newTag;
+		createTag({payload: {name, color}, reactivityKeys: ["tags", "stories"]});
 	};
 
-	const handleSubmit = async (e: FormEvent) => {
+	const handleSubmit = (e: FormEvent) => {
 		e.preventDefault();
 		if (!url.trim() || !title.trim()) return;
 
-		setError(null);
-		setIsSubmitting(true);
-		try {
-			const tagIds = selectedTags.length > 0 ? selectedTags.map((t) => t.id) : undefined;
+		const tagIds = selectedTags.length > 0 ? selectedTags.map((t) => t.id) : undefined;
 
-			await createStory({
-				payload: {
-					url: url.trim(),
-					title: title.trim(),
-					description: description.trim() || undefined,
-					tagIds,
-				},
-				reactivityKeys: ["stories", "tags"],
-			});
-			setUrl("");
-			setTitle("");
-			setDescription("");
-			setSelectedTags([]);
-			onCollapse();
-		} catch (err) {
-			setError(err instanceof Error ? err.message : "Failed to create story");
-		} finally {
-			setIsSubmitting(false);
-		}
+		// Fire and forget - reactivity handles story list update
+		createStory({
+			payload: {
+				url: url.trim(),
+				title: title.trim(),
+				description: description.trim() || undefined,
+				tagIds,
+			},
+			reactivityKeys: ["stories", "tags"],
+		});
+
+		// Reset form
+		setUrl("");
+		setTitle("");
+		setDescription("");
+		setSelectedTags([]);
+		onCollapse();
 	};
 
 	const handleCancel = () => {
@@ -323,8 +273,6 @@ function CreateStoryForm({
 		setTitle("");
 		setDescription("");
 		setSelectedTags([]);
-		setError(null);
-		setFetchError(null);
 		onCollapse();
 	};
 
@@ -338,8 +286,6 @@ function CreateStoryForm({
 
 	return (
 		<form onSubmit={handleSubmit} className={styles.createForm}>
-			{error && <div className={styles.error}>{error}</div>}
-
 			<Fieldset.Root>
 				<Fieldset.Legend>Add Story</Fieldset.Legend>
 
@@ -403,67 +349,47 @@ function CreateStoryForm({
 				<Button type="button" onClick={handleCancel}>
 					Cancel
 				</Button>
-				<Button type="submit" disabled={isSubmitting}>
-					{isSubmitting ? "Saving..." : "Save Story"}
-				</Button>
+				<Button type="submit">Save Story</Button>
 			</div>
 		</form>
 	);
 }
 
-function StoryRow({
-	story,
-	availableTags,
-	onTagCreate,
-}: {
-	story: Story;
-	availableTags: Tag[];
-	onTagCreate: (tag: Tag) => void;
-}) {
+function StoryRow({story, availableTags}: {story: Story; availableTags: readonly Tag[]}) {
 	const domain = extractDomain(story.url);
 	const relativeDate = formatRelativeDate(story.createdAt);
 
 	const [isEditing, setIsEditing] = useState(false);
 	const [editTitle, setEditTitle] = useState(story.title);
 	const [editDescription, setEditDescription] = useState(story.description ?? "");
-	const [editTags, setEditTags] = useState<Tag[]>(story.tags ?? []);
+	const [editTags, setEditTags] = useState<readonly Tag[]>(story.tags ?? []);
 	const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-	const [error, setError] = useState<string | null>(null);
 
 	const updateStory = useAtomSet(updateStoryMutation);
 	const deleteStory = useAtomSet(deleteStoryMutation);
 	const createTag = useAtomSet(createTagMutation);
-	const [isUpdating, setIsUpdating] = useState(false);
-	const [isDeleting, setIsDeleting] = useState(false);
 
 	const handleEdit = () => {
-		setError(null);
 		setEditTitle(story.title);
 		setEditDescription(story.description ?? "");
-		setEditTags(story.tags ?? []);
+		setEditTags(story.tags);
 		setIsEditing(true);
 	};
 
 	const handleCancelEdit = () => {
 		setEditTitle(story.title);
 		setEditDescription(story.description ?? "");
-		setEditTags(story.tags ?? []);
+		setEditTags(story.tags);
 		setIsEditing(false);
-		setError(null);
 	};
 
-	const handleCreateTag = async (name: string): Promise<Tag> => {
+	// Fire and forget - reactivity handles tag list update
+	const handleCreateTag = (name: string) => {
 		const color = getNextTagColor(availableTags);
-		const result = await createTag({
-			payload: {name, color},
-			reactivityKeys: ["tags", "stories"],
-		});
-		const newTag = result as Tag;
-		onTagCreate(newTag);
-		return newTag;
+		createTag({payload: {name, color}, reactivityKeys: ["tags", "stories"]});
 	};
 
-	const handleSaveEdit = async () => {
+	const handleSaveEdit = () => {
 		const trimmedTitle = editTitle.trim();
 		if (trimmedTitle === "") return;
 
@@ -479,24 +405,17 @@ function StoryRow({
 			return;
 		}
 
-		setError(null);
-		setIsUpdating(true);
-		try {
-			await updateStory({
-				payload: {
-					id: story.id,
-					title: titleChanged ? trimmedTitle : undefined,
-					description: descriptionChanged ? editDescription : undefined,
-					tagIds: tagsChanged ? editTags.map((t) => t.id) : undefined,
-				},
-				reactivityKeys: ["stories", "tags"],
-			});
-			setIsEditing(false);
-		} catch (err) {
-			setError(err instanceof Error ? err.message : "Failed to update story");
-		} finally {
-			setIsUpdating(false);
-		}
+		// Fire and forget - reactivity handles story list update
+		updateStory({
+			payload: {
+				id: story.id,
+				title: titleChanged ? trimmedTitle : undefined,
+				description: descriptionChanged ? editDescription : undefined,
+				tagIds: tagsChanged ? editTags.map((t) => t.id) : undefined,
+			},
+			reactivityKeys: ["stories", "tags"],
+		});
+		setIsEditing(false);
 	};
 
 	const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -508,27 +427,15 @@ function StoryRow({
 		}
 	};
 
-	const handleDelete = async () => {
-		setError(null);
-		setIsDeleting(true);
-		try {
-			await deleteStory({
-				payload: {id: story.id},
-				reactivityKeys: ["stories", "tags"],
-			});
-			setDeleteDialogOpen(false);
-		} catch (err) {
-			setError(err instanceof Error ? err.message : "Failed to delete story");
-			setDeleteDialogOpen(false);
-		} finally {
-			setIsDeleting(false);
-		}
+	const handleDelete = () => {
+		// Fire and forget - reactivity handles story list update
+		deleteStory({payload: {id: story.id}, reactivityKeys: ["stories", "tags"]});
+		setDeleteDialogOpen(false);
 	};
 
 	if (isEditing) {
 		return (
 			<article className={styles.storyRow}>
-				{error && <div className={styles.rowError}>{error}</div>}
 				<div className={styles.editRow}>
 					<input
 						type="text"
@@ -554,12 +461,8 @@ function StoryRow({
 						rows={3}
 					/>
 					<div className={styles.editActions}>
-						<Button onClick={handleCancelEdit} disabled={isUpdating}>
-							Cancel
-						</Button>
-						<Button onClick={handleSaveEdit} disabled={isUpdating}>
-							{isUpdating ? "Saving..." : "Save"}
-						</Button>
+						<Button onClick={handleCancelEdit}>Cancel</Button>
+						<Button onClick={handleSaveEdit}>Save</Button>
 					</div>
 				</div>
 				<div className={styles.storyMeta}>
@@ -573,7 +476,6 @@ function StoryRow({
 
 	return (
 		<article className={styles.storyRow}>
-			{error && <div className={styles.rowError}>{error}</div>}
 			<div className={styles.storyContent}>
 				<div className={styles.storyMain}>
 					<a
@@ -627,9 +529,7 @@ function StoryRow({
 						</AlertDialog.Description>
 						<div className={styles.dialogActions}>
 							<AlertDialog.Close render={<Button />}>Cancel</AlertDialog.Close>
-							<Button onClick={handleDelete} disabled={isDeleting}>
-								{isDeleting ? "Deleting..." : "Delete"}
-							</Button>
+							<Button onClick={handleDelete}>Delete</Button>
 						</div>
 					</AlertDialog.Popup>
 				</AlertDialog.Portal>
@@ -642,12 +542,10 @@ function AllStoriesList({
 	onFormExpand,
 	tags,
 	onTagSelect,
-	onTagCreate,
 }: {
 	onFormExpand: () => void;
-	tags: Tag[];
+	tags: readonly Tag[];
 	onTagSelect: (tagId: string) => void;
-	onTagCreate: (tag: Tag) => void;
 }) {
 	const storiesResult = useAtomValue(storiesAtom());
 	const [isLoadingMore, setIsLoadingMore] = useState(false);
@@ -674,12 +572,7 @@ function AllStoriesList({
 						<>
 							<div className={styles.storyList}>
 								{stories.map((story) => (
-									<StoryRow
-										key={story.id}
-										story={story}
-										availableTags={tags}
-										onTagCreate={onTagCreate}
-									/>
+									<StoryRow key={story.id} story={story} availableTags={tags} />
 								))}
 							</div>
 							{hasNextPage && (
@@ -707,13 +600,11 @@ function FilteredStoriesList({
 	tags,
 	onTagSelect,
 	onClearFilter,
-	onTagCreate,
 }: {
 	tagId: string;
-	tags: Tag[];
+	tags: readonly Tag[];
 	onTagSelect: (tagId: string) => void;
 	onClearFilter: () => void;
-	onTagCreate: (tag: Tag) => void;
 }) {
 	const storiesResult = useAtomValue(storiesByTagAtom(tagId));
 	const [isLoadingMore, setIsLoadingMore] = useState(false);
@@ -740,12 +631,7 @@ function FilteredStoriesList({
 						<>
 							<div className={styles.storyList}>
 								{stories.map((story) => (
-									<StoryRow
-										key={story.id}
-										story={story}
-										availableTags={tags}
-										onTagCreate={onTagCreate}
-									/>
+									<StoryRow key={story.id} story={story} availableTags={tags} />
 								))}
 							</div>
 							{hasNextPage && (
@@ -773,7 +659,7 @@ function FilteredStoriesList({
 
 function AuthenticatedLibrary() {
 	const [isFormExpanded, setIsFormExpanded] = useState(false);
-	const {tags: availableTags, addTag} = useAvailableTags();
+	const {tags: availableTags} = useAvailableTags();
 	const {tagId, setTagFilter, clearFilter} = useTagFilter();
 
 	const handleExpand = () => setIsFormExpanded(true);
@@ -793,7 +679,6 @@ function AuthenticatedLibrary() {
 				onExpand={handleExpand}
 				onCollapse={handleCollapse}
 				availableTags={availableTags}
-				onTagCreate={addTag}
 			/>
 
 			{tagId ? (
@@ -802,14 +687,12 @@ function AuthenticatedLibrary() {
 					tags={availableTags}
 					onTagSelect={setTagFilter}
 					onClearFilter={clearFilter}
-					onTagCreate={addTag}
 				/>
 			) : (
 				<AllStoriesList
 					onFormExpand={handleExpand}
 					tags={availableTags}
 					onTagSelect={setTagFilter}
-					onTagCreate={addTag}
 				/>
 			)}
 		</div>
