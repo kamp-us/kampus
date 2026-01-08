@@ -419,6 +419,148 @@ Wrap external Promise APIs:
 const result = yield* Effect.promise(() => externalAsyncCall())
 ```
 
+## Effect RPC
+
+`@effect/rpc` provides type-safe RPC with automatic serialization. Used for communication between frontend and Durable Objects.
+
+### Defining RPC Schemas (Shared Package)
+
+Define schemas in a shared package (e.g., `packages/library/src/rpc.ts`):
+```typescript
+import {Rpc, RpcGroup} from "@effect/rpc";
+import {Schema} from "effect";
+
+// Define request/response schemas
+const GetStory = Rpc.make("getStory", {
+  payload: Schema.Struct({id: Schema.String}),
+  success: Schema.NullOr(StorySchema),
+});
+
+const ListStories = Rpc.make("listStories", {
+  payload: Schema.Struct({
+    first: Schema.optional(Schema.Number),
+    after: Schema.optional(Schema.String),
+  }),
+  success: Schema.Struct({
+    stories: Schema.Array(StorySchema),
+    hasNextPage: Schema.Boolean,
+    endCursor: Schema.NullOr(Schema.String),
+    totalCount: Schema.Number,
+  }),
+});
+
+// Group all RPCs together
+export const LibraryRpcs = RpcGroup.make(GetStory, ListStories, CreateStory, /* ... */);
+```
+
+### RPC Server in Durable Object
+
+Use `RpcServer.toHttpApp` with `ManagedRuntime` - **never use `as any` type casts**:
+```typescript
+import {HttpServerRequest, HttpServerResponse} from "@effect/platform";
+import {RpcSerialization, RpcServer} from "@effect/rpc";
+import {LibraryRpcs} from "@kampus/library";
+import {Effect, Layer, ManagedRuntime} from "effect";
+
+export class Library extends DurableObject<Env> {
+  db = drizzle(this.ctx.storage, {schema});
+
+  // Handlers use Effect.promise for Drizzle operations
+  private handlers = {
+    getStory: ({id}: {id: string}) =>
+      Effect.promise(async () => {
+        const story = this.db.select().from(schema.story)
+          .where(eq(schema.story.id, id)).get();
+        if (!story) return null;
+        return {
+          id: story.id,
+          title: story.title,
+          createdAt: story.createdAt.toISOString(),
+        };
+      }),
+
+    listStories: ({first, after}: {first?: number; after?: string}) =>
+      Effect.promise(async () => {
+        // ... database queries using .get(), .all()
+        return {stories, hasNextPage, endCursor, totalCount};
+      }),
+  };
+
+  // Layer provides handlers + JSON serialization + Scope
+  private handlerLayer = Layer.mergeAll(
+    LibraryRpcs.toLayer(this.handlers),
+    RpcSerialization.layerJson,
+    Layer.scope,
+  );
+
+  // ManagedRuntime for running effects
+  private runtime = ManagedRuntime.make(this.handlerLayer);
+
+  constructor(ctx: DurableObjectState, env: Env) {
+    super(ctx, env);
+    this.ctx.blockConcurrencyWhile(async () => {
+      await migrate(this.db, migrations);
+    });
+  }
+
+  async fetch(request: Request): Promise<Response> {
+    const program = Effect.gen(function* () {
+      const httpApp = yield* RpcServer.toHttpApp(LibraryRpcs);
+      const response = yield* httpApp.pipe(
+        Effect.provideService(
+          HttpServerRequest.HttpServerRequest,
+          HttpServerRequest.fromWeb(request)
+        )
+      );
+      return HttpServerResponse.toWeb(response);
+    });
+    return this.runtime.runPromise(program);
+  }
+}
+```
+
+**Key patterns:**
+- Use `Effect.promise(async () => ...)` for Drizzle operations
+- Use arrow functions for handlers to preserve `this` binding
+- Include `Layer.scope` in the handler layer for `toHttpApp`
+- `ManagedRuntime.make(layer)` provides proper type inference
+- `HttpServerRequest.fromWeb(request)` converts web Request
+- `HttpServerResponse.toWeb(response)` converts back (returns Response directly, not Effect)
+- **Never use `toWebHandler` in DOs** - it requires `HttpRouter.DefaultServices` (HttpPlatform, FileSystem, etc.)
+
+### RPC Client with effect-atom
+
+```typescript
+import {RpcClient, RpcSerialization} from "@effect/rpc";
+import {AtomRpc} from "@effect-atom/atom";
+import {FetchHttpClient, HttpClient} from "@effect/platform";
+import {LibraryRpcs} from "@kampus/library";
+import {Layer} from "effect";
+
+// HTTP client with credentials for session cookies
+const HttpClientWithCredentials = Layer.effect(
+  HttpClient.HttpClient,
+  Effect.map(FetchHttpClient.HttpClient, (client) =>
+    client.pipe(HttpClient.withFetchOptions({credentials: "include"}))
+  )
+).pipe(Layer.provide(FetchHttpClient.layer));
+
+// RPC client layer
+const RpcClientLayer = RpcClient.layerHttp(LibraryRpcs, {
+  url: "/rpc/library",
+}).pipe(
+  Layer.provide(HttpClientWithCredentials),
+  Layer.provide(RpcSerialization.layerJson),
+);
+
+// Create atoms from RPC client
+export const libraryRpc = AtomRpc.make(LibraryRpcs, RpcClientLayer);
+
+// Usage in React
+const storiesAtom = libraryRpc.listStories({first: 20});
+const createStoryAtom = libraryRpc.fn.createStory;
+```
+
 ## effect-atom Best Practices
 
 effect-atom is a reactive state management library for Effect with fine-grained atoms and full Effect ecosystem integration.
