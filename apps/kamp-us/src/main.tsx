@@ -9,7 +9,6 @@ import "./index.css";
 import App from "./App.tsx";
 import {AuthProvider} from "./auth/AuthContext";
 import {Me} from "./components/Me";
-import {Library} from "./pages/Library";
 import {LibraryRpc} from "./pages/LibraryRpc";
 import {Login} from "./pages/Login";
 import {TagManagement} from "./pages/library/TagManagement";
@@ -31,17 +30,17 @@ const router = createBrowserRouter([
 	},
 	{
 		path: "/me/library",
-		element: <Library />,
-	},
-	{
-		path: "/me/library/tags",
-		element: <TagManagement />,
-	},
-	{
-		path: "/me/library-rpc",
 		element: (
 			<RpcProvider>
 				<LibraryRpc />
+			</RpcProvider>
+		),
+	},
+	{
+		path: "/me/library/tags",
+		element: (
+			<RpcProvider>
+				<TagManagement />
 			</RpcProvider>
 		),
 	},
