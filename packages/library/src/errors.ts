@@ -21,7 +21,7 @@ export class TagNameExistsError extends Schema.TaggedError<TagNameExistsError>()
 
 export class InvalidTagNameError extends Schema.TaggedError<InvalidTagNameError>()(
 	"InvalidTagNameError",
-	{message: Schema.String},
+	{name: Schema.String, reason: Schema.String},
 ) {}
 
 export class InvalidTagColorError extends Schema.TaggedError<InvalidTagColorError>()(

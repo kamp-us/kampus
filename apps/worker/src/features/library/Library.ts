@@ -1,7 +1,13 @@
 import {DurableObject} from "cloudflare:workers";
 import {HttpServerRequest, HttpServerResponse} from "@effect/platform";
 import {RpcSerialization, RpcServer} from "@effect/rpc";
-import {InvalidUrlError, LibraryRpcs} from "@kampus/library";
+import {
+	InvalidTagColorError,
+	InvalidTagNameError,
+	InvalidUrlError,
+	LibraryRpcs,
+	TagNameExistsError,
+} from "@kampus/library";
 import {and, desc, eq, inArray, lt, sql} from "drizzle-orm";
 import {drizzle} from "drizzle-orm/durable-sqlite";
 import {migrate} from "drizzle-orm/durable-sqlite/migrator";
@@ -9,13 +15,7 @@ import {Effect, Layer, ManagedRuntime} from "effect";
 import * as schema from "./drizzle/drizzle.schema";
 import migrations from "./drizzle/migrations/migrations";
 import {getNormalizedUrl} from "./getNormalizedUrl";
-import {
-	InvalidTagColorError,
-	InvalidTagNameError,
-	isValidHexColor,
-	TagNameExistsError,
-	validateTagName,
-} from "./schema";
+import {isValidHexColor, validateTagName} from "./schema";
 
 // keyed by user id
 export class Library extends DurableObject<Env> {
@@ -350,16 +350,16 @@ export class Library extends DurableObject<Env> {
 			}),
 
 		createTag: ({name, color}: {name: string; color: string}) =>
-			Effect.promise(async () => {
+			Effect.gen(this, function* () {
 				// Validate tag name
 				const nameValidation = validateTagName(name);
 				if (!nameValidation.valid) {
-					throw new InvalidTagNameError({name, reason: nameValidation.reason});
+					return yield* Effect.fail(new InvalidTagNameError({name, reason: nameValidation.reason}));
 				}
 
 				// Validate color format
 				if (!isValidHexColor(color)) {
-					throw new InvalidTagColorError({color});
+					return yield* Effect.fail(new InvalidTagColorError({color}));
 				}
 
 				// Check uniqueness (case-insensitive)
@@ -370,7 +370,7 @@ export class Library extends DurableObject<Env> {
 					.get();
 
 				if (existing) {
-					throw new TagNameExistsError({tagName: name});
+					return yield* Effect.fail(new TagNameExistsError({tagName: name}));
 				}
 
 				const tag = this.db
@@ -389,18 +389,20 @@ export class Library extends DurableObject<Env> {
 			}),
 
 		updateTag: ({id, name, color}: {id: string; name?: string; color?: string}) =>
-			Effect.promise(async () => {
+			Effect.gen(this, function* () {
 				// Validate tag name if provided
 				if (name) {
 					const nameValidation = validateTagName(name);
 					if (!nameValidation.valid) {
-						throw new InvalidTagNameError({name, reason: nameValidation.reason});
+						return yield* Effect.fail(
+							new InvalidTagNameError({name, reason: nameValidation.reason}),
+						);
 					}
 				}
 
 				// Validate color format if provided
 				if (color && !isValidHexColor(color)) {
-					throw new InvalidTagColorError({color});
+					return yield* Effect.fail(new InvalidTagColorError({color}));
 				}
 
 				const existing = this.db.select().from(schema.tag).where(eq(schema.tag.id, id)).get();
@@ -440,7 +442,7 @@ export class Library extends DurableObject<Env> {
 						.get();
 
 					if (duplicate) {
-						throw new TagNameExistsError({tagName: name});
+						return yield* Effect.fail(new TagNameExistsError({tagName: name}));
 					}
 				}
 
