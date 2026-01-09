@@ -20,6 +20,9 @@
 	"dependencies": {
 		"@effect/platform": "catalog:",
 		"@effect/rpc": "catalog:",
+		"@effect/sql": "catalog:",
+		"@effect/sql-drizzle": "catalog:",
+		"@effect/sql-sqlite-do": "catalog:",
 		"@gqloom/core": "catalog:",
 		"@gqloom/effect": "catalog:",
 		"@kampus/library": "workspace:*",

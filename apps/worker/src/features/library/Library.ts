@@ -1,6 +1,9 @@
 import {DurableObject} from "cloudflare:workers";
 import {HttpServerRequest, HttpServerResponse} from "@effect/platform";
 import {RpcSerialization, RpcServer} from "@effect/rpc";
+import {SqlClient} from "@effect/sql";
+import * as SqliteDrizzle from "@effect/sql-drizzle/Sqlite";
+import {SqliteClient} from "@effect/sql-sqlite-do";
 import {
 	InvalidTagColorError,
 	InvalidTagNameError,
@@ -11,11 +14,41 @@ import {
 import {and, desc, eq, inArray, lt, sql} from "drizzle-orm";
 import {drizzle} from "drizzle-orm/durable-sqlite";
 import {migrate} from "drizzle-orm/durable-sqlite/migrator";
-import {Effect, Layer, ManagedRuntime} from "effect";
+import {Context, Effect, Layer, ManagedRuntime} from "effect";
 import * as schema from "./drizzle/drizzle.schema";
 import migrations from "./drizzle/migrations/migrations";
 import {getNormalizedUrl} from "./getNormalizedUrl";
 import {isValidHexColor, validateTagName} from "./schema";
+import {SqliteRemoteDatabase} from "drizzle-orm/sqlite-proxy";
+
+// class DrizzleClient extends Effect.Service<DrizzleClient>()("DrizzleClient", {
+// 	dependencies: [
+// 		PgClient.layer({
+// 			url: Redacted.make(
+// 				process.env.DATABASE_URL ?? "postgresql://postgres:postgres@localhost:5432/postgres",
+// 				// "postgresql://postgres:postgres@localhost:5432/postgres",
+// 			),
+// 		}),
+// 	],
+// 	effect: PgDrizzle.make({schema}),
+// }) {}
+
+class DrizzleClient extends Context.Tag("DrizzleClient")<
+	DrizzleClient,
+	SqliteRemoteDatabase<typeof schema>
+>() {}
+
+function makeRuntime(storage: DurableObjectStorage) {
+	const SqlLive = SqliteClient.layer({db: storage});
+
+	const DrizzleLive = Layer.scoped(DrizzleClient, SqliteDrizzle.make({schema})).pipe(
+		Layer.provide(SqlLive),
+	);
+
+	const AppLive = Layer.mergeAll(SqlLive, DrizzleLive);
+
+	return ManagedRuntime.make(AppLive);
+}
 
 // keyed by user id
 export class Library extends DurableObject<Env> {
