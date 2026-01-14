@@ -1,7 +1,7 @@
 import {createYoga} from "graphql-yoga";
 import {Hono} from "hono";
 import type {EffectContext} from "./graphql/resolver";
-import {createGraphQLRuntime} from "./graphql/runtime";
+import {GraphQLRuntime} from "./graphql/runtime";
 import {printSchemaSDL, schema} from "./graphql/schema";
 
 export {Library} from "./features/library/Library";
@@ -51,11 +51,10 @@ app.use("/graphql", async (c) => {
 	const sessionData = await pasaport.validateSession(c.req.raw.headers);
 
 	// Create per-request runtime with Effect services
-	const runtime = createGraphQLRuntime(c.env, sessionData, c.req.raw);
+	const runtime = GraphQLRuntime.make(c.env, sessionData, c.req.raw);
 
 	try {
-		// biome-ignore lint/suspicious/noExplicitAny: Runtime type is erased at GraphQL context boundary
-		return await createYoga<EffectContext<any>>({
+		return await createYoga<EffectContext<GraphQLRuntime.Context>>({
 			graphqlEndpoint: "/graphql",
 			logging: true,
 			graphiql: true,
