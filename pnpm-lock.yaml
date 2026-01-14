@@ -36,12 +36,6 @@ catalogs:
     '@effect/rpc':
       specifier: ^0.73.0
       version: 0.73.0
-    '@gqloom/core':
-      specifier: ^0.14.2
-      version: 0.14.2
-    '@gqloom/effect':
-      specifier: ^0.13.0
-      version: 0.13.0
     '@opentui/core':
       specifier: 0.1.63
       version: 0.1.63
@@ -277,12 +271,6 @@ importers:
       '@effect/rpc':
         specifier: 'catalog:'
         version: 0.73.0(@effect/platform@0.94.0(effect@3.19.13))(effect@3.19.13)
-      '@gqloom/core':
-        specifier: 'catalog:'
-        version: 0.14.2(graphql@16.12.0)
-      '@gqloom/effect':
-        specifier: 'catalog:'
-        version: 0.13.0(@gqloom/core@0.14.2(graphql@16.12.0))(effect@3.19.13)(graphql@16.12.0)
       '@kampus/library':
         specifier: workspace:*
         version: link:../../packages/library
@@ -331,6 +319,15 @@ importers:
         version: 4.56.0
 
   packages/library:
+    dependencies:
+      '@effect/rpc':
+        specifier: 'catalog:'
+        version: 0.73.0(@effect/platform@0.94.0(effect@3.19.13))(effect@3.19.13)
+      effect:
+        specifier: 'catalog:'
+        version: 3.19.13
+
+  packages/pasaport:
     dependencies:
       '@effect/rpc':
         specifier: 'catalog:'
@@ -1331,18 +1328,6 @@ packages:
 
   '@floating-ui/utils@0.2.10':
     resolution: {integrity: sha512-aGTxbpbg8/b5JfU1HXSrbH3wXZuLPJcNEcZQFMxLs3oSzgtVu6nFPkbbGGUvBcUjKV2YyB9Wxxabo+HEH9tcRQ==}
-
-  '@gqloom/core@0.14.2':
-    resolution: {integrity: sha512-bE1Y/OI37465KtIve+mTE8R5qmTGUR02StUkfa3s5hLydmde0l2O/PFHIqYCVkMartJmmCsLkMyfci/+nRuqwg==}
-    peerDependencies:
-      graphql: '>= 16.8.0'
-
-  '@gqloom/effect@0.13.0':
-    resolution: {integrity: sha512-WQ6rus4Uk/xjfESrYQU8O0sfrDPEGRd5PZmRon5plHjtaxsqsgsKlpyiQVQ3s8Bce6u74CqZYcT1mfwZsBOpkw==}
-    peerDependencies:
-      '@gqloom/core': '>= 0.12.0'
-      effect: '>= 3.0.0'
-      graphql: '>= 16.8.0'
 
   '@graphql-tools/executor@1.5.0':
     resolution: {integrity: sha512-3HzAxfexmynEWwRB56t/BT+xYKEYLGPvJudR1jfs+XZX8bpfqujEhqVFoxmkpEE8BbFcKuBNoQyGkTi1eFJ+hA==}
@@ -4246,16 +4231,6 @@ snapshots:
       react-dom: 19.2.3(react@19.2.3)
 
   '@floating-ui/utils@0.2.10': {}
-
-  '@gqloom/core@0.14.2(graphql@16.12.0)':
-    dependencies:
-      graphql: 16.12.0
-
-  '@gqloom/effect@0.13.0(@gqloom/core@0.14.2(graphql@16.12.0))(effect@3.19.13)(graphql@16.12.0)':
-    dependencies:
-      '@gqloom/core': 0.14.2(graphql@16.12.0)
-      effect: 3.19.13
-      graphql: 16.12.0
 
   '@graphql-tools/executor@1.5.0(graphql@16.12.0)':
     dependencies:
