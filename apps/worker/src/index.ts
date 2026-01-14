@@ -20,6 +20,17 @@ app.on(["POST", "GET"], "/api/auth/*", async (c) => {
 	}
 });
 
+// RPC endpoint for pasaport
+app.all("/rpc/pasaport/*", async (c) => {
+	try {
+		const pasaport = c.env.PASAPORT.getByName("kampus");
+		return await pasaport.fetch(c.req.raw);
+	} catch (error) {
+		console.error("Pasaport RPC error:", error);
+		return c.json({error: "Internal server error"}, 500);
+	}
+});
+
 // RPC endpoint - auth + route to Library DO
 app.all("/rpc/library/*", async (c) => {
 	try {

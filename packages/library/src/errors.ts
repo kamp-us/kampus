@@ -32,3 +32,24 @@ export class InvalidTagColorError extends Schema.TaggedError<InvalidTagColorErro
 export class InvalidUrlError extends Schema.TaggedError<InvalidUrlError>()("InvalidUrlError", {
 	url: Schema.String,
 }) {}
+
+// Pasaport errors
+export class InvalidCredentialsError extends Schema.TaggedError<InvalidCredentialsError>()(
+	"InvalidCredentialsError",
+	{},
+) {}
+
+export class UserAlreadyExistsError extends Schema.TaggedError<UserAlreadyExistsError>()(
+	"UserAlreadyExistsError",
+	{email: Schema.String},
+) {}
+
+export class UserCreationFailedError extends Schema.TaggedError<UserCreationFailedError>()(
+	"UserCreationFailedError",
+	{reason: Schema.String},
+) {}
+
+export class ApiKeyCreationFailedError extends Schema.TaggedError<ApiKeyCreationFailedError>()(
+	"ApiKeyCreationFailedError",
+	{reason: Schema.String},
+) {}

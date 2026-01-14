@@ -1,5 +1,8 @@
 import {Effect} from "effect";
 import {
+	GraphQLBoolean,
+	GraphQLInt,
+	GraphQLList,
 	GraphQLNonNull,
 	GraphQLObjectType,
 	GraphQLSchema,
@@ -7,12 +10,11 @@ import {
 	lexicographicSortSchema,
 	printSchema,
 } from "graphql";
-import {getNormalizedUrl} from "../features/library/getNormalizedUrl";
-import {Auth, CloudflareEnv, RequestContext} from "../services";
+import {Auth, CloudflareEnv, makeLibraryRpc, makePasaportRpc, RequestContext} from "../services";
 import {resolver} from "./resolver";
 
 // =============================================================================
-// GraphQL Types
+// GraphQL Types - Auth
 // =============================================================================
 
 const ApiKeyType = new GraphQLObjectType({
@@ -29,6 +31,7 @@ const UserType = new GraphQLObjectType({
 		id: {type: new GraphQLNonNull(GraphQLString)},
 		email: {type: new GraphQLNonNull(GraphQLString)},
 		name: {type: GraphQLString},
+		image: {type: GraphQLString},
 	},
 });
 
@@ -37,6 +40,52 @@ const SignInResponseType = new GraphQLObjectType({
 	fields: {
 		user: {type: new GraphQLNonNull(UserType)},
 		token: {type: new GraphQLNonNull(GraphQLString)},
+	},
+});
+
+// =============================================================================
+// GraphQL Types - Library
+// =============================================================================
+
+const TagRefType = new GraphQLObjectType({
+	name: "TagRef",
+	fields: {
+		id: {type: new GraphQLNonNull(GraphQLString)},
+		name: {type: new GraphQLNonNull(GraphQLString)},
+		color: {type: new GraphQLNonNull(GraphQLString)},
+	},
+});
+
+const StoryType: GraphQLObjectType = new GraphQLObjectType({
+	name: "Story",
+	fields: () => ({
+		id: {type: new GraphQLNonNull(GraphQLString)},
+		url: {type: new GraphQLNonNull(GraphQLString)},
+		title: {type: new GraphQLNonNull(GraphQLString)},
+		description: {type: GraphQLString},
+		createdAt: {type: new GraphQLNonNull(GraphQLString)},
+		tags: {type: new GraphQLNonNull(new GraphQLList(new GraphQLNonNull(TagRefType)))},
+	}),
+});
+
+const TagType = new GraphQLObjectType({
+	name: "Tag",
+	fields: {
+		id: {type: new GraphQLNonNull(GraphQLString)},
+		name: {type: new GraphQLNonNull(GraphQLString)},
+		color: {type: new GraphQLNonNull(GraphQLString)},
+		createdAt: {type: new GraphQLNonNull(GraphQLString)},
+		storyCount: {type: new GraphQLNonNull(GraphQLInt)},
+	},
+});
+
+const StoriesPageType = new GraphQLObjectType({
+	name: "StoriesPage",
+	fields: {
+		stories: {type: new GraphQLNonNull(new GraphQLList(new GraphQLNonNull(StoryType)))},
+		hasNextPage: {type: new GraphQLNonNull(GraphQLBoolean)},
+		endCursor: {type: GraphQLString},
+		totalCount: {type: new GraphQLNonNull(GraphQLInt)},
 	},
 });
 
@@ -50,62 +99,111 @@ const UrlMetadataType = new GraphQLObjectType({
 });
 
 // =============================================================================
+// Helper: Get Library RPC for authenticated user
+// =============================================================================
+
+const getLibraryRpc = Effect.gen(function* () {
+	const env = yield* CloudflareEnv;
+	const ctx = yield* RequestContext;
+	const {user} = yield* Auth.required;
+
+	const libraryId = env.LIBRARY.idFromName(user.id);
+	const library = env.LIBRARY.get(libraryId);
+
+	return yield* makeLibraryRpc(library, ctx.headers);
+});
+
+// =============================================================================
 // Query Type
 // =============================================================================
 
 const QueryType = new GraphQLObjectType({
 	name: "Query",
 	fields: {
+		// Auth queries
 		me: {
 			type: UserType,
 			resolve: resolver(function* () {
-				const {user} = yield* Auth.required;
-				return {
-					id: user.id,
-					email: user.email,
-					name: user.name,
-				};
+				const env = yield* CloudflareEnv;
+				const ctx = yield* RequestContext;
+
+				const pasaport = env.PASAPORT.getByName("kampus");
+				const rpc = yield* makePasaportRpc(pasaport, ctx.headers);
+				return yield* rpc.me();
 			}),
 		},
+
+		// Library queries
+		story: {
+			type: StoryType,
+			args: {
+				id: {type: new GraphQLNonNull(GraphQLString)},
+			},
+			resolve: resolver(function* (_source: unknown, args: {id: string}) {
+				const rpc = yield* getLibraryRpc;
+				return yield* rpc.getStory({id: args.id});
+			}),
+		},
+
+		stories: {
+			type: new GraphQLNonNull(StoriesPageType),
+			args: {
+				first: {type: GraphQLInt},
+				after: {type: GraphQLString},
+			},
+			resolve: resolver(function* (_source: unknown, args: {first?: number; after?: string}) {
+				const rpc = yield* getLibraryRpc;
+				return yield* rpc.listStories({first: args.first, after: args.after});
+			}),
+		},
+
+		storiesByTag: {
+			type: new GraphQLNonNull(StoriesPageType),
+			args: {
+				tagId: {type: new GraphQLNonNull(GraphQLString)},
+				first: {type: GraphQLInt},
+				after: {type: GraphQLString},
+			},
+			resolve: resolver(function* (
+				_source: unknown,
+				args: {tagId: string; first?: number; after?: string},
+			) {
+				const rpc = yield* getLibraryRpc;
+				return yield* rpc.listStoriesByTag({
+					tagId: args.tagId,
+					first: args.first,
+					after: args.after,
+				});
+			}),
+		},
+
+		tags: {
+			type: new GraphQLNonNull(new GraphQLList(new GraphQLNonNull(TagType))),
+			resolve: resolver(function* () {
+				const rpc = yield* getLibraryRpc;
+				return yield* rpc.listTags();
+			}),
+		},
+
+		tagsForStory: {
+			type: new GraphQLNonNull(new GraphQLList(new GraphQLNonNull(TagType))),
+			args: {
+				storyId: {type: new GraphQLNonNull(GraphQLString)},
+			},
+			resolve: resolver(function* (_source: unknown, args: {storyId: string}) {
+				const rpc = yield* getLibraryRpc;
+				return yield* rpc.getTagsForStory({storyId: args.storyId});
+			}),
+		},
+
 		fetchUrlMetadata: {
 			type: UrlMetadataType,
 			args: {
 				url: {type: new GraphQLNonNull(GraphQLString)},
 			},
 			resolve: resolver(function* (_source: unknown, args: {url: string}) {
-				const env = yield* CloudflareEnv;
-
-				// Validate URL format
-				let parsedUrl: URL;
-				try {
-					parsedUrl = new URL(args.url);
-				} catch {
-					return {title: null, description: null, error: "Invalid URL format"};
-				}
-
-				// Only allow http/https (SSRF prevention)
-				if (!["http:", "https:"].includes(parsedUrl.protocol)) {
-					return {title: null, description: null, error: "Only HTTP/HTTPS URLs are allowed"};
-				}
-
-				try {
-					// Use normalized URL as DO key for deduplication
-					const normalizedUrl = getNormalizedUrl(args.url);
-					const parserId = env.WEB_PAGE_PARSER.idFromName(normalizedUrl);
-					const parser = env.WEB_PAGE_PARSER.get(parserId);
-
-					yield* Effect.promise(() => parser.init(args.url));
-					const metadata = yield* Effect.promise(() => parser.getMetadata());
-
-					return {
-						title: metadata.title || null,
-						description: metadata.description || null,
-						error: null,
-					};
-				} catch (err) {
-					const message = err instanceof Error ? err.message : "Failed to fetch metadata";
-					return {title: null, description: null, error: message};
-				}
+				const rpc = yield* getLibraryRpc;
+				return yield* rpc.fetchUrlMetadata({url: args.url});
 			}),
 		},
 	},
@@ -118,6 +216,7 @@ const QueryType = new GraphQLObjectType({
 const MutationType = new GraphQLObjectType({
 	name: "Mutation",
 	fields: {
+		// Auth mutations
 		signIn: {
 			type: SignInResponseType,
 			args: {
@@ -129,76 +228,189 @@ const MutationType = new GraphQLObjectType({
 				const ctx = yield* RequestContext;
 
 				const pasaport = env.PASAPORT.getByName("kampus");
-				const result = yield* Effect.promise(() =>
-					pasaport.loginWithEmail(args.email, args.password, ctx.headers),
-				);
+				const rpc = yield* makePasaportRpc(pasaport, ctx.headers);
 
-				if (!result.user || !result.token) {
-					throw new Error("Invalid credentials");
-				}
+				const result = yield* rpc.signIn({email: args.email, password: args.password});
 
 				return {
 					user: {
 						id: result.user.id,
 						email: result.user.email,
 						name: result.user.name,
+						image: result.user.image,
 					},
 					token: result.token,
 				};
 			}),
 		},
-		bootstrap: {
+
+		signUp: {
 			type: UserType,
 			args: {
 				email: {type: new GraphQLNonNull(GraphQLString)},
 				password: {type: new GraphQLNonNull(GraphQLString)},
-				name: {type: new GraphQLNonNull(GraphQLString)},
+				name: {type: GraphQLString},
 			},
 			resolve: resolver(function* (
 				_source: unknown,
-				args: {email: string; password: string; name: string},
+				args: {email: string; password: string; name?: string},
 			) {
 				const env = yield* CloudflareEnv;
+				const ctx = yield* RequestContext;
 
 				const pasaport = env.PASAPORT.getByName("kampus");
-				const result = yield* Effect.promise(async () =>
-					pasaport.createUser(args.email, args.password, args.name || undefined),
-				);
+				const rpc = yield* makePasaportRpc(pasaport, ctx.headers);
 
-				if (!result.user) {
-					throw new Error("Failed to create user");
-				}
+				const result = yield* rpc.signUp({
+					email: args.email,
+					password: args.password,
+					name: args.name,
+				});
 
 				return {
-					id: result.user.id,
-					email: result.user.email,
-					name: result.user.name,
+					id: result.id,
+					email: result.email,
+					name: result.name,
+					image: result.image,
 				};
 			}),
 		},
+
 		createApiKey: {
 			type: ApiKeyType,
 			args: {
 				name: {type: new GraphQLNonNull(GraphQLString)},
+				expiresInDays: {type: GraphQLInt},
 			},
-			resolve: resolver(function* (_source: unknown, args: {name: string}) {
+			resolve: resolver(function* (_source: unknown, args: {name: string; expiresInDays?: number}) {
 				const env = yield* CloudflareEnv;
-				const {user} = yield* Auth.required;
+				const ctx = yield* RequestContext;
+
+				// Require authentication
+				yield* Auth.required;
 
 				const pasaport = env.PASAPORT.getByName("kampus");
-				const key = yield* Effect.promise(
-					async (): Promise<{key: string; name: string | null}> =>
-						pasaport.createAdminApiKey(user.id, args.name),
-				);
+				const rpc = yield* makePasaportRpc(pasaport, ctx.headers);
 
-				if (!key.name) {
-					throw new Error("Failed to create API key");
-				}
+				const result = yield* rpc.createApiKey({
+					name: args.name,
+					expiresInDays: args.expiresInDays,
+				});
 
 				return {
-					name: key.name,
-					key: key.key,
+					name: result.name,
+					key: result.key,
 				};
+			}),
+		},
+
+		// Library mutations
+		createStory: {
+			type: new GraphQLNonNull(StoryType),
+			args: {
+				url: {type: new GraphQLNonNull(GraphQLString)},
+				title: {type: new GraphQLNonNull(GraphQLString)},
+				description: {type: GraphQLString},
+				tagIds: {type: new GraphQLList(new GraphQLNonNull(GraphQLString))},
+			},
+			resolve: resolver(function* (
+				_source: unknown,
+				args: {url: string; title: string; description?: string; tagIds?: string[]},
+			) {
+				const rpc = yield* getLibraryRpc;
+				return yield* rpc.createStory({
+					url: args.url,
+					title: args.title,
+					description: args.description,
+					tagIds: args.tagIds,
+				});
+			}),
+		},
+
+		updateStory: {
+			type: StoryType,
+			args: {
+				id: {type: new GraphQLNonNull(GraphQLString)},
+				title: {type: GraphQLString},
+				description: {type: GraphQLString},
+				tagIds: {type: new GraphQLList(new GraphQLNonNull(GraphQLString))},
+			},
+			resolve: resolver(function* (
+				_source: unknown,
+				args: {id: string; title?: string; description?: string; tagIds?: string[]},
+			) {
+				const rpc = yield* getLibraryRpc;
+				return yield* rpc.updateStory({
+					id: args.id,
+					title: args.title,
+					description: args.description,
+					tagIds: args.tagIds,
+				});
+			}),
+		},
+
+		deleteStory: {
+			type: new GraphQLNonNull(GraphQLBoolean),
+			args: {
+				id: {type: new GraphQLNonNull(GraphQLString)},
+			},
+			resolve: resolver(function* (_source: unknown, args: {id: string}) {
+				const rpc = yield* getLibraryRpc;
+				const result = yield* rpc.deleteStory({id: args.id});
+				return result.deleted;
+			}),
+		},
+
+		createTag: {
+			type: new GraphQLNonNull(TagType),
+			args: {
+				name: {type: new GraphQLNonNull(GraphQLString)},
+				color: {type: new GraphQLNonNull(GraphQLString)},
+			},
+			resolve: resolver(function* (_source: unknown, args: {name: string; color: string}) {
+				const rpc = yield* getLibraryRpc;
+				return yield* rpc.createTag({name: args.name, color: args.color});
+			}),
+		},
+
+		updateTag: {
+			type: TagType,
+			args: {
+				id: {type: new GraphQLNonNull(GraphQLString)},
+				name: {type: GraphQLString},
+				color: {type: GraphQLString},
+			},
+			resolve: resolver(function* (
+				_source: unknown,
+				args: {id: string; name?: string; color?: string},
+			) {
+				const rpc = yield* getLibraryRpc;
+				return yield* rpc.updateTag({id: args.id, name: args.name, color: args.color});
+			}),
+		},
+
+		deleteTag: {
+			type: new GraphQLNonNull(GraphQLBoolean),
+			args: {
+				id: {type: new GraphQLNonNull(GraphQLString)},
+			},
+			resolve: resolver(function* (_source: unknown, args: {id: string}) {
+				const rpc = yield* getLibraryRpc;
+				const result = yield* rpc.deleteTag({id: args.id});
+				return result.deleted;
+			}),
+		},
+
+		setStoryTags: {
+			type: new GraphQLNonNull(GraphQLBoolean),
+			args: {
+				storyId: {type: new GraphQLNonNull(GraphQLString)},
+				tagIds: {type: new GraphQLNonNull(new GraphQLList(new GraphQLNonNull(GraphQLString)))},
+			},
+			resolve: resolver(function* (_source: unknown, args: {storyId: string; tagIds: string[]}) {
+				const rpc = yield* getLibraryRpc;
+				const result = yield* rpc.setStoryTags({storyId: args.storyId, tagIds: args.tagIds});
+				return result.success;
 			}),
 		},
 	},
