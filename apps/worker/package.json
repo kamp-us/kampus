@@ -20,8 +20,6 @@
 	"dependencies": {
 		"@effect/platform": "catalog:",
 		"@effect/rpc": "catalog:",
-		"@gqloom/core": "catalog:",
-		"@gqloom/effect": "catalog:",
 		"@kampus/library": "workspace:*",
 		"@usirin/forge": "catalog:",
 		"better-auth": "catalog:",
