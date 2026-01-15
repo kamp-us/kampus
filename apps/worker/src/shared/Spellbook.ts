@@ -2,9 +2,17 @@ import {DurableObject} from "cloudflare:workers";
 import {HttpServerRequest, HttpServerResponse} from "@effect/platform";
 import type {Rpc, RpcGroup} from "@effect/rpc";
 import {RpcSerialization, RpcServer} from "@effect/rpc";
-import {SqliteClient, SqliteMigrator} from "@effect/sql-sqlite-do";
+import {SqliteClient} from "@effect/sql-sqlite-do";
+import {drizzle} from "drizzle-orm/durable-sqlite";
+import {migrate} from "drizzle-orm/durable-sqlite/migrator";
 import {Effect, Layer, ManagedRuntime} from "effect";
 import {DurableObjectCtx, DurableObjectEnv} from "../services";
+
+/** Drizzle migrations bundle type (from migrations.js) */
+interface DrizzleMigrations {
+	journal: {entries: Array<{idx: number; when: number; tag: string; breakpoints: boolean}>};
+	migrations: Record<string, string>;
+}
 
 /**
  * Configuration for creating a Durable Object class with Spellbook.
@@ -14,8 +22,8 @@ export interface MakeConfig<R extends Rpc.Any> {
 	readonly rpcs: RpcGroup.RpcGroup<R>;
 	/** Handler implementations for each RPC method */
 	readonly handlers: RpcGroup.HandlersFrom<R>;
-	/** Effect SQL migrations configuration */
-	readonly migrations: SqliteMigrator.MigratorOptions<never>;
+	/** Drizzle migrations bundle (import from drizzle/migrations/migrations.js) */
+	readonly migrations: DrizzleMigrations;
 }
 
 /**
@@ -66,10 +74,11 @@ export const make = <R extends Rpc.Any, TEnv extends Env = Env>(config: MakeConf
 			// biome-ignore lint/suspicious/noExplicitAny: Layer composition types are complex
 			this.runtime = ManagedRuntime.make(fullLayer as Layer.Layer<any, any, never>);
 
-			// Run migrations before any requests are processed
-			this.ctx.blockConcurrencyWhile(() =>
-				this.runtime.runPromise(SqliteMigrator.run(config.migrations)),
-			);
+			// Run Drizzle migrations before any requests are processed
+			this.ctx.blockConcurrencyWhile(async () => {
+				const db = drizzle(ctx.storage);
+				migrate(db, config.migrations);
+			});
 		}
 
 		async fetch(request: Request): Promise<Response> {

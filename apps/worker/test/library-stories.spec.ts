@@ -1,11 +1,24 @@
 import {env} from "cloudflare:test";
-import {describe, expect, it} from "vitest";
+import {afterEach, describe, expect, it} from "vitest";
+import {makeLibraryTestClient} from "./rpc-test-client";
 
 describe("Library Stories", () => {
+	const clients: ReturnType<typeof makeLibraryTestClient>[] = [];
+
 	const getLibrary = (userId: string) => {
 		const id = env.LIBRARY.idFromName(userId);
-		return env.LIBRARY.get(id);
+		const stub = env.LIBRARY.get(id);
+		const client = makeLibraryTestClient((req) => stub.fetch(req));
+		clients.push(client);
+		return client;
 	};
+
+	afterEach(async () => {
+		for (const client of clients) {
+			await client.dispose();
+		}
+		clients.length = 0;
+	});
 
 	describe("Story CRUD", () => {
 		it("creates a story with url and title", async () => {

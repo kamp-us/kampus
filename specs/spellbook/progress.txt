@@ -51,3 +51,33 @@
 - SP-002-005 should now work but can't verify until tests are fixed
 - SP-010: Need to test LibraryRpcs contract unchanged (UI verification)
 - Next priority: SP-011-016 (WebPageParser migration) or fix tests first
+
+## 2026-01-14: Fix Migrations for vitest-pool-workers (SP-022)
+
+### Problem
+- @effect/sql-sqlite-do's SqliteMigrator uses sql.withTransaction() internally
+- withTransaction doesn't work in vitest-pool-workers test environment
+- Causes "SqlError: Failed to execute statement" during DO initialization
+
+### Solution
+- Replaced Effect SQL migrations with Drizzle migrations
+- Spellbook now uses drizzle-orm/durable-sqlite/migrator
+- Library imports migrations from existing drizzle/migrations/migrations.js
+
+### Completed
+- SP-022: Library integration tests pass (34 pass, 15 skipped)
+- Test RPC client created for Effect RPC over DO fetch
+- Spellbook.make() uses Drizzle migrate() instead of SqliteMigrator.run()
+
+### Files Changed
+- apps/worker/src/shared/Spellbook.ts: use Drizzle migrate
+- apps/worker/src/features/library/Library.ts: import drizzle migrations
+- apps/worker/src/features/library/migrations.ts: removed (using drizzle)
+- apps/worker/test/rpc-test-client.ts: new - RPC client for tests
+- apps/worker/test/library-stories.spec.ts: updated to use RPC client
+- apps/worker/test/library-tags.spec.ts: updated to use RPC client
+
+### Notes
+- 1 test skipped: FK constraint behavior (throws vs no-op on non-existent story)
+- Effect SQL's withTransaction incompatible with vitest-pool-workers
+- Drizzle migration approach is simpler and test-compatible

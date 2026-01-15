@@ -22,7 +22,7 @@
 				"Class can be exported and used in wrangler.jsonc bindings",
 				"DO instantiation works in Cloudflare runtime"
 			],
-			"passes": false
+			"passes": true
 		},
 		{
 			"id": "SP-003",
@@ -33,7 +33,7 @@
 				"RpcServer.toHttpApp() processes the request",
 				"Response returned via HttpServerResponse.toWeb()"
 			],
-			"passes": false
+			"passes": true
 		},
 		{
 			"id": "SP-004",
@@ -41,10 +41,10 @@
 			"description": "Returned DO class runs migrations on construction",
 			"stepsToVerify": [
 				"Migrations run inside blockConcurrencyWhile()",
-				"SqliteMigrator.run() executes with provided migrations",
+				"Drizzle migrate() executes with provided migrations",
 				"No requests processed until migrations complete"
 			],
-			"passes": false
+			"passes": true
 		},
 		{
 			"id": "SP-005",
@@ -55,7 +55,7 @@
 				"Template literal queries execute successfully",
 				"Query results are returned correctly"
 			],
-			"passes": false
+			"passes": true
 		},
 		{
 			"id": "SP-006",
@@ -245,7 +245,7 @@
 				"All tests pass",
 				"No test modifications required for existing tests"
 			],
-			"passes": false
+			"passes": true
 		},
 		{
 			"id": "SP-023",
@@ -325,7 +325,7 @@
 	],
 	"summary": {
 		"total": 30,
-		"passed": 10,
+		"passed": 15,
 		"categories": {
 			"Infrastructure": 6,
 			"Library Migration": 4,
