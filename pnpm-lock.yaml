@@ -26,7 +26,7 @@ catalogs:
       version: 0.73.0
     '@effect/language-service':
       specifier: latest
-      version: 0.62.5
+      version: 0.65.0
     '@effect/platform':
       specifier: 0.94.0
       version: 0.94.0
@@ -36,6 +36,12 @@ catalogs:
     '@effect/rpc':
       specifier: ^0.73.0
       version: 0.73.0
+    '@effect/sql':
+      specifier: ^0.49.0
+      version: 0.49.0
+    '@effect/sql-sqlite-do':
+      specifier: ^0.27.0
+      version: 0.27.0
     '@opentui/core':
       specifier: 0.1.63
       version: 0.1.63
@@ -127,7 +133,7 @@ importers:
         version: 2.3.10
       '@effect/language-service':
         specifier: 'catalog:'
-        version: 0.62.5
+        version: 0.65.0
       turbo:
         specifier: 'catalog:'
         version: 2.7.0
@@ -271,6 +277,12 @@ importers:
       '@effect/rpc':
         specifier: 'catalog:'
         version: 0.73.0(@effect/platform@0.94.0(effect@3.19.13))(effect@3.19.13)
+      '@effect/sql':
+        specifier: 'catalog:'
+        version: 0.49.0(@effect/experimental@0.58.0(@effect/platform@0.94.0(effect@3.19.13))(effect@3.19.13))(@effect/platform@0.94.0(effect@3.19.13))(effect@3.19.13)
+      '@effect/sql-sqlite-do':
+        specifier: 'catalog:'
+        version: 0.27.0(@effect/experimental@0.58.0(@effect/platform@0.94.0(effect@3.19.13))(effect@3.19.13))(@effect/sql@0.49.0(@effect/experimental@0.58.0(@effect/platform@0.94.0(effect@3.19.13))(effect@3.19.13))(@effect/platform@0.94.0(effect@3.19.13))(effect@3.19.13))(effect@3.19.13)
       '@kampus/library':
         specifier: workspace:*
         version: link:../../packages/library
@@ -591,8 +603,8 @@ packages:
       lmdb:
         optional: true
 
-  '@effect/language-service@0.62.5':
-    resolution: {integrity: sha512-vCMZkqbE8bQ4cmksrj2HLVhYXL6B0bs7uulALgVh6Hh46/V2WrcExgx6DTr0BE6nwBuecqbd4xWjEoPSwI8bPw==}
+  '@effect/language-service@0.65.0':
+    resolution: {integrity: sha512-eHcpLNCZa1XEDRrXLZqTdky6jAQojL6zQEW53Ba6vJL35j77tJTnV9BFkk34G3rxKoplNo39U0Mum3RfuH9rsg==}
     hasBin: true
 
   '@effect/platform-bun@0.87.0':
@@ -634,6 +646,13 @@ packages:
     resolution: {integrity: sha512-iMPf6tTriz8sK0l5x4koFId8Hz5nFptHYg8WqyjHGIIVLTpZxuiSqhmXZG7FnAs5N2n6uCEws4wWGcIgXNUrFg==}
     peerDependencies:
       '@effect/platform': ^0.94.0
+      effect: ^3.19.13
+
+  '@effect/sql-sqlite-do@0.27.0':
+    resolution: {integrity: sha512-+mkNGmmSWhhoNmiJfTQrVINPgcq19BLrdoq5JdF6GoL8lS2VA+XO7IRXTD3G1Plg5hTncmsX/1Y8W1Dc/DbKNQ==}
+    peerDependencies:
+      '@effect/experimental': ^0.58.0
+      '@effect/sql': ^0.49.0
       effect: ^3.19.13
 
   '@effect/sql@0.49.0':
@@ -3767,7 +3786,7 @@ snapshots:
       effect: 3.19.13
       uuid: 11.1.0
 
-  '@effect/language-service@0.62.5': {}
+  '@effect/language-service@0.65.0': {}
 
   '@effect/platform-bun@0.87.0(@effect/cluster@0.56.0(@effect/platform@0.94.0(effect@3.19.13))(@effect/rpc@0.73.0(@effect/platform@0.94.0(effect@3.19.13))(effect@3.19.13))(@effect/sql@0.49.0(@effect/experimental@0.58.0(@effect/platform@0.94.0(effect@3.19.13))(effect@3.19.13))(@effect/platform@0.94.0(effect@3.19.13))(effect@3.19.13))(@effect/workflow@0.16.0(@effect/experimental@0.58.0(@effect/platform@0.94.0(effect@3.19.13))(effect@3.19.13))(@effect/platform@0.94.0(effect@3.19.13))(@effect/rpc@0.73.0(@effect/platform@0.94.0(effect@3.19.13))(effect@3.19.13))(effect@3.19.13))(effect@3.19.13))(@effect/platform@0.94.0(effect@3.19.13))(@effect/rpc@0.73.0(@effect/platform@0.94.0(effect@3.19.13))(effect@3.19.13))(@effect/sql@0.49.0(@effect/experimental@0.58.0(@effect/platform@0.94.0(effect@3.19.13))(effect@3.19.13))(@effect/platform@0.94.0(effect@3.19.13))(effect@3.19.13))(effect@3.19.13)':
     dependencies:
@@ -3819,6 +3838,12 @@ snapshots:
       '@effect/platform': 0.94.0(effect@3.19.13)
       effect: 3.19.13
       msgpackr: 1.11.8
+
+  '@effect/sql-sqlite-do@0.27.0(@effect/experimental@0.58.0(@effect/platform@0.94.0(effect@3.19.13))(effect@3.19.13))(@effect/sql@0.49.0(@effect/experimental@0.58.0(@effect/platform@0.94.0(effect@3.19.13))(effect@3.19.13))(@effect/platform@0.94.0(effect@3.19.13))(effect@3.19.13))(effect@3.19.13)':
+    dependencies:
+      '@effect/experimental': 0.58.0(@effect/platform@0.94.0(effect@3.19.13))(effect@3.19.13)
+      '@effect/sql': 0.49.0(@effect/experimental@0.58.0(@effect/platform@0.94.0(effect@3.19.13))(effect@3.19.13))(@effect/platform@0.94.0(effect@3.19.13))(effect@3.19.13)
+      effect: 3.19.13
 
   '@effect/sql@0.49.0(@effect/experimental@0.58.0(@effect/platform@0.94.0(effect@3.19.13))(effect@3.19.13))(@effect/platform@0.94.0(effect@3.19.13))(effect@3.19.13)':
     dependencies:

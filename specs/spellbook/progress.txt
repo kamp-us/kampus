@@ -1,0 +1,25 @@
+## 2026-01-14: Spellbook Infrastructure (SP-001, SP-006, SP-026, SP-027)
+
+### Completed
+- SP-001: Spellbook.make() accepts RPC definitions, handlers, migrations config
+- SP-006: DurableObjectEnv/DurableObjectCtx service tags created
+- SP-026: @effect/sql added to worker deps
+- SP-027: @effect/sql-sqlite-do added to worker deps
+
+### Files Changed
+- apps/worker/package.json: added @effect/sql, @effect/sql-sqlite-do deps
+- apps/worker/src/services/DurableObjectServices.ts: new - DO service tags
+- apps/worker/src/services/index.ts: export new services
+- apps/worker/src/shared/Spellbook.ts: new - Spellbook.make() factory
+- pnpm-workspace.yaml: added @effect/sql packages to catalog
+
+### Key Decisions
+- Used `any` for ManagedRuntime type to avoid complex layer type inference
+- Service tags follow existing pattern in services/ dir
+- Spellbook.make() returns anonymous class extending DurableObject<TEnv>
+- Layer composition: handlers provided by sqliteLayer + doLayer
+
+### Notes for Next Iteration
+- SP-002-005 require Library Migration to verify runtime behavior
+- Existing tests fail (pre-existing issue, tests use DO-RPC but Library uses Effect RPC via fetch)
+- Next: SP-007 (Library DO uses Spellbook.make pattern)
