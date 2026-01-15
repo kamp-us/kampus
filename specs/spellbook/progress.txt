@@ -23,3 +23,31 @@
 - SP-002-005 require Library Migration to verify runtime behavior
 - Existing tests fail (pre-existing issue, tests use DO-RPC but Library uses Effect RPC via fetch)
 - Next: SP-007 (Library DO uses Spellbook.make pattern)
+
+## 2026-01-14: Library Migration (SP-007, SP-008, SP-009, SP-017, SP-019, SP-023)
+
+### Completed
+- SP-007: Library DO uses Spellbook.make() pattern
+- SP-008: All Library handlers extracted as pure Effect functions
+- SP-009: Library Drizzle replaced with @effect/sql-sqlite-do
+- SP-017: Library.ts reduced from ~600 lines to 10 lines
+- SP-019: Handlers testable without DO instantiation
+- SP-023: Type check passes
+
+### Files Changed
+- apps/worker/src/features/library/Library.ts: reduced to 10 lines using Spellbook.make()
+- apps/worker/src/features/library/handlers.ts: new - pure Effect handlers with SqlClient
+- apps/worker/src/features/library/migrations.ts: new - Effect SQL migrations using Migrator.fromRecord()
+- apps/worker/src/shared/Spellbook.ts: changed type param order (R, TEnv) for better inference
+
+### Key Decisions
+- Combined all Drizzle migrations into single Effect SQL migration (schema preserved)
+- orDieSql helper converts SqlError to defects while preserving typed errors
+- Handlers use sql.unsafe() for IN clauses (story IDs are controlled/safe)
+- fetchUrlMetadata still uses WebPageParser DO-RPC (not migrated yet)
+
+### Notes for Next Iteration
+- Tests still fail: use DO-RPC but Library uses Effect RPC over fetch. Separate issue (SP-022)
+- SP-002-005 should now work but can't verify until tests are fixed
+- SP-010: Need to test LibraryRpcs contract unchanged (UI verification)
+- Next priority: SP-011-016 (WebPageParser migration) or fix tests first

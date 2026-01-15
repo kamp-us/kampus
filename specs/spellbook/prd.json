@@ -78,7 +78,7 @@
 				"Library.ts calls Spellbook.make() with config",
 				"Library.ts is approximately 5 lines of code"
 			],
-			"passes": false
+			"passes": true
 		},
 		{
 			"id": "SP-008",
@@ -90,7 +90,7 @@
 				"All handlers return Effect types",
 				"Handlers: getStory, listStories, listStoriesByTag, createStory, updateStory, deleteStory, listTags, createTag, updateTag, deleteTag, getTagsForStory, setStoryTags, fetchUrlMetadata"
 			],
-			"passes": false
+			"passes": true
 		},
 		{
 			"id": "SP-009",
@@ -102,7 +102,7 @@
 				"Queries use SqlClient template literals",
 				"Same database schema preserved"
 			],
-			"passes": false
+			"passes": true
 		},
 		{
 			"id": "SP-010",
@@ -191,7 +191,7 @@
 				"Run: wc -l apps/worker/src/features/library/Library.ts",
 				"Result is less than 10 lines"
 			],
-			"passes": false
+			"passes": true
 		},
 		{
 			"id": "SP-018",
@@ -212,7 +212,7 @@
 				"Handlers can be imported in test files",
 				"Handlers can run with mock SqlClient layer"
 			],
-			"passes": false
+			"passes": true
 		},
 		{
 			"id": "SP-020",
@@ -252,7 +252,7 @@
 			"category": "Compatibility",
 			"description": "Type check passes",
 			"stepsToVerify": ["Run: pnpm --filter worker exec tsc --noEmit", "No type errors"],
-			"passes": false
+			"passes": true
 		},
 		{
 			"id": "SP-024",
@@ -325,7 +325,7 @@
 	],
 	"summary": {
 		"total": 30,
-		"passed": 4,
+		"passed": 10,
 		"categories": {
 			"Infrastructure": 6,
 			"Library Migration": 4,

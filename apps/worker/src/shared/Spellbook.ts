@@ -36,7 +36,7 @@ export interface MakeConfig<R extends Rpc.Any> {
  * });
  * ```
  */
-export const make = <TEnv extends Env, R extends Rpc.Any>(config: MakeConfig<R>) => {
+export const make = <R extends Rpc.Any, TEnv extends Env = Env>(config: MakeConfig<R>) => {
 	return class extends DurableObject<TEnv> {
 		// biome-ignore lint/suspicious/noExplicitAny: Complex layer types inferred at runtime
 		private runtime: ManagedRuntime.ManagedRuntime<any, any>;
