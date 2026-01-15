@@ -142,3 +142,31 @@
 ### Notes
 - 22/30 items now pass
 - Remaining: SP-020/021 (unit tests), SP-024/025 (UI verification), SP-028/029 (cleanup), SP-030 (docs)
+
+## 2026-01-15: Library Handler Unit Tests (SP-020)
+
+### Completed
+- SP-020: Unit tests exist for Library handlers using mock SqlClient
+
+### Files Created
+- apps/worker/test/library-handlers.spec.ts: 12 unit tests for handlers
+
+### Test Coverage
+- getStory: null case, story with tags, empty tags array
+- createStory: invalid URL validation (2 cases), valid URL, with description, tag linking
+- deleteStory: non-existent, existing
+- listStories: empty list, pagination info
+
+### Key Decisions
+- Created makeMockSqlClient helper that matches query patterns via regex
+- Mock captures template literal values to verify INSERT operations
+- Tests handler logic in isolation without DO/Cloudflare infrastructure
+
+### Verification
+- All 12 unit tests pass
+- All 46 existing tests pass (15 skipped)
+- Typecheck passes
+
+### Notes
+- 23/30 items now pass
+- Remaining: SP-021 (WebPageParser tests), SP-024/025 (UI verification), SP-028/029 (cleanup), SP-030 (docs)

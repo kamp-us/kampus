@@ -223,7 +223,7 @@
 				"Tests use mock SqlClient layer",
 				"Tests cover: getStory null case, getStory with tags, createStory URL validation"
 			],
-			"passes": false
+			"passes": true
 		},
 		{
 			"id": "SP-021",
@@ -325,7 +325,7 @@
 	],
 	"summary": {
 		"total": 30,
-		"passed": 22,
+		"passed": 23,
 		"categories": {
 			"Infrastructure": 6,
 			"Library Migration": 4,
