@@ -199,4 +199,4 @@
 
 ### Notes
 - 24/30 items now pass
-- Remaining: SP-024/025 (UI verification), SP-028/029 (cleanup), SP-030 (docs)
+- Remaining: SP-024/025 (UI verification via Playwright MCP), SP-028/029 (cleanup), SP-030 (docs)

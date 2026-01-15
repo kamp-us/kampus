@@ -260,8 +260,8 @@
 			"category": "Compatibility",
 			"description": "Library UI functionality works",
 			"stepsToVerify": [
-				"Start dev servers",
-				"Navigate to library page",
+				"Start dev servers (turbo run dev)",
+				"Use Playwright MCP to navigate to library page",
 				"Create a story with URL",
 				"Add tags to story",
 				"Delete story",
@@ -274,8 +274,8 @@
 			"category": "Compatibility",
 			"description": "Fetch-title UI functionality works",
 			"stepsToVerify": [
-				"Start dev servers",
-				"Create new story form",
+				"Start dev servers (turbo run dev)",
+				"Use Playwright MCP to open new story form",
 				"Enter URL and trigger fetch",
 				"Title auto-populates from URL metadata"
 			],
