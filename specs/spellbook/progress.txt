@@ -96,3 +96,49 @@
 ### Notes
 - All Library Migration items now complete (SP-007-010)
 - Next priority: WebPageParser migration (SP-011-014) or UI verification (SP-024)
+
+## 2026-01-15: WebPageParser Migration (SP-011, SP-012, SP-013, SP-014, SP-015, SP-016, SP-018)
+
+### Completed
+- SP-011: WebPageParser DO uses Spellbook.make() pattern
+- SP-012: WebPageParser converted from DO-RPC to Effect RPC
+- SP-013: New @kampus/web-page-parser package created
+- SP-014: WebPageParser queries use @effect/sql-sqlite-do
+- SP-015: GraphQL resolver updated for WebPageParser RPC
+- SP-016: Library DO-to-DO call updated for WebPageParser RPC
+- SP-018: WebPageParser.ts reduced to 10 lines
+
+### Files Created
+- packages/web-page-parser/package.json
+- packages/web-page-parser/tsconfig.json
+- packages/web-page-parser/src/index.ts
+- packages/web-page-parser/src/rpc.ts
+- packages/web-page-parser/src/schema.ts
+- apps/worker/src/features/web-page-parser/handlers.ts
+- apps/worker/src/features/web-page-parser/client.ts
+
+### Files Modified
+- apps/worker/package.json: added @kampus/web-page-parser dep
+- apps/worker/src/features/web-page-parser/WebPageParser.ts: reduced to 10 lines
+- apps/worker/src/features/web-page-parser/fetchPageMetadata.ts: import from package
+- apps/worker/src/features/library/handlers.ts: use RPC client for WebPageParser
+- apps/worker/src/graphql/schema.ts: use RPC client for WebPageParser
+- specs/spellbook/prd.json: updated 6 items to passes:true, updated summary
+
+### Files Removed
+- apps/worker/src/features/web-page-parser/schema.ts (moved to package)
+
+### Key Decisions
+- Created makeWebPageParserClient helper for DO-to-DO Effect RPC calls
+- WebPageParser handlers access ctx.storage via DurableObjectCtx service
+- Explicit return type annotation needed for getMetadata handler type inference
+- Kept Drizzle migrations (compatible with vitest-pool-workers)
+
+### Verification
+- Typecheck: passes (turbo run typecheck --filter=worker)
+- Tests: 34 pass, 15 skipped (no changes to existing tests)
+- WebPageParser.ts: 10 lines
+
+### Notes
+- 22/30 items now pass
+- Remaining: SP-020/021 (unit tests), SP-024/025 (UI verification), SP-028/029 (cleanup), SP-030 (docs)

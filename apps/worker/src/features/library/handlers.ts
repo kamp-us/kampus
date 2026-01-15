@@ -8,6 +8,7 @@ import {
 import {id} from "@usirin/forge";
 import {Effect} from "effect";
 import {DurableObjectEnv} from "../../services";
+import {makeWebPageParserClient} from "../web-page-parser/client";
 import {getNormalizedUrl} from "./getNormalizedUrl";
 import {isValidHexColor, validateTagName} from "./schema";
 
@@ -503,16 +504,22 @@ export const handlers = {
 					// Use normalized URL as DO key for deduplication
 					const normalizedUrl = getNormalizedUrl(url);
 					const parserId = env.WEB_PAGE_PARSER.idFromName(normalizedUrl);
-					const parser = env.WEB_PAGE_PARSER.get(parserId);
+					const stub = env.WEB_PAGE_PARSER.get(parserId);
 
-					await parser.init(url);
-					const metadata = await parser.getMetadata();
+					// Use Effect RPC client to call WebPageParser
+					const client = makeWebPageParserClient((req) => stub.fetch(req));
+					try {
+						await client.init(url);
+						const metadata = await client.getMetadata();
 
-					return {
-						title: metadata.title || null,
-						description: metadata.description || null,
-						error: null,
-					};
+						return {
+							title: metadata.title || null,
+							description: metadata.description || null,
+							error: null,
+						};
+					} finally {
+						await client.dispose();
+					}
 				},
 				catch: (err) => {
 					const message = err instanceof Error ? err.message : "Failed to fetch metadata";

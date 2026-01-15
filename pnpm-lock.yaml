@@ -286,6 +286,9 @@ importers:
       '@kampus/library':
         specifier: workspace:*
         version: link:../../packages/library
+      '@kampus/web-page-parser':
+        specifier: workspace:*
+        version: link:../../packages/web-page-parser
       '@usirin/forge':
         specifier: 'catalog:'
         version: 0.2.0
@@ -340,6 +343,15 @@ importers:
         version: 3.19.13
 
   packages/pasaport:
+    dependencies:
+      '@effect/rpc':
+        specifier: 'catalog:'
+        version: 0.73.0(@effect/platform@0.94.0(effect@3.19.13))(effect@3.19.13)
+      effect:
+        specifier: 'catalog:'
+        version: 3.19.13
+
+  packages/web-page-parser:
     dependencies:
       '@effect/rpc':
         specifier: 'catalog:'

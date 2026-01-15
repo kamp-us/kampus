@@ -8,6 +8,7 @@ import {
 	printSchema,
 } from "graphql";
 import {getNormalizedUrl} from "../features/library/getNormalizedUrl";
+import {makeWebPageParserClient} from "../features/web-page-parser/client";
 import {Auth, CloudflareEnv, RequestContext} from "../services";
 import {resolver} from "./resolver";
 
@@ -92,16 +93,22 @@ const QueryType = new GraphQLObjectType({
 					// Use normalized URL as DO key for deduplication
 					const normalizedUrl = getNormalizedUrl(args.url);
 					const parserId = env.WEB_PAGE_PARSER.idFromName(normalizedUrl);
-					const parser = env.WEB_PAGE_PARSER.get(parserId);
+					const stub = env.WEB_PAGE_PARSER.get(parserId);
 
-					yield* Effect.promise(() => parser.init(args.url));
-					const metadata = yield* Effect.promise(() => parser.getMetadata());
+					// Use Effect RPC client to call WebPageParser
+					const client = makeWebPageParserClient((req) => stub.fetch(req));
+					try {
+						yield* Effect.promise(() => client.init(args.url));
+						const metadata = yield* Effect.promise(() => client.getMetadata());
 
-					return {
-						title: metadata.title || null,
-						description: metadata.description || null,
-						error: null,
-					};
+						return {
+							title: metadata.title || null,
+							description: metadata.description || null,
+							error: null,
+						};
+					} finally {
+						yield* Effect.promise(() => client.dispose());
+					}
 				} catch (err) {
 					const message = err instanceof Error ? err.message : "Failed to fetch metadata";
 					return {title: null, description: null, error: message};
