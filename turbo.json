@@ -19,6 +19,10 @@
 			"dependsOn": ["^build"],
 			"cache": true
 		},
+		"typecheck": {
+			"dependsOn": ["^build"],
+			"cache": true
+		},
 		"build": {
 			"dependsOn": ["^build"],
 			"outputs": ["dist", "*.tsbuildinfo", ".next", "build"],
