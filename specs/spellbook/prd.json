@@ -113,7 +113,7 @@
 				"All existing RPC methods still work",
 				"Frontend RPC client works without changes"
 			],
-			"passes": false
+			"passes": true
 		},
 		{
 			"id": "SP-011",
@@ -325,7 +325,7 @@
 	],
 	"summary": {
 		"total": 30,
-		"passed": 15,
+		"passed": 16,
 		"categories": {
 			"Infrastructure": 6,
 			"Library Migration": 4,

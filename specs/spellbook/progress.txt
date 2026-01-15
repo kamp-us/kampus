@@ -81,3 +81,18 @@
 - 1 test skipped: FK constraint behavior (throws vs no-op on non-existent story)
 - Effect SQL's withTransaction incompatible with vitest-pool-workers
 - Drizzle migration approach is simpler and test-compatible
+
+## 2026-01-15: Library Contract Verification (SP-010)
+
+### Completed
+- SP-010: LibraryRpcs contract unchanged
+
+### Verification
+- @kampus/library/src/rpc.ts unchanged (defines contract)
+- Integration tests pass: 34 pass, 15 skipped
+- Frontend client (apps/kamp-us/src/rpc/client.ts) uses same LibraryRpcs
+- Type check passes for both worker and kamp-us
+
+### Notes
+- All Library Migration items now complete (SP-007-010)
+- Next priority: WebPageParser migration (SP-011-014) or UI verification (SP-024)
