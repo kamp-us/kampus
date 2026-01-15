@@ -248,24 +248,74 @@ The `kamp-us` app uses:
 import {Link, useSearchParams, useNavigate} from "react-router";
 ```
 
-### Backend Features
+### Backend Features (Spellbook Pattern)
 
-Features in `apps/worker/src/features/` follow a standard structure:
+Features in `apps/worker/src/features/` use the **Spellbook pattern** for Durable Objects:
 
 ```
 feature-name/
-├── FeatureName.ts      # Durable Object class
-├── schema.ts           # Effect Schema definitions
+├── FeatureName.ts      # ~10 lines: Spellbook.make() call
+├── handlers.ts         # Pure Effect handler functions
+├── helpers.ts          # Shared helper functions (optional)
 └── drizzle/
     ├── drizzle.schema.ts   # Database schema
-    └── migrations/         # SQL migrations
+    └── migrations/         # SQL migrations (Drizzle-managed)
+```
+
+**Spellbook.make() Pattern:**
+```typescript
+// FeatureName.ts - minimal DO definition
+import {FeatureRpcs} from "@kampus/feature-package";
+import * as Spellbook from "../../shared/Spellbook";
+import migrations from "./drizzle/migrations/migrations";
+import {handlers} from "./handlers";
+
+export const FeatureName = Spellbook.make({
+  rpcs: FeatureRpcs,
+  handlers,
+  migrations,
+});
+```
+
+**Handler Pattern:**
+```typescript
+// handlers.ts - pure Effect functions with service dependencies
+import {SqlClient} from "@effect/sql";
+import {Effect} from "effect";
+
+export const getItem = ({id}: {id: string}) =>
+  Effect.gen(function* () {
+    const sql = yield* SqlClient.SqlClient;
+    const [item] = yield* sql`SELECT * FROM items WHERE id = ${id}`;
+    return item ?? null;
+  });
+
+export const handlers = {getItem, /* ... */};
 ```
 
 **Conventions:**
-- Durable Objects extend `DurableObject<Env>` with migrations in constructor
+- Handlers are pure Effect functions, no `this` keyword
+- Use `SqlClient.SqlClient` service for database queries (template literals)
+- Use `DurableObjectEnv`/`DurableObjectCtx` services to access DO context
+- Drizzle handles migrations (Effect SQL's migrator doesn't work in vitest-pool-workers)
 - Use `Schema.Struct()` not `Schema.Class()` (DOs can't return class instances)
 - ID generation: `id("prefix")` from `@usirin/forge` (e.g., `id("story")`, `id("user")`)
 - Export DO classes from `src/index.ts`, add bindings in `wrangler.jsonc`
+
+**DO-to-DO Calls (Effect RPC):**
+```typescript
+// Use RPC client for cross-DO communication
+import {makeWebPageParserClient} from "../web-page-parser/client";
+
+const fetchMetadata = (url: string) =>
+  Effect.gen(function* () {
+    const env = yield* DurableObjectEnv;
+    const parserId = env.WEB_PAGE_PARSER.idFromName(url);
+    const client = makeWebPageParserClient(env.WEB_PAGE_PARSER.get(parserId));
+    yield* client.init({url});
+    return yield* client.getMetadata({});
+  });
+```
 
 ### Code Style
 
@@ -367,9 +417,11 @@ describe('Feature', () => {
 | ------ | ------- |
 | Feature specs | `specs/[feature-name]/` |
 | Design tokens | `apps/kamp-us/src/design/phoenix.{ts,css}` |
-| RPC definitions | `packages/library/src/rpc.ts` |
+| Spellbook factory | `apps/worker/src/shared/Spellbook.ts` |
+| DO service tags | `apps/worker/src/services/DurableObjectServices.ts` |
+| RPC definitions | `packages/library/src/rpc.ts`, `packages/web-page-parser/src/rpc.ts` |
 | Domain errors | `packages/library/src/errors.ts` |
-| RPC client | `apps/kamp-us/src/rpc/client.ts` |
+| RPC client (frontend) | `apps/kamp-us/src/rpc/client.ts` |
 | RPC atoms | `apps/kamp-us/src/rpc/atoms.ts` |
 | Feature implementations | `apps/worker/src/features/*/` |
 | Local Effect source | `~/.local/share/effect-solutions/effect/` |
