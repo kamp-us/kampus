@@ -6,10 +6,11 @@ import {
 	TagNameExistsError,
 } from "@kampus/library";
 import {id} from "@usirin/forge";
-import {Effect} from "effect";
+import {DateTime, Effect, Option} from "effect";
 import {DurableObjectEnv} from "../../services";
 import {makeWebPageParserClient} from "../web-page-parser/client";
 import {getNormalizedUrl} from "./getNormalizedUrl";
+import {Story, StoryRepo, Tag, TagRepo} from "./models";
 import {isValidHexColor, validateTagName} from "./schema";
 
 // Helper to convert SqlError to defects while preserving typed errors
@@ -41,7 +42,7 @@ interface StoryTagRow {
 	tagColor: string;
 }
 
-// Helper to format story with tags
+// Helper to format story with tags (from raw row)
 const formatStory = (story: StoryRow, tags: Array<{id: string; name: string; color: string}>) => ({
 	id: story.id,
 	url: story.url,
@@ -51,12 +52,34 @@ const formatStory = (story: StoryRow, tags: Array<{id: string; name: string; col
 	tags,
 });
 
-// Helper to format tag
+// Helper to format story from Model instance
+const formatStoryFromModel = (
+	story: Story,
+	tags: Array<{id: string; name: string; color: string}>,
+) => ({
+	id: story.id,
+	url: story.url,
+	title: story.title,
+	description: Option.getOrNull(story.description),
+	createdAt: DateTime.formatIso(story.createdAt),
+	tags,
+});
+
+// Helper to format tag (from raw row)
 const formatTag = (tag: TagRow, storyCount: number) => ({
 	id: tag.id,
 	name: tag.name,
 	color: tag.color,
 	createdAt: new Date(tag.createdAt).toISOString(),
+	storyCount,
+});
+
+// Helper to format tag from Model instance
+const formatTagFromModel = (tag: Tag, storyCount: number) => ({
+	id: tag.id,
+	name: tag.name,
+	color: tag.color,
+	createdAt: DateTime.formatIso(tag.createdAt),
 	storyCount,
 });
 
@@ -86,15 +109,15 @@ const getTagsForStoriesSimple = (storyIds: string[]) =>
 	});
 
 export const handlers = {
-	getStory: ({id}: {id: string}) =>
+	getStory: ({id: storyId}: {id: string}) =>
 		Effect.gen(function* () {
-			const sql = yield* SqlClient.SqlClient;
-			const rows = yield* sql<StoryRow>`SELECT * FROM story WHERE id = ${id}`;
-			const story = rows[0];
-			if (!story) return null;
+			const storyRepo = yield* StoryRepo;
+			const storyOpt = yield* storyRepo.findById(storyId);
+			if (Option.isNone(storyOpt)) return null;
 
-			const tagsByStory = yield* getTagsForStoriesSimple([id]);
-			return formatStory(story, tagsByStory.get(id) ?? []);
+			const story = storyOpt.value;
+			const tagsByStory = yield* getTagsForStoriesSimple([storyId]);
+			return formatStoryFromModel(story, tagsByStory.get(storyId) ?? []);
 		}).pipe(Effect.orDie),
 
 	listStories: ({first, after}: {first?: number; after?: string}) =>
@@ -195,14 +218,19 @@ export const handlers = {
 			}
 
 			const sql = yield* SqlClient.SqlClient;
+			const storyRepo = yield* StoryRepo;
 			const storyId = id("story");
 			const normalizedUrl = getNormalizedUrl(url);
-			const createdAt = Date.now();
 
-			yield* sql`
-				INSERT INTO story (id, url, normalized_url, title, description, created_at)
-				VALUES (${storyId}, ${url}, ${normalizedUrl}, ${title}, ${description ?? null}, ${createdAt})
-			`;
+			const story = yield* storyRepo.insert(
+				Story.insert.make({
+					id: storyId,
+					url,
+					normalizedUrl,
+					title,
+					description: Option.fromNullable(description),
+				}),
+			);
 
 			// Tag the story if tagIds provided
 			if (tagIds && tagIds.length > 0) {
@@ -219,14 +247,7 @@ export const handlers = {
 
 			const tagsByStory = yield* getTagsForStoriesSimple([storyId]);
 
-			return {
-				id: storyId,
-				url,
-				title,
-				description: description ?? null,
-				createdAt: new Date(createdAt).toISOString(),
-				tags: tagsByStory.get(storyId) ?? [],
-			};
+			return formatStoryFromModel(story, tagsByStory.get(storyId) ?? []);
 		}).pipe(orDieSql),
 
 	updateStory: ({
@@ -296,13 +317,14 @@ export const handlers = {
 	deleteStory: ({id: storyId}: {id: string}) =>
 		Effect.gen(function* () {
 			const sql = yield* SqlClient.SqlClient;
+			const storyRepo = yield* StoryRepo;
 
-			const existingRows = yield* sql<StoryRow>`SELECT * FROM story WHERE id = ${storyId}`;
-			if (!existingRows[0]) return {deleted: false};
+			const storyOpt = yield* storyRepo.findById(storyId);
+			if (Option.isNone(storyOpt)) return {deleted: false};
 
 			// Delete tag associations (cascade should handle, but be explicit)
 			yield* sql`DELETE FROM story_tag WHERE story_id = ${storyId}`;
-			yield* sql`DELETE FROM story WHERE id = ${storyId}`;
+			yield* storyRepo.delete(storyId);
 
 			return {deleted: true};
 		}).pipe(Effect.orDie),
@@ -333,26 +355,26 @@ export const handlers = {
 			}
 
 			const sql = yield* SqlClient.SqlClient;
+			const tagRepo = yield* TagRepo;
 
-			// Check uniqueness (case-insensitive)
+			// Check uniqueness (case-insensitive) - keep raw SQL for case-insensitive query
 			const existingRows = yield* sql<TagRow>`SELECT * FROM tag WHERE lower(name) = lower(${name})`;
 			if (existingRows[0]) {
 				return yield* Effect.fail(new TagNameExistsError({tagName: name}));
 			}
 
 			const tagId = id("tag");
-			const createdAt = Date.now();
 			const lowerColor = color.toLowerCase();
 
-			yield* sql`INSERT INTO tag (id, name, color, created_at) VALUES (${tagId}, ${name}, ${lowerColor}, ${createdAt})`;
+			const tag = yield* tagRepo.insert(
+				Tag.insert.make({
+					id: tagId,
+					name,
+					color: lowerColor,
+				}),
+			);
 
-			return {
-				id: tagId,
-				name,
-				color: lowerColor,
-				createdAt: new Date(createdAt).toISOString(),
-				storyCount: 0,
-			};
+			return formatTagFromModel(tag, 0);
 		}).pipe(orDieSql),
 
 	updateTag: ({id: tagId, name, color}: {id: string; name?: string; color?: string}) =>
@@ -408,13 +430,13 @@ export const handlers = {
 
 	deleteTag: ({id: tagId}: {id: string}) =>
 		Effect.gen(function* () {
-			const sql = yield* SqlClient.SqlClient;
+			const tagRepo = yield* TagRepo;
 
-			const existingRows = yield* sql<TagRow>`SELECT * FROM tag WHERE id = ${tagId}`;
-			if (!existingRows[0]) return {deleted: false};
+			const tagOpt = yield* tagRepo.findById(tagId);
+			if (Option.isNone(tagOpt)) return {deleted: false};
 
 			// FK cascade handles story_tag cleanup
-			yield* sql`DELETE FROM tag WHERE id = ${tagId}`;
+			yield* tagRepo.delete(tagId);
 
 			return {deleted: true};
 		}).pipe(Effect.orDie),

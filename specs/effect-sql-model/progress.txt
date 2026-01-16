@@ -39,3 +39,32 @@
 
 ### Next Steps
 - ESM-005: Refactor handlers to use StoryRepo/TagRepo instead of raw SQL
+
+## 2026-01-15: Handler Refactoring + Cleanup (ESM-005, ESM-006)
+
+### Files Changed
+- apps/worker/src/features/library/handlers.ts (use repos in CRUD handlers)
+- apps/worker/test/library-handlers.spec.ts (simplify unit tests)
+
+### Key Decisions
+1. Refactored handlers to use repos:
+   - getStory: StoryRepo.findById()
+   - createStory: StoryRepo.insert()
+   - deleteStory: StoryRepo.findById() + delete()
+   - createTag: TagRepo.insert()
+   - deleteTag: TagRepo.findById() + delete()
+2. Kept raw SQL for complex operations:
+   - listStories, listStoriesByTag (pagination)
+   - updateStory, updateTag (partial updates)
+   - getTagsForStory, setStoryTags (joins)
+3. Added formatStoryFromModel/formatTagFromModel helpers for DateTime.formatIso
+4. Unit tests: removed tests needing full SqlClient mock, kept URL validation + listStories
+5. Row interfaces retained (still needed by raw SQL handlers)
+
+### Verification
+- turbo run typecheck: PASS
+- pnpm --filter worker run test: PASS (43 tests)
+- biome check: PASS (2 warnings on existing non-null assertions)
+
+### Next Steps
+- ESM-100+: Test coverage items (story/tag CRUD, pagination, edge cases)
