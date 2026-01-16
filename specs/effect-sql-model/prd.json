@@ -609,7 +609,7 @@
 				"All 10 stories are created",
 				"Each has unique id"
 			],
-			"passes": false
+			"passes": true
 		},
 		{
 			"id": "ESM-501",
@@ -620,7 +620,7 @@
 				"Update title and description concurrently",
 				"Final state is consistent (one update wins)"
 			],
-			"passes": false
+			"passes": true
 		},
 		{
 			"id": "ESM-600",

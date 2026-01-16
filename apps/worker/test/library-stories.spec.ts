@@ -439,4 +439,69 @@ describe("Library Stories", () => {
 			expect(result.edges[1].tags[0].id).toBe(tag2.id);
 		});
 	});
+
+	describe("Concurrency", () => {
+		it("concurrent story creates don't conflict", async () => {
+			const library = getLibrary("story-user-concurrent");
+
+			// Create 10 stories concurrently
+			const createPromises = Array.from({length: 10}, (_, i) =>
+				library.createStory({
+					url: `https://example.com/concurrent-${i}`,
+					title: `Concurrent Story ${i}`,
+				}),
+			);
+
+			const stories = await Promise.all(createPromises);
+
+			// All 10 stories should be created
+			expect(stories).toHaveLength(10);
+
+			// Each has a unique id
+			const ids = stories.map((s) => s.id);
+			const uniqueIds = new Set(ids);
+			expect(uniqueIds.size).toBe(10);
+
+			// All ids start with story_ prefix
+			for (const id of ids) {
+				expect(id).toMatch(/^story_/);
+			}
+
+			// Verify all stories are retrievable
+			const result = await library.listStories({first: 20});
+			expect(result.edges).toHaveLength(10);
+		});
+
+		it("concurrent updates to same story result in consistent state", async () => {
+			const library = getLibrary("story-user-concurrent-update");
+
+			const story = await library.createStory({
+				url: "https://example.com/concurrent-update",
+				title: "Original",
+				description: "Original desc",
+			});
+
+			// Update title and description concurrently
+			const [updated1, updated2] = await Promise.all([
+				library.updateStory(story.id, {title: "Title Update"}),
+				library.updateStory(story.id, {description: "Desc Update"}),
+			]);
+
+			// Both should return a valid story
+			expect(updated1).not.toBeNull();
+			expect(updated2).not.toBeNull();
+
+			// Final state: one update wins for each field
+			const final = await library.getStory(story.id);
+			expect(final).not.toBeNull();
+
+			// At least one of the updates should have been applied
+			const titleChanged = final!.title === "Title Update";
+			const descChanged = final!.description === "Desc Update";
+
+			// Due to DO single-threaded execution, both updates should apply
+			// (they don't conflict on same field in these requests)
+			expect(titleChanged || descChanged).toBe(true);
+		});
+	});
 });

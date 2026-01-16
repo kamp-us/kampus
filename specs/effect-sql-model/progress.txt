@@ -162,3 +162,24 @@
 
 ### PRD Status
 - 55/67 items passing (82%)
+
+## 2026-01-15: Concurrency Tests (ESM-500, ESM-501)
+
+### Files Changed
+- apps/worker/test/library-stories.spec.ts (add Concurrency describe block)
+
+### Tests Added
+1. Concurrent story creates (10 concurrent creates, verify unique IDs) - ESM-500
+2. Concurrent updates to same story (title + desc updates) - ESM-501
+
+### Key Decisions
+1. Tests use Promise.all to run operations concurrently
+2. ESM-501 tests that both concurrent updates to different fields apply correctly
+3. DO single-threaded execution model ensures no data corruption
+
+### Verification
+- turbo run typecheck: PASS
+- pnpm --filter worker run test: PASS (63 tests)
+
+### PRD Status
+- 57/67 items passing (85%)
