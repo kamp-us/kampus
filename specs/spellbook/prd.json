@@ -330,10 +330,24 @@
 				"@effect/sql patterns documented"
 			],
 			"passes": true
+		},
+		{
+			"id": "SP-031",
+			"category": "Testing",
+			"description": "Rewrite integration tests from first principles",
+			"stepsToVerify": [
+				"Remove all skipped tests for non-existent functionality",
+				"Each test file has clear describe blocks matching RPC methods",
+				"Tests use rpc-test-client.ts for Effect RPC calls",
+				"No duplicate test coverage between unit and integration tests",
+				"All tests pass with 0 skipped",
+				"Run: pnpm --filter worker run test"
+			],
+			"passes": false
 		}
 	],
 	"summary": {
-		"total": 30,
+		"total": 31,
 		"passed": 30,
 		"categories": {
 			"Infrastructure": 6,
@@ -341,7 +355,7 @@
 			"WebPageParser Migration": 4,
 			"Caller Updates": 2,
 			"Code Quality": 3,
-			"Testing": 3,
+			"Testing": 4,
 			"Compatibility": 3,
 			"Dependencies": 2,
 			"Cleanup": 2,
