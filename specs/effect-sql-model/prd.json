@@ -386,16 +386,14 @@
 				"Attempt to create another tag with name 'work'",
 				"Returns TagNameExistsError"
 			],
-			"passes": false,
-			"notes": "Validation error tests have isolation issues in vitest-pool-workers"
+			"passes": true
 		},
 		{
 			"id": "ESM-202",
 			"category": "test:tag:create",
 			"description": "Create tag with empty name fails",
 			"steps_to_verify": ["Attempt to create tag with empty name", "Returns InvalidTagNameError"],
-			"passes": false,
-			"notes": "Validation error tests have isolation issues in vitest-pool-workers"
+			"passes": true
 		},
 		{
 			"id": "ESM-203",
@@ -405,16 +403,14 @@
 				"Attempt to create tag with invalid hex color",
 				"Returns InvalidTagColorError"
 			],
-			"passes": false,
-			"notes": "Validation error tests have isolation issues in vitest-pool-workers"
+			"passes": true
 		},
 		{
 			"id": "ESM-204",
 			"category": "test:tag:create",
 			"description": "Create tag with whitespace-only name fails",
 			"steps_to_verify": ["Attempt to create tag with name '   '", "Returns InvalidTagNameError"],
-			"passes": false,
-			"notes": "Validation error tests have isolation issues in vitest-pool-workers"
+			"passes": true
 		},
 		{
 			"id": "ESM-210",
@@ -467,8 +463,7 @@
 				"Try to update tag B's name to tag A's name",
 				"Returns TagNameExistsError"
 			],
-			"passes": false,
-			"notes": "Validation error tests have isolation issues in vitest-pool-workers"
+			"passes": true
 		},
 		{
 			"id": "ESM-223",
@@ -479,8 +474,7 @@
 				"Try to update with invalid color",
 				"Returns InvalidTagColorError"
 			],
-			"passes": false,
-			"notes": "Validation error tests have isolation issues in vitest-pool-workers"
+			"passes": true
 		},
 		{
 			"id": "ESM-224",
@@ -498,8 +492,7 @@
 				"Update same tag with name 'work'",
 				"Succeeds (no duplicate error for self)"
 			],
-			"passes": false,
-			"notes": "Validation error tests have isolation issues in vitest-pool-workers"
+			"passes": true
 		},
 		{
 			"id": "ESM-230",

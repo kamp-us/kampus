@@ -204,3 +204,31 @@
 
 ### PRD Status
 - 58/67 items passing (87%)
+
+## 2026-01-16: Tag Validation Error Tests (ESM-201 to ESM-204, ESM-222, ESM-223, ESM-225)
+
+### Files Changed
+- apps/worker/test/rpc-test-client.ts (add createTagExit, updateTagExit methods)
+- apps/worker/test/library-tags.spec.ts (add Tag Validation Errors describe block)
+
+### Key Decisions
+1. Added `*Exit` variants to test client using `runPromiseExit` instead of `runPromise`
+2. `Effect.Exit` type lets tests inspect error types without try/catch
+3. Tests check `exit.cause._tag === "Fail"` and `exit.cause.error._tag` for typed errors
+4. Each test uses unique user ID to avoid state pollution between tests
+
+### Tests Added
+1. ESM-201: Create tag with duplicate name fails with TagNameExistsError
+2. ESM-202: Create tag with empty name fails with InvalidTagNameError
+3. ESM-203: Create tag with invalid color fails with InvalidTagColorError
+4. ESM-204: Create tag with whitespace-only name fails with InvalidTagNameError
+5. ESM-222: Update tag to duplicate name fails with TagNameExistsError
+6. ESM-223: Update tag with invalid color fails with InvalidTagColorError
+7. ESM-225: Update tag to same name (own name) succeeds
+
+### Verification
+- turbo run typecheck: PASS
+- pnpm --filter worker run test: PASS (70 tests)
+
+### PRD Status
+- 65/67 items passing (97%)

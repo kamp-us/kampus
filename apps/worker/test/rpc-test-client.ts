@@ -1,7 +1,15 @@
 import {FetchHttpClient} from "@effect/platform";
 import {RpcClient, RpcSerialization} from "@effect/rpc";
-import {LibraryRpcs, type Story, type Tag, type UrlMetadata} from "@kampus/library";
-import {Effect, Layer, ManagedRuntime} from "effect";
+import {
+	InvalidTagColorError,
+	InvalidTagNameError,
+	LibraryRpcs,
+	type Story,
+	type Tag,
+	TagNameExistsError,
+	type UrlMetadata,
+} from "@kampus/library";
+import {Effect, Exit, Layer, ManagedRuntime} from "effect";
 
 /**
  * Creates a Library test client with a Promise-based API similar to old DO-RPC.
@@ -32,8 +40,9 @@ export const makeLibraryTestClient = (doFetch: (request: Request) => Promise<Res
 
 	const runtime = ManagedRuntime.make(protocol);
 
-	const run = <A, E>(effect: Effect.Effect<A, E, RpcClient.Protocol>) =>
-		runtime.runPromise(effect);
+	const run = <A, E>(effect: Effect.Effect<A, E, RpcClient.Protocol>) => runtime.runPromise(effect);
+	const runExit = <A, E>(effect: Effect.Effect<A, E, RpcClient.Protocol>) =>
+		runtime.runPromiseExit(effect);
 
 	return {
 		// Story operations
@@ -194,5 +203,26 @@ export const makeLibraryTestClient = (doFetch: (request: Request) => Promise<Res
 
 		// Cleanup
 		dispose: () => runtime.dispose(),
+
+		// Error-capturing variants for testing validation errors
+		createTagExit: (name: string, color: string) =>
+			runExit(
+				Effect.gen(function* () {
+					const client = yield* RpcClient.make(LibraryRpcs);
+					return yield* client.createTag({name, color});
+				}).pipe(Effect.scoped),
+			) as Promise<
+				Exit.Exit<Tag, TagNameExistsError | InvalidTagNameError | InvalidTagColorError>
+			>,
+
+		updateTagExit: (id: string, params: {name?: string; color?: string}) =>
+			runExit(
+				Effect.gen(function* () {
+					const client = yield* RpcClient.make(LibraryRpcs);
+					return yield* client.updateTag({id, ...params});
+				}).pipe(Effect.scoped),
+			) as Promise<
+				Exit.Exit<Tag | null, TagNameExistsError | InvalidTagNameError | InvalidTagColorError>
+			>,
 	};
 };

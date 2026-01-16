@@ -1,4 +1,5 @@
 import {env} from "cloudflare:test";
+import {Exit} from "effect";
 import {afterEach, describe, expect, it} from "vitest";
 import {makeLibraryTestClient} from "./rpc-test-client";
 
@@ -21,8 +22,6 @@ describe("Library Tags", () => {
 	});
 
 	describe("Tag CRUD", () => {
-		// Note: Tag validation error cases tested in library-handlers.spec.ts unit tests
-		// (vitest-pool-workers has isolated storage issues when DOs throw exceptions)
 
 		it("creates a tag with valid name and color", async () => {
 			const library = getLibrary("test-user-1");
@@ -140,6 +139,101 @@ describe("Library Tags", () => {
 			// Should not throw, just return false
 			const result = await library.deleteTag("tag_nonexistent");
 			expect(result).toBe(false);
+		});
+	});
+
+	describe("Tag Validation Errors", () => {
+		it("create tag with duplicate name fails with TagNameExistsError", async () => {
+			const library = getLibrary("test-user-dup-name");
+			await library.createTag("work", "aaaaaa");
+
+			const exit = await library.createTagExit("work", "bbbbbb");
+			expect(Exit.isFailure(exit)).toBe(true);
+			if (Exit.isFailure(exit)) {
+				expect(exit.cause._tag).toBe("Fail");
+				if (exit.cause._tag === "Fail") {
+					expect(exit.cause.error._tag).toBe("TagNameExistsError");
+				}
+			}
+		});
+
+		it("create tag with empty name fails with InvalidTagNameError", async () => {
+			const library = getLibrary("test-user-empty-name");
+
+			const exit = await library.createTagExit("", "aaaaaa");
+			expect(Exit.isFailure(exit)).toBe(true);
+			if (Exit.isFailure(exit)) {
+				expect(exit.cause._tag).toBe("Fail");
+				if (exit.cause._tag === "Fail") {
+					expect(exit.cause.error._tag).toBe("InvalidTagNameError");
+				}
+			}
+		});
+
+		it("create tag with invalid color fails with InvalidTagColorError", async () => {
+			const library = getLibrary("test-user-bad-color");
+
+			const exit = await library.createTagExit("validname", "notacolor");
+			expect(Exit.isFailure(exit)).toBe(true);
+			if (Exit.isFailure(exit)) {
+				expect(exit.cause._tag).toBe("Fail");
+				if (exit.cause._tag === "Fail") {
+					expect(exit.cause.error._tag).toBe("InvalidTagColorError");
+				}
+			}
+		});
+
+		it("create tag with whitespace-only name fails with InvalidTagNameError", async () => {
+			const library = getLibrary("test-user-ws-name");
+
+			const exit = await library.createTagExit("   ", "aaaaaa");
+			expect(Exit.isFailure(exit)).toBe(true);
+			if (Exit.isFailure(exit)) {
+				expect(exit.cause._tag).toBe("Fail");
+				if (exit.cause._tag === "Fail") {
+					expect(exit.cause.error._tag).toBe("InvalidTagNameError");
+				}
+			}
+		});
+
+		it("update tag to duplicate name fails with TagNameExistsError", async () => {
+			const library = getLibrary("test-user-upd-dup");
+			const tagA = await library.createTag("existingA", "aaaaaa");
+			await library.createTag("existingB", "bbbbbb");
+
+			const exit = await library.updateTagExit(tagA.id, {name: "existingB"});
+			expect(Exit.isFailure(exit)).toBe(true);
+			if (Exit.isFailure(exit)) {
+				expect(exit.cause._tag).toBe("Fail");
+				if (exit.cause._tag === "Fail") {
+					expect(exit.cause.error._tag).toBe("TagNameExistsError");
+				}
+			}
+		});
+
+		it("update tag with invalid color fails with InvalidTagColorError", async () => {
+			const library = getLibrary("test-user-upd-color");
+			const tag = await library.createTag("colortest2", "aaaaaa");
+
+			const exit = await library.updateTagExit(tag.id, {color: "xyz"});
+			expect(Exit.isFailure(exit)).toBe(true);
+			if (Exit.isFailure(exit)) {
+				expect(exit.cause._tag).toBe("Fail");
+				if (exit.cause._tag === "Fail") {
+					expect(exit.cause.error._tag).toBe("InvalidTagColorError");
+				}
+			}
+		});
+
+		it("update tag to same name (own name) succeeds", async () => {
+			const library = getLibrary("test-user-upd-self");
+			const tag = await library.createTag("selfname", "aaaaaa");
+
+			const exit = await library.updateTagExit(tag.id, {name: "selfname"});
+			expect(Exit.isSuccess(exit)).toBe(true);
+			if (Exit.isSuccess(exit)) {
+				expect(exit.value?.name).toBe("selfname");
+			}
 		});
 	});
 
