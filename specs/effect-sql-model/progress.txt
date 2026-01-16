@@ -126,3 +126,20 @@
 
 ### PRD Status
 - 50/67 items passing (75%)
+
+## 2026-01-15: List tags ordered by name (ESM-212)
+
+### Files Changed
+- apps/worker/src/features/library/handlers.ts (add ORDER BY t.name to listTags)
+- apps/worker/test/library-tags.spec.ts (add alphabetical order test)
+
+### Key Decisions
+1. Added `ORDER BY t.name` to listTags SQL query for alphabetical sorting
+2. Test creates zebra/apple/mango, verifies apple/mango/zebra order
+
+### Verification
+- turbo run typecheck: PASS
+- pnpm --filter worker run test: PASS (57 tests)
+
+### PRD Status
+- 51/67 items passing (76%)

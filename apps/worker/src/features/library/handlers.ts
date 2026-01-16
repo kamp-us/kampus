@@ -346,6 +346,7 @@ export const handlers = {
 			const tags = yield* sql<TagRow & {storyCount: number}>`
 				SELECT t.*, (SELECT COUNT(*) FROM story_tag WHERE tag_id = t.id) as story_count
 				FROM tag t
+				ORDER BY t.name
 			`;
 
 			return tags.map((tag) => formatTag(tag, tag.storyCount));

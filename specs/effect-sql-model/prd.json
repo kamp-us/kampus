@@ -445,8 +445,7 @@
 				"Create tags: 'zebra', 'apple', 'mango'",
 				"listTags returns in order: apple, mango, zebra"
 			],
-			"passes": false,
-			"notes": "Handler does not ORDER BY name"
+			"passes": true
 		},
 		{
 			"id": "ESM-220",

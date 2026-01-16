@@ -74,6 +74,16 @@ describe("Library Tags", () => {
 			expect(tags).toEqual([]);
 		});
 
+		it("returns tags ordered by name alphabetically", async () => {
+			const library = getLibrary("test-user-order");
+			await library.createTag("zebra", "111111");
+			await library.createTag("apple", "222222");
+			await library.createTag("mango", "333333");
+
+			const tags = await library.listTags();
+			expect(tags.map((t) => t.name)).toEqual(["apple", "mango", "zebra"]);
+		});
+
 		it("updates a tag name", async () => {
 			const library = getLibrary("test-user-7");
 			const created = await library.createTag("oldname", "aaaaaa");
