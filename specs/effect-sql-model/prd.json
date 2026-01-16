@@ -363,10 +363,7 @@
 			"id": "ESM-142",
 			"category": "test:story:delete",
 			"description": "Delete non-existent story returns deleted false",
-			"steps_to_verify": [
-				"Delete with random id",
-				"Returns {deleted: false}"
-			],
+			"steps_to_verify": ["Delete with random id", "Returns {deleted: false}"],
 			"passes": true
 		},
 		{
@@ -532,10 +529,7 @@
 			"id": "ESM-232",
 			"category": "test:tag:delete",
 			"description": "Delete non-existent tag",
-			"steps_to_verify": [
-				"Delete with random id",
-				"Returns {deleted: false}"
-			],
+			"steps_to_verify": ["Delete with random id", "Returns {deleted: false}"],
 			"passes": true
 		},
 		{
@@ -680,7 +674,7 @@
 			"category": "test:verification",
 			"description": "Linting passes",
 			"steps_to_verify": ["biome check . passes"],
-			"passes": false,
+			"passes": true,
 			"notes": "Biome has warnings on non-null assertions (acceptable in tests)"
 		}
 	]

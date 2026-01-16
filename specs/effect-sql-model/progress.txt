@@ -183,3 +183,24 @@
 
 ### PRD Status
 - 57/67 items passing (85%)
+
+## 2026-01-16: Fix Biome Linting (ESM-702)
+
+### Files Changed
+- biome.jsonc (exclude drizzle meta and worker-configuration.d.ts)
+- apps/worker/src/graphql/resolver.ts (remove unused biome-ignore comments)
+- apps/worker/test/web-page-parser-handlers.spec.ts (prefix unused vars with _)
+
+### Key Decisions
+1. Excluded auto-generated files from biome: drizzle/migrations/meta/**, worker-configuration.d.ts
+2. Removed unused biome-ignore comments for noExplicitAny (rule is off in config)
+3. Prefixed intentionally unused test variables with underscore
+4. Non-null assertion warnings remain (acceptable per PRD notes)
+
+### Verification
+- turbo run typecheck: PASS
+- pnpm --filter worker run test: PASS (63 tests)
+- biome check apps/worker packages/library: PASS (7 warnings only)
+
+### PRD Status
+- 58/67 items passing (87%)

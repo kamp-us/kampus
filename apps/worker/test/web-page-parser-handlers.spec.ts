@@ -1,8 +1,8 @@
 import {SqlClient} from "@effect/sql";
 import {Effect, Layer} from "effect";
 import {describe, expect, it, vi} from "vitest";
-import {DurableObjectCtx} from "../src/services";
 import {handlers} from "../src/features/web-page-parser/handlers";
+import {DurableObjectCtx} from "../src/services";
 
 /**
  * Unit tests for WebPageParser handlers using mock SqlClient and DurableObjectCtx.
@@ -67,7 +67,9 @@ describe("WebPageParser Handlers Unit Tests", () => {
 			const storageData = new Map<string, unknown>();
 			const ctxLayer = makeMockCtx(storageData);
 
-			await Effect.runPromise(handlers.init({url: "https://example.com"}).pipe(Effect.provide(ctxLayer)));
+			await Effect.runPromise(
+				handlers.init({url: "https://example.com"}).pipe(Effect.provide(ctxLayer)),
+			);
 
 			expect(storageData.get("url")).toBe("https://example.com");
 		});
@@ -127,7 +129,7 @@ describe("WebPageParser Handlers Unit Tests", () => {
 			// the handler should NOT return cached data even if it's recent.
 			// The actual HTTP fetch is covered by integration tests.
 			const storageData = new Map<string, unknown>([["url", "https://example.com"]]);
-			const ctxLayer = makeMockCtx(storageData);
+			const _ctxLayer = makeMockCtx(storageData);
 
 			const recentTimestamp = Date.now() - 1000 * 60 * 30; // Recent cache
 			const cachedRow = {
@@ -137,7 +139,7 @@ describe("WebPageParser Handlers Unit Tests", () => {
 				created_at: recentTimestamp,
 			};
 
-			let fetchTriggered = false;
+			let _fetchTriggered = false;
 			const sql = Object.assign(
 				<T>(_strings: TemplateStringsArray, ..._values: unknown[]): Effect.Effect<T[]> => {
 					const template = _strings.join("?");
@@ -145,7 +147,7 @@ describe("WebPageParser Handlers Unit Tests", () => {
 						return Effect.succeed([cachedRow] as T[]);
 					}
 					if (/INSERT INTO fetchlog/.test(template)) {
-						fetchTriggered = true;
+						_fetchTriggered = true;
 						return Effect.succeed([] as T[]);
 					}
 					return Effect.succeed([] as T[]);
@@ -156,7 +158,7 @@ describe("WebPageParser Handlers Unit Tests", () => {
 					withTransaction: <A, E, R>(effect: Effect.Effect<A, E, R>) => effect,
 				},
 			);
-			const sqlLayer = Layer.succeed(SqlClient.SqlClient, sql as unknown as SqlClient.SqlClient);
+			const _sqlLayer = Layer.succeed(SqlClient.SqlClient, sql as unknown as SqlClient.SqlClient);
 
 			// The effect will fail due to HTTP fetch, but we can't easily test
 			// without mocking the fetch. The integration tests cover this.
@@ -167,7 +169,7 @@ describe("WebPageParser Handlers Unit Tests", () => {
 			// This test verifies the isRecent logic: cache older than 24h
 			// should be considered stale and trigger a fetch.
 			const storageData = new Map<string, unknown>([["url", "https://example.com"]]);
-			const ctxLayer = makeMockCtx(storageData);
+			const _ctxLayer = makeMockCtx(storageData);
 
 			const ONE_DAY_MS = 1000 * 60 * 60 * 24;
 			const staleTimestamp = Date.now() - ONE_DAY_MS - 1000; // Just over 24h
@@ -179,7 +181,7 @@ describe("WebPageParser Handlers Unit Tests", () => {
 				created_at: staleTimestamp,
 			};
 
-			const sqlLayer = makeMockSqlClient([
+			const _sqlLayer = makeMockSqlClient([
 				{pattern: /SELECT \* FROM fetchlog/, result: [staleRow]},
 			]);
 
