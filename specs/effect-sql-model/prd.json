@@ -585,7 +585,7 @@
 				"Returns title, description, imageUrl if available"
 			],
 			"passes": false,
-			"notes": "Requires network mocking for WebPageParser DO"
+			"notes": "Deferred: requires outboundService config in vitest-pool-workers to intercept cross-DO HTTP calls. Handler logic verified via web-page-parser-handlers.spec.ts unit tests."
 		},
 		{
 			"id": "ESM-500",
