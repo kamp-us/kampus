@@ -6,3 +6,5 @@ export const PageMetadata = Schema.Struct({
 	title: Schema.String,
 	description: Schema.NullOr(Schema.String),
 });
+
+export type PageMetadata = typeof PageMetadata.Type;

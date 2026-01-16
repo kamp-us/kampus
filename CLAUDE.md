@@ -8,6 +8,7 @@ Guidance for Claude Code when working with this repository.
 pnpm install              # Install dependencies
 turbo run dev             # Start all dev servers
 turbo run lint            # Run linting
+turbo run typecheck       # Type check all apps
 turbo run test            # Run tests
 turbo run build           # Build all apps
 ```
@@ -27,7 +28,7 @@ pnpm --filter worker run test          # Run Vitest tests
 
 Before committing, ensure code passes:
 1. `biome check --write --staged` - Fix formatting/linting on staged files only
-2. `pnpm --filter worker exec tsc --noEmit` - Type check worker
+2. `turbo run typecheck` - Type check all apps
 
 Never commit code with lint errors or type failures.
 
@@ -247,31 +248,79 @@ The `kamp-us` app uses:
 import {Link, useSearchParams, useNavigate} from "react-router";
 ```
 
-### Backend Features
+### Backend Features (Spellbook Pattern)
 
-Features in `apps/worker/src/features/` follow a standard structure:
+Features in `apps/worker/src/features/` use the **Spellbook pattern** for Durable Objects:
 
 ```
 feature-name/
-├── FeatureName.ts      # Durable Object class
-├── schema.ts           # Effect Schema definitions
+├── FeatureName.ts      # ~10 lines: Spellbook.make() call
+├── handlers.ts         # Pure Effect handler functions
+├── helpers.ts          # Shared helper functions (optional)
 └── drizzle/
     ├── drizzle.schema.ts   # Database schema
-    └── migrations/         # SQL migrations
+    └── migrations/         # SQL migrations (Drizzle-managed)
+```
+
+**Spellbook.make() Pattern:**
+```typescript
+// FeatureName.ts - minimal DO definition
+import {FeatureRpcs} from "@kampus/feature-package";
+import * as Spellbook from "../../shared/Spellbook";
+import migrations from "./drizzle/migrations/migrations";
+import {handlers} from "./handlers";
+
+export const FeatureName = Spellbook.make({
+  rpcs: FeatureRpcs,
+  handlers,
+  migrations,
+});
+```
+
+**Handler Pattern:**
+```typescript
+// handlers.ts - pure Effect functions with service dependencies
+import {SqlClient} from "@effect/sql";
+import {Effect} from "effect";
+
+export const getItem = ({id}: {id: string}) =>
+  Effect.gen(function* () {
+    const sql = yield* SqlClient.SqlClient;
+    const [item] = yield* sql`SELECT * FROM items WHERE id = ${id}`;
+    return item ?? null;
+  });
+
+export const handlers = {getItem, /* ... */};
 ```
 
 **Conventions:**
-- Durable Objects extend `DurableObject<Env>` with migrations in constructor
+- Handlers are pure Effect functions, no `this` keyword
+- Use `SqlClient.SqlClient` service for database queries (template literals)
+- Use `DurableObjectEnv`/`DurableObjectCtx` services to access DO context
+- Drizzle handles migrations (Effect SQL's migrator doesn't work in vitest-pool-workers)
 - Use `Schema.Struct()` not `Schema.Class()` (DOs can't return class instances)
 - ID generation: `id("prefix")` from `@usirin/forge` (e.g., `id("story")`, `id("user")`)
 - Export DO classes from `src/index.ts`, add bindings in `wrangler.jsonc`
+
+**DO-to-DO Calls (Effect RPC):**
+```typescript
+// Use RPC client for cross-DO communication
+import {makeWebPageParserClient} from "../web-page-parser/client";
+
+const fetchMetadata = (url: string) =>
+  Effect.gen(function* () {
+    const env = yield* DurableObjectEnv;
+    const parserId = env.WEB_PAGE_PARSER.idFromName(url);
+    const client = makeWebPageParserClient(env.WEB_PAGE_PARSER.get(parserId));
+    yield* client.init({url});
+    return yield* client.getMetadata({});
+  });
+```
 
 ### Code Style
 
 Uses **Biome** for formatting and linting:
 
-- Line width: 100
-- Bracket spacing: false (`{foo}` not `{ foo }`)
 - Run `biome check .` or `biome format . --write`
 
 ## Effect Best Practices
@@ -322,331 +371,6 @@ const User = Schema.Struct({
 })
 ```
 
-### Bridging Promises
-Wrap external Promise APIs:
-```typescript
-const result = yield* Effect.promise(() => externalAsyncCall())
-```
-
-## Effect RPC
-
-`@effect/rpc` provides type-safe RPC with automatic serialization. Used for communication between frontend and Durable Objects.
-
-### Defining RPC Schemas (Shared Package)
-
-Define schemas in a shared package (e.g., `packages/library/src/rpc.ts`):
-```typescript
-import {Rpc, RpcGroup} from "@effect/rpc";
-import {Schema} from "effect";
-
-// Define request/response schemas
-const GetStory = Rpc.make("getStory", {
-  payload: Schema.Struct({id: Schema.String}),
-  success: Schema.NullOr(StorySchema),
-});
-
-const ListStories = Rpc.make("listStories", {
-  payload: Schema.Struct({
-    first: Schema.optional(Schema.Number),
-    after: Schema.optional(Schema.String),
-  }),
-  success: Schema.Struct({
-    stories: Schema.Array(StorySchema),
-    hasNextPage: Schema.Boolean,
-    endCursor: Schema.NullOr(Schema.String),
-    totalCount: Schema.Number,
-  }),
-});
-
-// Group all RPCs together
-export const LibraryRpcs = RpcGroup.make(GetStory, ListStories, CreateStory, /* ... */);
-```
-
-### RPC Server in Durable Object
-
-Use `RpcServer.toHttpApp` with `ManagedRuntime` - **never use `as any` type casts**:
-```typescript
-import {HttpServerRequest, HttpServerResponse} from "@effect/platform";
-import {RpcSerialization, RpcServer} from "@effect/rpc";
-import {LibraryRpcs} from "@kampus/library";
-import {Effect, Layer, ManagedRuntime} from "effect";
-
-export class Library extends DurableObject<Env> {
-  db = drizzle(this.ctx.storage, {schema});
-
-  // Handlers use Effect.promise for Drizzle operations
-  private handlers = {
-    getStory: ({id}: {id: string}) =>
-      Effect.promise(async () => {
-        const story = this.db.select().from(schema.story)
-          .where(eq(schema.story.id, id)).get();
-        if (!story) return null;
-        return {
-          id: story.id,
-          title: story.title,
-          createdAt: story.createdAt.toISOString(),
-        };
-      }),
-
-    listStories: ({first, after}: {first?: number; after?: string}) =>
-      Effect.promise(async () => {
-        // ... database queries using .get(), .all()
-        return {stories, hasNextPage, endCursor, totalCount};
-      }),
-  };
-
-  // Layer provides handlers + JSON serialization + Scope
-  private handlerLayer = Layer.mergeAll(
-    LibraryRpcs.toLayer(this.handlers),
-    RpcSerialization.layerJson,
-    Layer.scope,
-  );
-
-  // ManagedRuntime for running effects
-  private runtime = ManagedRuntime.make(this.handlerLayer);
-
-  constructor(ctx: DurableObjectState, env: Env) {
-    super(ctx, env);
-    this.ctx.blockConcurrencyWhile(async () => {
-      await migrate(this.db, migrations);
-    });
-  }
-
-  async fetch(request: Request): Promise<Response> {
-    const program = Effect.gen(function* () {
-      const httpApp = yield* RpcServer.toHttpApp(LibraryRpcs);
-      const response = yield* httpApp.pipe(
-        Effect.provideService(
-          HttpServerRequest.HttpServerRequest,
-          HttpServerRequest.fromWeb(request)
-        )
-      );
-      return HttpServerResponse.toWeb(response);
-    });
-    return this.runtime.runPromise(program);
-  }
-}
-```
-
-**Key patterns:**
-- Use arrow functions for handlers to preserve `this` binding
-- Include `Layer.scope` in the handler layer for `toHttpApp`
-- `ManagedRuntime.make(layer)` provides proper type inference
-- `HttpServerRequest.fromWeb(request)` converts web Request
-- `HttpServerResponse.toWeb(response)` converts back (returns Response directly, not Effect)
-- **Never use `toWebHandler` in DOs** - it requires `HttpRouter.DefaultServices` (HttpPlatform, FileSystem, etc.)
-
-### RPC Error Handling
-
-Define typed errors in the shared package using `Schema.TaggedError`:
-```typescript
-// packages/library/src/errors.ts
-export class InvalidUrlError extends Schema.TaggedError<InvalidUrlError>()(
-  "InvalidUrlError",
-  {url: Schema.String}
-) {}
-
-// Add error channel to RPC definition
-Rpc.make("createStory", {
-  payload: {...},
-  success: Story,
-  error: InvalidUrlError,  // Typed error channel
-})
-```
-
-**Use `Effect.gen` + `Effect.fail` for typed errors** (not `throw` inside `Effect.promise`):
-```typescript
-// ❌ DON'T: throw inside Effect.promise (becomes untyped defect)
-createStory: ({url}) => Effect.promise(async () => {
-  if (!isValidUrl(url)) throw new Error("Invalid URL");  // Lost type info!
-})
-
-// ✅ DO: Use Effect.gen with Effect.fail for typed errors
-createStory: ({url}) => Effect.gen(this, function* () {
-  if (!isValidUrl(url)) {
-    return yield* Effect.fail(new InvalidUrlError({url}));
-  }
-  // Sync DB operations work directly in generator (Drizzle is sync)
-  return this.db.insert(schema.story).values({url}).returning().get();
-})
-```
-
-### RPC Client with effect-atom
-
-Use `AtomRpc.Tag` for type-safe RPC client with auth and error handling:
-```typescript
-import {FetchHttpClient, HttpClient, HttpClientRequest} from "@effect/platform";
-import {RpcClient, RpcSerialization} from "@effect/rpc";
-import {AtomRpc} from "@effect-atom/atom";
-import {LibraryRpcs, UnauthorizedError} from "@kampus/library";
-import {Effect, Layer} from "effect";
-
-export class LibraryRpc extends AtomRpc.Tag<LibraryRpc>()("LibraryRpc", {
-  group: LibraryRpcs,
-  protocol: RpcClient.layerProtocolHttp({
-    url: "/rpc/library",
-    transformClient: (client) => client.pipe(
-      // Add auth header
-      HttpClient.mapRequest((req) => {
-        const token = getStoredToken();
-        return token ? HttpClientRequest.bearerToken(req, token) : req;
-      }),
-      // Handle 401 with typed error
-      HttpClient.transformResponse(
-        Effect.flatMap((r) => r.status === 401
-          ? Effect.fail(new UnauthorizedError())
-          : Effect.succeed(r))
-      ),
-    ),
-  }).pipe(Layer.provide(RpcSerialization.layerJson), Layer.provide(FetchHttpClient.layer)),
-}) {}
-```
-
-Define query and mutation atoms with `reactivityKeys` for cache invalidation:
-```typescript
-// Query atoms - invalidated when matching mutation fires
-export const storiesAtom = LibraryRpc.query("listStories", {}, {
-  reactivityKeys: ["stories"],
-});
-
-export const tagsAtom = LibraryRpc.query("listTags", undefined, {
-  reactivityKeys: ["tags"],
-});
-
-// Mutation atoms
-export const createStoryMutation = LibraryRpc.mutation("createStory");
-export const deleteStoryMutation = LibraryRpc.mutation("deleteStory");
-```
-
-## effect-atom Best Practices
-
-effect-atom is a reactive state management library for Effect with fine-grained atoms and full Effect ecosystem integration.
-
-### Basic Atoms
-```typescript
-import {Atom, Registry} from "@effect-atom/atom"
-
-// Simple writable atom
-const countAtom = Atom.make(0)
-
-// Derived atom (read-only, auto-updates)
-const doubleCountAtom = Atom.make((get) => get(countAtom) * 2)
-
-// Using atoms
-const registry = Registry.make()
-registry.get(countAtom)       // 0
-registry.set(countAtom, 5)
-registry.get(doubleCountAtom) // 10
-```
-
-### Effect-based Atoms
-Async atoms return `Result<A, E>` (Initial | Success | Failure):
-```typescript
-const userAtom = Atom.make(
-  Effect.gen(function*() {
-    const response = yield* HttpClient.get("/api/user")
-    return yield* response.json
-  })
-)
-```
-
-### Runtime Atoms with Services
-Use `Atom.runtime()` for atoms depending on Effect services:
-```typescript
-const runtimeAtom = Atom.runtime(MyService.Default)
-
-// Read-only atom with service
-const dataAtom = runtimeAtom.atom(
-  Effect.gen(function*() {
-    const service = yield* MyService
-    return yield* service.getData()
-  })
-)
-
-// Function atom for mutations
-const updateAtom = runtimeAtom.fn(
-  Effect.fnUntraced(function*(input: string) {
-    const service = yield* MyService
-    return yield* service.update(input)
-  })
-)
-```
-
-### Atom Families
-Dynamic atoms keyed by identifier:
-```typescript
-const userByIdAtom = Atom.family((userId: string) =>
-  runtimeAtom.atom(
-    Effect.gen(function*() {
-      const users = yield* Users
-      return yield* users.findById(userId)
-    })
-  )
-)
-
-const user1 = userByIdAtom("user-1") // Same key = same instance
-```
-
-### React Hooks
-```typescript
-import {useAtomValue, useAtomSet, useAtom} from "@effect-atom/atom-react"
-
-const count = useAtomValue(countAtom)           // Read
-const setCount = useAtomSet(countAtom)          // Write
-const [count, setCount] = useAtom(countAtom)    // Both
-```
-
-### Result.builder for UI Rendering
-
-Use `Result.builder` (not `Result.match`) for rendering async results:
-```tsx
-function StoriesList() {
-  const storiesResult = useAtomValue(storiesAtom);
-
-  return Result.builder(storiesResult)
-    .onDefect((defect) => <div>Error: {String(defect)}</div>)
-    .onSuccess((data, {waiting}) => (
-      <>
-        {waiting && <div>Refreshing...</div>}
-        {data.stories.map(story => <StoryRow key={story.id} story={story} />)}
-      </>
-    ))
-    .render();
-}
-```
-
-**Why `Result.builder` over `Result.match`:**
-- `onSuccess` receives unwrapped value `T`, not `Success<T>` wrapper
-- Second arg `{waiting}` indicates background refresh in progress
-- `.render()` returns `null` for initial state (no skeleton flash)
-
-### Fire-and-Forget Mutations
-
-Mutations don't need return values when using `reactivityKeys`:
-```typescript
-const createStory = useAtomSet(createStoryMutation);
-
-const handleSubmit = () => {
-  createStory({
-    payload: {title, url},
-    reactivityKeys: ["stories"],  // Invalidates storiesAtom
-  });
-  // Reset form immediately - don't await
-  setTitle(""); setUrl("");
-};
-```
-
-The mutation fires, `reactivityKeys` triggers cache invalidation, queries refetch automatically.
-
-### Key Patterns
-- `Atom.make(value)` - simple state
-- `Atom.make((get) => ...)` - derived state
-- `Atom.runtime(layer)` - atoms needing Effect services
-- `runtimeAtom.atom(effect)` - async operations
-- `runtimeAtom.fn(effect)` - mutations/actions
-- `Atom.family(keyFn)` - dynamic/parameterized atoms
-- Wrap React app in `<RegistryProvider>` for hooks
-
 ## Principles
 
 - **Effect.ts** for all async/error handling—not raw Promises
@@ -687,112 +411,17 @@ describe('Feature', () => {
 - **Import errors from shared package** - Use `Schema.TaggedError` from `@kampus/library`, not `Data.TaggedError` locally
 - **401 in RPC client** - Add `HttpClient.transformResponse` to convert HTTP 401 to typed `UnauthorizedError`
 
-## Reference Implementations
-
-Study these patterns before implementing similar features.
-
-### Durable Object with Drizzle
-
-**Schema** (`drizzle/drizzle.schema.ts`):
-```typescript
-import {id} from "@usirin/forge";
-import {index, integer, sqliteTable, text} from "drizzle-orm/sqlite-core";
-
-const timestamp = (name: string) => integer(name, {mode: "timestamp"});
-
-export const story = sqliteTable(
-  "story",
-  {
-    id: text("id").primaryKey().$defaultFn(() => id("story")),
-    url: text("string"),
-    normalizedUrl: text("string"),
-    title: text("title").notNull(),
-    description: text("description"),
-    createdAt: timestamp("created_at").notNull().$defaultFn(() => new Date()),
-  },
-  (table) => [
-    index("idx_story_normalized_url").on(table.normalizedUrl),
-    index("idx_story_created_at").on(table.createdAt),
-  ],
-);
-```
-
-**Durable Object** (`Library.ts`):
-```typescript
-import {DurableObject} from "cloudflare:workers";
-import {drizzle} from "drizzle-orm/durable-sqlite";
-import {migrate} from "drizzle-orm/durable-sqlite/migrator";
-import * as schema from "./drizzle/drizzle.schema";
-import migrations from "./drizzle/migrations/migrations";
-
-// keyed by user id
-export class Library extends DurableObject<Env> {
-  db = drizzle(this.ctx.storage, {schema});
-
-  constructor(ctx: DurableObjectState, env: Env) {
-    super(ctx, env);
-    this.ctx.blockConcurrencyWhile(async () => {
-      await migrate(this.db, migrations);
-    });
-  }
-
-  async createStory(options: {url: string; title: string; description?: string}) {
-    const [story] = await this.db
-      .insert(schema.story)
-      .values({...options, normalizedUrl: getNormalizedUrl(options.url)})
-      .returning();
-    return story;
-  }
-}
-```
-
-### Service with Context.Tag
-
-```typescript
-class KampusStateStorage extends Context.Tag("cli/services/KampusStateStorage")<
-  KampusStateStorage,
-  {
-    readonly loadState: Effect.Effect<KampusState>
-    readonly saveState: (state: KampusState) => Effect.Effect<void>
-  }
->() {}
-
-const KampusStateStorageLive = Layer.effect(
-  KampusStateStorage,
-  Effect.gen(function* () {
-    const kv = (yield* KeyValueStore).forSchema(KampusState)
-    return {
-      loadState: Effect.gen(function* () {
-        return (yield* kv.get("state")).pipe(
-          Option.getOrElse(() => KampusState.make({}))
-        )
-      }),
-      saveState: (state) => kv.set("state", state)
-    }
-  })
-).pipe(Layer.provide(BunKeyValueStore.layerFileSystem(KAMPUS_DIR)))
-```
-
-### Tagged Error
-
-```typescript
-export class KampusConfigError<Method extends string> extends Data.TaggedError(
-  "@kampus/cli/services/KampusConfigError",
-)<{
-  method: Method;
-  cause: unknown;
-}> {}
-```
-
 ## Finding Things
 
 | What | Where |
 | ------ | ------- |
 | Feature specs | `specs/[feature-name]/` |
 | Design tokens | `apps/kamp-us/src/design/phoenix.{ts,css}` |
-| RPC definitions | `packages/library/src/rpc.ts` |
+| Spellbook factory | `apps/worker/src/shared/Spellbook.ts` |
+| DO service tags | `apps/worker/src/services/DurableObjectServices.ts` |
+| RPC definitions | `packages/library/src/rpc.ts`, `packages/web-page-parser/src/rpc.ts` |
 | Domain errors | `packages/library/src/errors.ts` |
-| RPC client | `apps/kamp-us/src/rpc/client.ts` |
+| RPC client (frontend) | `apps/kamp-us/src/rpc/client.ts` |
 | RPC atoms | `apps/kamp-us/src/rpc/atoms.ts` |
 | Feature implementations | `apps/worker/src/features/*/` |
 | Local Effect source | `~/.local/share/effect-solutions/effect/` |

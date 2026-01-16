@@ -1,5 +1,5 @@
+import {PageMetadata} from "@kampus/web-page-parser";
 import {Schema} from "effect";
-import {PageMetadata} from "./schema";
 
 export async function fetchPageMetadata(url: string) {
 	const metadata: Record<string, string | null> = {};

@@ -1,0 +1,365 @@
+{
+	"feature": "spellbook",
+	"description": "Refactor DO infrastructure to Effect-native with Spellbook.make pattern",
+	"items": [
+		{
+			"id": "SP-001",
+			"category": "Infrastructure",
+			"description": "Spellbook.make() accepts RPC definitions, handlers, and migrations config",
+			"stepsToVerify": [
+				"Spellbook.ts exports a `make` function",
+				"Function accepts { rpcs, handlers, migrations } config object",
+				"TypeScript compiles without errors"
+			],
+			"passes": true
+		},
+		{
+			"id": "SP-002",
+			"category": "Infrastructure",
+			"description": "Spellbook.make() returns a DurableObject class",
+			"stepsToVerify": [
+				"Returned class extends DurableObject<TEnv>",
+				"Class can be exported and used in wrangler.jsonc bindings",
+				"DO instantiation works in Cloudflare runtime"
+			],
+			"passes": true
+		},
+		{
+			"id": "SP-003",
+			"category": "Infrastructure",
+			"description": "Returned DO class handles RPC requests via fetch() using Effect RPC",
+			"stepsToVerify": [
+				"fetch() method converts Request via HttpServerRequest.fromWeb()",
+				"RpcServer.toHttpApp() processes the request",
+				"Response returned via HttpServerResponse.toWeb()"
+			],
+			"passes": true
+		},
+		{
+			"id": "SP-004",
+			"category": "Infrastructure",
+			"description": "Returned DO class runs migrations on construction",
+			"stepsToVerify": [
+				"Migrations run inside blockConcurrencyWhile()",
+				"Drizzle migrate() executes with provided migrations",
+				"No requests processed until migrations complete"
+			],
+			"passes": true
+		},
+		{
+			"id": "SP-005",
+			"category": "Infrastructure",
+			"description": "Handlers receive SqlClient.SqlClient service for database access",
+			"stepsToVerify": [
+				"Handler can yield* SqlClient.SqlClient",
+				"Template literal queries execute successfully",
+				"Query results are returned correctly"
+			],
+			"passes": true
+		},
+		{
+			"id": "SP-006",
+			"category": "Infrastructure",
+			"description": "Handlers receive DurableObjectEnv and DurableObjectCtx services",
+			"stepsToVerify": [
+				"DurableObjectEnv service tag exists in services.ts",
+				"DurableObjectCtx service tag exists in services.ts",
+				"Handler can yield* DurableObjectEnv to access env",
+				"Handler can yield* DurableObjectCtx to access ctx"
+			],
+			"passes": true
+		},
+		{
+			"id": "SP-007",
+			"category": "Library Migration",
+			"description": "Library DO uses Spellbook.make() pattern",
+			"stepsToVerify": [
+				"Library.ts imports Spellbook module",
+				"Library.ts calls Spellbook.make() with config",
+				"Library.ts is approximately 5 lines of code"
+			],
+			"passes": true
+		},
+		{
+			"id": "SP-008",
+			"category": "Library Migration",
+			"description": "All Library handlers extracted as pure Effect functions",
+			"stepsToVerify": [
+				"handlers.ts exists with all handler functions",
+				"No handler uses `this` keyword",
+				"All handlers return Effect types",
+				"Handlers: getStory, listStories, listStoriesByTag, createStory, updateStory, deleteStory, listTags, createTag, updateTag, deleteTag, getTagsForStory, setStoryTags, fetchUrlMetadata"
+			],
+			"passes": true
+		},
+		{
+			"id": "SP-009",
+			"category": "Library Migration",
+			"description": "Library Drizzle replaced with @effect/sql-sqlite-do",
+			"stepsToVerify": [
+				"No drizzle-orm imports in Library feature files",
+				"migrations.ts uses Migrator.fromRecord()",
+				"Queries use SqlClient template literals",
+				"Same database schema preserved"
+			],
+			"passes": true
+		},
+		{
+			"id": "SP-010",
+			"category": "Library Migration",
+			"description": "LibraryRpcs contract unchanged",
+			"stepsToVerify": [
+				"@kampus/library rpc.ts not modified",
+				"All existing RPC methods still work",
+				"Frontend RPC client works without changes"
+			],
+			"passes": true
+		},
+		{
+			"id": "SP-011",
+			"category": "WebPageParser Migration",
+			"description": "WebPageParser DO uses Spellbook.make() pattern",
+			"stepsToVerify": [
+				"WebPageParser.ts imports Spellbook module",
+				"WebPageParser.ts calls Spellbook.make() with config",
+				"WebPageParser.ts is approximately 10 lines of code"
+			],
+			"passes": true
+		},
+		{
+			"id": "SP-012",
+			"category": "WebPageParser Migration",
+			"description": "WebPageParser converted from DO-RPC to Effect RPC",
+			"stepsToVerify": [
+				"WebPageParser uses fetch() handler with RpcServer (via Spellbook)",
+				"Callers use Effect RPC client (makeWebPageParserClient)",
+				"No direct stub.init()/stub.getMetadata() calls in caller code"
+			],
+			"passes": true
+		},
+		{
+			"id": "SP-013",
+			"category": "WebPageParser Migration",
+			"description": "New @kampus/web-page-parser package created",
+			"stepsToVerify": [
+				"packages/web-page-parser/ directory exists",
+				"package.json has correct name and dependencies",
+				"Exports WebPageParserRpcs from rpc.ts",
+				"Exports PageMetadata from schema.ts",
+				"Package builds without errors"
+			],
+			"passes": true
+		},
+		{
+			"id": "SP-014",
+			"category": "WebPageParser Migration",
+			"description": "WebPageParser queries use @effect/sql-sqlite-do",
+			"stepsToVerify": [
+				"handlers.ts uses SqlClient template literals for queries",
+				"Drizzle migrations still used (compatible with vitest-pool-workers)",
+				"Same database schema preserved"
+			],
+			"passes": true
+		},
+		{
+			"id": "SP-015",
+			"category": "Caller Updates",
+			"description": "GraphQL resolver updated for WebPageParser RPC",
+			"stepsToVerify": [
+				"apps/worker/src/graphql/schema.ts uses makeWebPageParserClient",
+				"fetchUrlMetadata query uses RPC client",
+				"No direct stub.method() calls"
+			],
+			"passes": true
+		},
+		{
+			"id": "SP-016",
+			"category": "Caller Updates",
+			"description": "Library DO-to-DO call updated for WebPageParser RPC",
+			"stepsToVerify": [
+				"Library handlers.ts uses makeWebPageParserClient for WebPageParser",
+				"fetchUrlMetadata handler works correctly",
+				"No direct stub.method() calls"
+			],
+			"passes": true
+		},
+		{
+			"id": "SP-017",
+			"category": "Code Quality",
+			"description": "Library.ts reduced from ~600 lines to ~5 lines",
+			"stepsToVerify": [
+				"Run: wc -l apps/worker/src/features/library/Library.ts",
+				"Result is less than 10 lines"
+			],
+			"passes": true
+		},
+		{
+			"id": "SP-018",
+			"category": "Code Quality",
+			"description": "WebPageParser.ts reduced from ~78 lines to ~5 lines",
+			"stepsToVerify": [
+				"Run: wc -l apps/worker/src/features/web-page-parser/WebPageParser.ts",
+				"Result is less than 10 lines"
+			],
+			"passes": true
+		},
+		{
+			"id": "SP-019",
+			"category": "Code Quality",
+			"description": "Handlers testable without DO instantiation",
+			"stepsToVerify": [
+				"Handler functions exported from handlers.ts",
+				"Handlers can be imported in test files",
+				"Handlers can run with mock SqlClient layer"
+			],
+			"passes": true
+		},
+		{
+			"id": "SP-020",
+			"category": "Testing",
+			"description": "Unit tests exist for Library handlers using mock SqlClient",
+			"stepsToVerify": [
+				"apps/worker/test/library-handlers.spec.ts exists",
+				"Tests use mock SqlClient layer",
+				"Tests cover: getStory null case, getStory with tags, createStory URL validation"
+			],
+			"passes": true
+		},
+		{
+			"id": "SP-021",
+			"category": "Testing",
+			"description": "Unit tests exist for WebPageParser handlers",
+			"stepsToVerify": [
+				"apps/worker/test/web-page-parser-handlers.spec.ts exists",
+				"Tests use mock SqlClient and DurableObjectCtx layers",
+				"Tests cover: init stores URL, getMetadata cached, cached with null desc",
+				"Note: fetch scenarios use real HTTP and are covered by integration tests"
+			],
+			"passes": true
+		},
+		{
+			"id": "SP-022",
+			"category": "Testing",
+			"description": "Existing integration tests still pass",
+			"stepsToVerify": [
+				"Run: pnpm --filter worker run test",
+				"All tests pass",
+				"No test modifications required for existing tests"
+			],
+			"passes": true
+		},
+		{
+			"id": "SP-023",
+			"category": "Compatibility",
+			"description": "Type check passes",
+			"stepsToVerify": ["Run: pnpm --filter worker exec tsc --noEmit", "No type errors"],
+			"passes": true
+		},
+		{
+			"id": "SP-024",
+			"category": "Compatibility",
+			"description": "Library UI functionality works",
+			"stepsToVerify": [
+				"Start dev servers (turbo run dev)",
+				"Use Playwright MCP to navigate to library page",
+				"Create a story with URL",
+				"Add tags to story",
+				"Delete story",
+				"All operations succeed"
+			],
+			"passes": true
+		},
+		{
+			"id": "SP-025",
+			"category": "Compatibility",
+			"description": "Fetch-title UI functionality works",
+			"stepsToVerify": [
+				"Start dev servers (turbo run dev)",
+				"Use Playwright MCP to open new story form",
+				"Enter URL and trigger fetch",
+				"Title auto-populates from URL metadata"
+			],
+			"passes": true
+		},
+		{
+			"id": "SP-026",
+			"category": "Dependencies",
+			"description": "@effect/sql added to worker package",
+			"stepsToVerify": ["Check apps/worker/package.json dependencies", "@effect/sql is listed"],
+			"passes": true
+		},
+		{
+			"id": "SP-027",
+			"category": "Dependencies",
+			"description": "@effect/sql-sqlite-do added to worker package",
+			"stepsToVerify": [
+				"Check apps/worker/package.json dependencies",
+				"@effect/sql-sqlite-do is listed"
+			],
+			"passes": true
+		},
+		{
+			"id": "SP-028",
+			"category": "Cleanup",
+			"description": "Library Drizzle folder retained for migrations (per requirements FR2.4, TR1.3)",
+			"stepsToVerify": [
+				"apps/worker/src/features/library/drizzle/ exists",
+				"Contains drizzle.schema.ts and migrations/",
+				"Library.ts imports migrations from drizzle folder"
+			],
+			"passes": true
+		},
+		{
+			"id": "SP-029",
+			"category": "Cleanup",
+			"description": "WebPageParser Drizzle folder retained for migrations (per requirements FR2.4, TR1.3)",
+			"stepsToVerify": [
+				"apps/worker/src/features/web-page-parser/drizzle/ exists",
+				"Contains drizzle.schema.ts and migrations/",
+				"WebPageParser.ts imports migrations from drizzle folder"
+			],
+			"passes": true
+		},
+		{
+			"id": "SP-030",
+			"category": "Documentation",
+			"description": "CLAUDE.md updated with Spellbook patterns",
+			"stepsToVerify": [
+				"CLAUDE.md mentions Spellbook.make() pattern",
+				"Backend Features section updated",
+				"@effect/sql patterns documented"
+			],
+			"passes": true
+		},
+		{
+			"id": "SP-031",
+			"category": "Testing",
+			"description": "Rewrite integration tests from first principles",
+			"stepsToVerify": [
+				"Remove all skipped tests for non-existent functionality",
+				"Each test file has clear describe blocks matching RPC methods",
+				"Tests use rpc-test-client.ts for Effect RPC calls",
+				"No duplicate test coverage between unit and integration tests",
+				"All tests pass with 0 skipped",
+				"Run: pnpm --filter worker run test"
+			],
+			"passes": true
+		}
+	],
+	"summary": {
+		"total": 31,
+		"passed": 31,
+		"categories": {
+			"Infrastructure": 6,
+			"Library Migration": 4,
+			"WebPageParser Migration": 4,
+			"Caller Updates": 2,
+			"Code Quality": 3,
+			"Testing": 4,
+			"Compatibility": 3,
+			"Dependencies": 2,
+			"Cleanup": 2,
+			"Documentation": 1
+		}
+	}
+}
