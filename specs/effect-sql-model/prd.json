@@ -1,0 +1,677 @@
+{
+	"feature": "effect-sql-model",
+	"description": "Adopt @effect/sql Model abstraction for cleaner handlers",
+	"items": [
+		{
+			"id": "ESM-001",
+			"category": "models",
+			"description": "Story Model.Class with all required fields",
+			"steps_to_verify": [
+				"models.ts exports Story class extending Model.Class",
+				"Story has id, url, normalizedUrl, title, description, createdAt fields",
+				"Story.insert variant works for creating stories"
+			],
+			"passes": true
+		},
+		{
+			"id": "ESM-002",
+			"category": "models",
+			"description": "Tag Model.Class with all required fields",
+			"steps_to_verify": [
+				"models.ts exports Tag class extending Model.Class",
+				"Tag has id, name, color, createdAt fields",
+				"Tag.insert variant works for creating tags"
+			],
+			"passes": false
+		},
+		{
+			"id": "ESM-003",
+			"category": "repositories",
+			"description": "StoryRepo and TagRepo Effect.Service definitions",
+			"steps_to_verify": [
+				"StoryRepo extends Effect.Service with makeRepository",
+				"TagRepo extends Effect.Service with makeRepository",
+				"RepoLayer exports merged Layer"
+			],
+			"passes": false,
+			"notes": "StoryRepo done, TagRepo pending"
+		},
+		{
+			"id": "ESM-004",
+			"category": "spellbook",
+			"description": "Spellbook accepts and provides RepoLayer",
+			"steps_to_verify": [
+				"MakeConfig has optional layers property",
+				"Library.ts passes RepoLayer to Spellbook.make",
+				"SqlClient transforms snake_case <-> camelCase enabled"
+			],
+			"passes": true
+		},
+		{
+			"id": "ESM-005",
+			"category": "handlers",
+			"description": "All handlers refactored to use repos",
+			"steps_to_verify": [
+				"No raw sql template literals in CRUD handlers",
+				"Handlers yield* StoryRepo or TagRepo from context"
+			],
+			"passes": false
+		},
+		{
+			"id": "ESM-006",
+			"category": "cleanup",
+			"description": "Remove dead code",
+			"steps_to_verify": [
+				"Unused functions removed",
+				"Old row interfaces removed if replaced",
+				"biome check passes"
+			],
+			"passes": false
+		},
+		{
+			"id": "ESM-100",
+			"category": "test:story:create",
+			"description": "Create story with minimal fields",
+			"steps_to_verify": [
+				"Create story with only url and title",
+				"Story is created with generated id",
+				"Story has createdAt timestamp",
+				"Story has null description",
+				"Story has empty tags array"
+			],
+			"passes": false
+		},
+		{
+			"id": "ESM-101",
+			"category": "test:story:create",
+			"description": "Create story with all fields",
+			"steps_to_verify": [
+				"Create story with url, title, description",
+				"All fields are persisted correctly",
+				"Description is returned in response"
+			],
+			"passes": false
+		},
+		{
+			"id": "ESM-102",
+			"category": "test:story:create",
+			"description": "Create story with tags",
+			"steps_to_verify": [
+				"Create tags first",
+				"Create story with tagIds array",
+				"Story is created with tags associated",
+				"getStory returns story with tags"
+			],
+			"passes": false
+		},
+		{
+			"id": "ESM-103",
+			"category": "test:story:create",
+			"description": "Create story with invalid URL fails",
+			"steps_to_verify": [
+				"Attempt to create story with empty url",
+				"Returns InvalidUrlError",
+				"Story is not created"
+			],
+			"passes": false
+		},
+		{
+			"id": "ESM-104",
+			"category": "test:story:create",
+			"description": "Create story with non-existent tagIds",
+			"steps_to_verify": [
+				"Create story with tagIds that don't exist",
+				"Story is created (tags silently ignored or error - define behavior)"
+			],
+			"passes": false
+		},
+		{
+			"id": "ESM-110",
+			"category": "test:story:read",
+			"description": "Get story by id returns story",
+			"steps_to_verify": [
+				"Create a story",
+				"Get story by id",
+				"Returns story with all fields",
+				"Returns story with associated tags"
+			],
+			"passes": false
+		},
+		{
+			"id": "ESM-111",
+			"category": "test:story:read",
+			"description": "Get story by non-existent id returns null",
+			"steps_to_verify": ["Get story with random id", "Returns null (not error)"],
+			"passes": false
+		},
+		{
+			"id": "ESM-112",
+			"category": "test:story:read",
+			"description": "Get story returns tags in correct format",
+			"steps_to_verify": [
+				"Create story with multiple tags",
+				"Get story",
+				"Tags array contains id, name, color for each tag"
+			],
+			"passes": false
+		},
+		{
+			"id": "ESM-120",
+			"category": "test:story:list",
+			"description": "List stories returns empty array when none exist",
+			"steps_to_verify": [
+				"Fresh DB with no stories",
+				"listStories returns empty array",
+				"hasNextPage is false"
+			],
+			"passes": false
+		},
+		{
+			"id": "ESM-121",
+			"category": "test:story:list",
+			"description": "List stories returns all stories",
+			"steps_to_verify": [
+				"Create 5 stories",
+				"listStories returns all 5",
+				"Stories are ordered by createdAt desc"
+			],
+			"passes": false
+		},
+		{
+			"id": "ESM-122",
+			"category": "test:story:list",
+			"description": "List stories with pagination - first page",
+			"steps_to_verify": [
+				"Create 10 stories",
+				"listStories with first: 5",
+				"Returns 5 stories",
+				"hasNextPage is true",
+				"endCursor is set"
+			],
+			"passes": false
+		},
+		{
+			"id": "ESM-123",
+			"category": "test:story:list",
+			"description": "List stories with pagination - second page",
+			"steps_to_verify": [
+				"Create 10 stories",
+				"Get first page with first: 5",
+				"Get second page with after: endCursor",
+				"Returns remaining 5 stories",
+				"No duplicate stories between pages"
+			],
+			"passes": false
+		},
+		{
+			"id": "ESM-124",
+			"category": "test:story:list",
+			"description": "List stories with pagination - last page",
+			"steps_to_verify": [
+				"Create 7 stories",
+				"Get first page with first: 5",
+				"Get second page",
+				"Returns 2 stories",
+				"hasNextPage is false"
+			],
+			"passes": false
+		},
+		{
+			"id": "ESM-125",
+			"category": "test:story:list",
+			"description": "List stories includes tags for each story",
+			"steps_to_verify": [
+				"Create stories with different tags",
+				"listStories returns stories with their tags",
+				"Each story has correct tags (not mixed up)"
+			],
+			"passes": false
+		},
+		{
+			"id": "ESM-126",
+			"category": "test:story:list",
+			"description": "List stories by tag",
+			"steps_to_verify": [
+				"Create tag A and tag B",
+				"Create stories: 2 with tag A, 1 with tag B, 1 with both",
+				"listStoriesByTag(tagA) returns 3 stories",
+				"listStoriesByTag(tagB) returns 2 stories"
+			],
+			"passes": false
+		},
+		{
+			"id": "ESM-127",
+			"category": "test:story:list",
+			"description": "List stories by non-existent tag returns empty",
+			"steps_to_verify": ["listStoriesByTag with random tagId", "Returns empty array (not error)"],
+			"passes": false
+		},
+		{
+			"id": "ESM-130",
+			"category": "test:story:update",
+			"description": "Update story title",
+			"steps_to_verify": [
+				"Create story",
+				"Update with new title",
+				"Returns updated story",
+				"getStory returns new title",
+				"Other fields unchanged"
+			],
+			"passes": false
+		},
+		{
+			"id": "ESM-131",
+			"category": "test:story:update",
+			"description": "Update story description",
+			"steps_to_verify": [
+				"Create story with description",
+				"Update with new description",
+				"Description is updated"
+			],
+			"passes": false
+		},
+		{
+			"id": "ESM-132",
+			"category": "test:story:update",
+			"description": "Clear story description (set to null)",
+			"steps_to_verify": [
+				"Create story with description",
+				"Update with description: null",
+				"Description becomes null"
+			],
+			"passes": false
+		},
+		{
+			"id": "ESM-133",
+			"category": "test:story:update",
+			"description": "Update story tags - add tags",
+			"steps_to_verify": [
+				"Create story with no tags",
+				"Create 2 tags",
+				"Update story with tagIds",
+				"Story now has 2 tags"
+			],
+			"passes": false
+		},
+		{
+			"id": "ESM-134",
+			"category": "test:story:update",
+			"description": "Update story tags - remove tags",
+			"steps_to_verify": [
+				"Create story with 2 tags",
+				"Update with empty tagIds array",
+				"Story now has 0 tags"
+			],
+			"passes": false
+		},
+		{
+			"id": "ESM-135",
+			"category": "test:story:update",
+			"description": "Update story tags - replace tags",
+			"steps_to_verify": [
+				"Create story with tag A",
+				"Update with tagIds containing only tag B",
+				"Story now has only tag B (not A)"
+			],
+			"passes": false
+		},
+		{
+			"id": "ESM-136",
+			"category": "test:story:update",
+			"description": "Update non-existent story returns null",
+			"steps_to_verify": ["Update story with random id", "Returns null (not error)"],
+			"passes": false
+		},
+		{
+			"id": "ESM-137",
+			"category": "test:story:update",
+			"description": "Update story updates updatedAt timestamp",
+			"steps_to_verify": [
+				"Create story, note createdAt",
+				"Wait briefly",
+				"Update story",
+				"updatedAt > createdAt"
+			],
+			"passes": false
+		},
+		{
+			"id": "ESM-140",
+			"category": "test:story:delete",
+			"description": "Delete story removes it",
+			"steps_to_verify": [
+				"Create story",
+				"Delete story",
+				"Returns {deleted: true}",
+				"getStory returns null"
+			],
+			"passes": false
+		},
+		{
+			"id": "ESM-141",
+			"category": "test:story:delete",
+			"description": "Delete story removes tag associations",
+			"steps_to_verify": [
+				"Create story with tags",
+				"Delete story",
+				"story_tag rows are removed (cascade)",
+				"Tags still exist"
+			],
+			"passes": false
+		},
+		{
+			"id": "ESM-142",
+			"category": "test:story:delete",
+			"description": "Delete non-existent story returns deleted false",
+			"steps_to_verify": [
+				"Delete with random id",
+				"Returns {deleted: false} (or true - define behavior)"
+			],
+			"passes": false
+		},
+		{
+			"id": "ESM-200",
+			"category": "test:tag:create",
+			"description": "Create tag with valid name and color",
+			"steps_to_verify": [
+				"Create tag with name and hex color",
+				"Tag is created with generated id",
+				"Tag has createdAt timestamp"
+			],
+			"passes": false
+		},
+		{
+			"id": "ESM-201",
+			"category": "test:tag:create",
+			"description": "Create tag with duplicate name fails",
+			"steps_to_verify": [
+				"Create tag with name 'work'",
+				"Attempt to create another tag with name 'work'",
+				"Returns TagNameExistsError"
+			],
+			"passes": false
+		},
+		{
+			"id": "ESM-202",
+			"category": "test:tag:create",
+			"description": "Create tag with empty name fails",
+			"steps_to_verify": ["Attempt to create tag with empty name", "Returns InvalidTagNameError"],
+			"passes": false
+		},
+		{
+			"id": "ESM-203",
+			"category": "test:tag:create",
+			"description": "Create tag with invalid color fails",
+			"steps_to_verify": [
+				"Attempt to create tag with invalid hex color",
+				"Returns InvalidTagColorError"
+			],
+			"passes": false
+		},
+		{
+			"id": "ESM-204",
+			"category": "test:tag:create",
+			"description": "Create tag with whitespace-only name fails",
+			"steps_to_verify": ["Attempt to create tag with name '   '", "Returns InvalidTagNameError"],
+			"passes": false
+		},
+		{
+			"id": "ESM-210",
+			"category": "test:tag:list",
+			"description": "List tags returns all tags",
+			"steps_to_verify": [
+				"Create 3 tags",
+				"listTags returns all 3",
+				"Each tag has id, name, color, createdAt"
+			],
+			"passes": false
+		},
+		{
+			"id": "ESM-211",
+			"category": "test:tag:list",
+			"description": "List tags returns empty array when none exist",
+			"steps_to_verify": ["Fresh DB", "listTags returns empty array"],
+			"passes": false
+		},
+		{
+			"id": "ESM-212",
+			"category": "test:tag:list",
+			"description": "List tags ordered by name",
+			"steps_to_verify": [
+				"Create tags: 'zebra', 'apple', 'mango'",
+				"listTags returns in order: apple, mango, zebra"
+			],
+			"passes": false
+		},
+		{
+			"id": "ESM-220",
+			"category": "test:tag:update",
+			"description": "Update tag name",
+			"steps_to_verify": ["Create tag", "Update with new name", "Tag name is updated"],
+			"passes": false
+		},
+		{
+			"id": "ESM-221",
+			"category": "test:tag:update",
+			"description": "Update tag color",
+			"steps_to_verify": ["Create tag", "Update with new color", "Tag color is updated"],
+			"passes": false
+		},
+		{
+			"id": "ESM-222",
+			"category": "test:tag:update",
+			"description": "Update tag to duplicate name fails",
+			"steps_to_verify": [
+				"Create tag A and tag B",
+				"Try to update tag B's name to tag A's name",
+				"Returns TagNameExistsError"
+			],
+			"passes": false
+		},
+		{
+			"id": "ESM-223",
+			"category": "test:tag:update",
+			"description": "Update tag with invalid color fails",
+			"steps_to_verify": [
+				"Create tag",
+				"Try to update with invalid color",
+				"Returns InvalidTagColorError"
+			],
+			"passes": false
+		},
+		{
+			"id": "ESM-224",
+			"category": "test:tag:update",
+			"description": "Update non-existent tag returns null",
+			"steps_to_verify": ["Update tag with random id", "Returns null (not error)"],
+			"passes": false
+		},
+		{
+			"id": "ESM-225",
+			"category": "test:tag:update",
+			"description": "Update tag to same name (own name) succeeds",
+			"steps_to_verify": [
+				"Create tag with name 'work'",
+				"Update same tag with name 'work'",
+				"Succeeds (no duplicate error for self)"
+			],
+			"passes": false
+		},
+		{
+			"id": "ESM-230",
+			"category": "test:tag:delete",
+			"description": "Delete tag removes it",
+			"steps_to_verify": [
+				"Create tag",
+				"Delete tag",
+				"Returns {deleted: true}",
+				"Tag not in listTags"
+			],
+			"passes": false
+		},
+		{
+			"id": "ESM-231",
+			"category": "test:tag:delete",
+			"description": "Delete tag removes associations from stories",
+			"steps_to_verify": [
+				"Create tag",
+				"Create story with that tag",
+				"Delete tag",
+				"Story no longer has that tag"
+			],
+			"passes": false
+		},
+		{
+			"id": "ESM-232",
+			"category": "test:tag:delete",
+			"description": "Delete non-existent tag",
+			"steps_to_verify": [
+				"Delete with random id",
+				"Returns {deleted: false} or succeeds idempotently"
+			],
+			"passes": false
+		},
+		{
+			"id": "ESM-300",
+			"category": "test:story-tags",
+			"description": "getTagsForStory returns tags for story",
+			"steps_to_verify": [
+				"Create story with 3 tags",
+				"getTagsForStory returns all 3 tags",
+				"Each tag has id, name, color"
+			],
+			"passes": false
+		},
+		{
+			"id": "ESM-301",
+			"category": "test:story-tags",
+			"description": "getTagsForStory returns empty for story with no tags",
+			"steps_to_verify": ["Create story without tags", "getTagsForStory returns empty array"],
+			"passes": false
+		},
+		{
+			"id": "ESM-302",
+			"category": "test:story-tags",
+			"description": "setStoryTags replaces all tags",
+			"steps_to_verify": [
+				"Create story with tags A, B",
+				"setStoryTags with tags C, D",
+				"Story now has only C, D"
+			],
+			"passes": false
+		},
+		{
+			"id": "ESM-303",
+			"category": "test:story-tags",
+			"description": "setStoryTags with empty array clears tags",
+			"steps_to_verify": [
+				"Create story with tags",
+				"setStoryTags with empty array",
+				"Story has no tags"
+			],
+			"passes": false
+		},
+		{
+			"id": "ESM-304",
+			"category": "test:story-tags",
+			"description": "setStoryTags is idempotent",
+			"steps_to_verify": [
+				"Create story with tag A",
+				"setStoryTags with tag A again",
+				"Story still has tag A (no duplicates)"
+			],
+			"passes": false
+		},
+		{
+			"id": "ESM-400",
+			"category": "test:url-metadata",
+			"description": "fetchUrlMetadata returns metadata for valid URL",
+			"steps_to_verify": [
+				"Call fetchUrlMetadata with valid URL",
+				"Returns title, description, imageUrl if available"
+			],
+			"passes": false
+		},
+		{
+			"id": "ESM-500",
+			"category": "test:concurrency",
+			"description": "Concurrent story creates don't conflict",
+			"steps_to_verify": [
+				"Create 10 stories concurrently",
+				"All 10 stories are created",
+				"Each has unique id"
+			],
+			"passes": false
+		},
+		{
+			"id": "ESM-501",
+			"category": "test:concurrency",
+			"description": "Concurrent updates to same story",
+			"steps_to_verify": [
+				"Create story",
+				"Update title and description concurrently",
+				"Final state is consistent (one update wins)"
+			],
+			"passes": false
+		},
+		{
+			"id": "ESM-600",
+			"category": "test:edge-cases",
+			"description": "Story with very long title",
+			"steps_to_verify": ["Create story with 500 char title", "Story is created and retrievable"],
+			"passes": false
+		},
+		{
+			"id": "ESM-601",
+			"category": "test:edge-cases",
+			"description": "Story with unicode in title",
+			"steps_to_verify": [
+				"Create story with emoji and non-ASCII chars in title",
+				"Title is stored and returned correctly"
+			],
+			"passes": false
+		},
+		{
+			"id": "ESM-602",
+			"category": "test:edge-cases",
+			"description": "Tag with unicode name",
+			"steps_to_verify": ["Create tag with emoji name", "Name is stored and returned correctly"],
+			"passes": false
+		},
+		{
+			"id": "ESM-603",
+			"category": "test:edge-cases",
+			"description": "Story with many tags",
+			"steps_to_verify": [
+				"Create 20 tags",
+				"Create story with all 20 tags",
+				"getStory returns all 20 tags"
+			],
+			"passes": false
+		},
+		{
+			"id": "ESM-700",
+			"category": "test:verification",
+			"description": "All tests pass",
+			"steps_to_verify": [
+				"pnpm --filter worker run test passes",
+				"No skipped tests",
+				"No flaky tests"
+			],
+			"passes": false
+		},
+		{
+			"id": "ESM-701",
+			"category": "test:verification",
+			"description": "Type checking passes",
+			"steps_to_verify": ["turbo run typecheck passes"],
+			"passes": false
+		},
+		{
+			"id": "ESM-702",
+			"category": "test:verification",
+			"description": "Linting passes",
+			"steps_to_verify": ["biome check . passes"],
+			"passes": false
+		}
+	]
+}

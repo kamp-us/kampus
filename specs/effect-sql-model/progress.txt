@@ -1,0 +1,24 @@
+## 2026-01-15: Story Model + Spellbook Transforms (ESM-001, ESM-004)
+
+### Files Changed
+- apps/worker/src/features/library/models.ts (created)
+- apps/worker/src/features/library/Library.ts (add RepoLayer)
+- apps/worker/src/shared/Spellbook.ts (add transforms + layers config)
+- apps/worker/src/features/library/handlers.ts (snake_case -> camelCase)
+- apps/worker/test/library-handlers.spec.ts (fix mock data)
+
+### Key Decisions
+1. Enable SqlClient transforms globally in Spellbook (transformQueryNames, transformResultNames)
+2. Update all handlers to use camelCase property names (instead of per-handler refactor)
+3. Defer handler refactoring to use repo.insert/findById (ESM-005) - handlers still use raw SQL
+4. Story Model has normalizedUrl field (not updatedAt - not in current DB schema)
+5. Removed unused getTagsForStories function (ESM-006 partial)
+
+### Verification
+- turbo run typecheck: PASS
+- pnpm --filter worker run test: PASS (51 tests)
+
+### Next Steps
+- ESM-002: Tag Model.Class
+- ESM-003: TagRepo Effect.Service
+- ESM-005: Replace raw SQL with repo methods in handlers

@@ -2,10 +2,11 @@ import {DurableObject} from "cloudflare:workers";
 import {HttpServerRequest, HttpServerResponse} from "@effect/platform";
 import type {Rpc, RpcGroup} from "@effect/rpc";
 import {RpcSerialization, RpcServer} from "@effect/rpc";
+import type {SqlClient} from "@effect/sql";
 import {SqliteClient} from "@effect/sql-sqlite-do";
 import {drizzle} from "drizzle-orm/durable-sqlite";
 import {migrate} from "drizzle-orm/durable-sqlite/migrator";
-import {Effect, Layer, ManagedRuntime} from "effect";
+import {Effect, String as EffectString, Layer, ManagedRuntime} from "effect";
 import {DurableObjectCtx, DurableObjectEnv} from "../services";
 
 /** Drizzle migrations bundle type (from migrations.js) */
@@ -24,6 +25,8 @@ export interface MakeConfig<R extends Rpc.Any> {
 	readonly handlers: RpcGroup.HandlersFrom<R>;
 	/** Drizzle migrations bundle (import from drizzle/migrations/migrations.js) */
 	readonly migrations: DrizzleMigrations;
+	/** Optional additional layers (e.g., repositories) that depend on SqlClient */
+	readonly layers?: Layer.Layer<any, never, SqlClient.SqlClient>;
 }
 
 /**
@@ -46,14 +49,17 @@ export interface MakeConfig<R extends Rpc.Any> {
  */
 export const make = <R extends Rpc.Any, TEnv extends Env = Env>(config: MakeConfig<R>) => {
 	return class extends DurableObject<TEnv> {
-		// biome-ignore lint/suspicious/noExplicitAny: Complex layer types inferred at runtime
 		private runtime: ManagedRuntime.ManagedRuntime<any, any>;
 
 		constructor(ctx: DurableObjectState, env: TEnv) {
 			super(ctx, env);
 
-			// SQLite client layer with Reactivity included
-			const sqliteLayer = SqliteClient.layer({db: ctx.storage.sql});
+			// SQLite client layer with column name transforms (camelCase <-> snake_case)
+			const sqliteLayer = SqliteClient.layer({
+				db: ctx.storage.sql,
+				transformQueryNames: EffectString.camelToSnake,
+				transformResultNames: EffectString.snakeToCamel,
+			});
 
 			// Durable Object context services
 			const doLayer = Layer.mergeAll(
@@ -68,10 +74,15 @@ export const make = <R extends Rpc.Any, TEnv extends Env = Env>(config: MakeConf
 				Layer.scope,
 			);
 
-			// Compose all layers: handlers get sql + do services
-			const fullLayer = Layer.provideMerge(handlerLayer, Layer.mergeAll(doLayer, sqliteLayer));
+			// Optional repository/service layers
+			const repoLayer = config.layers ?? Layer.empty;
 
-			// biome-ignore lint/suspicious/noExplicitAny: Layer composition types are complex
+			// Compose all layers: handlers get sql + do services + repos
+			const fullLayer = Layer.provideMerge(
+				handlerLayer,
+				Layer.provideMerge(repoLayer, Layer.mergeAll(doLayer, sqliteLayer)),
+			);
+
 			this.runtime = ManagedRuntime.make(fullLayer as Layer.Layer<any, any, never>);
 
 			// Run Drizzle migrations before any requests are processed

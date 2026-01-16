@@ -45,9 +45,7 @@ const makeMockSqlClient = (querySetups: MockQuerySetup[]) => {
 describe("Library Handlers Unit Tests", () => {
 	describe("getStory", () => {
 		it("returns null for non-existent story", async () => {
-			const mockLayer = makeMockSqlClient([
-				{pattern: /SELECT \* FROM story WHERE id/, result: []},
-			]);
+			const mockLayer = makeMockSqlClient([{pattern: /SELECT \* FROM story WHERE id/, result: []}]);
 
 			const result = await Effect.runPromise(
 				handlers.getStory({id: "story_nonexistent"}).pipe(Effect.provide(mockLayer)),
@@ -62,12 +60,12 @@ describe("Library Handlers Unit Tests", () => {
 				url: "https://example.com/test",
 				title: "Test Story",
 				description: "A test description",
-				created_at: Date.now(),
+				createdAt: Date.now(),
 			};
 
 			const tagJoinRows = [
-				{story_id: "story_123", tag_id: "tag_1", tag_name: "javascript", tag_color: "#f7df1e"},
-				{story_id: "story_123", tag_id: "tag_2", tag_name: "typescript", tag_color: "#3178c6"},
+				{storyId: "story_123", tagId: "tag_1", tagName: "javascript", tagColor: "#f7df1e"},
+				{storyId: "story_123", tagId: "tag_2", tagName: "typescript", tagColor: "#3178c6"},
 			];
 
 			const mockLayer = makeMockSqlClient([
@@ -94,7 +92,7 @@ describe("Library Handlers Unit Tests", () => {
 				url: "https://example.com/no-tags",
 				title: "No Tags Story",
 				description: null,
-				created_at: Date.now(),
+				createdAt: Date.now(),
 			};
 
 			const mockLayer = makeMockSqlClient([
@@ -117,7 +115,9 @@ describe("Library Handlers Unit Tests", () => {
 			const mockLayer = makeMockSqlClient([]);
 
 			const exit = await Effect.runPromiseExit(
-				handlers.createStory({url: "not-a-valid-url", title: "Test"}).pipe(Effect.provide(mockLayer)),
+				handlers
+					.createStory({url: "not-a-valid-url", title: "Test"})
+					.pipe(Effect.provide(mockLayer)),
 			);
 
 			expect(Exit.isFailure(exit)).toBe(true);
@@ -135,7 +135,9 @@ describe("Library Handlers Unit Tests", () => {
 			const mockLayer = makeMockSqlClient([]);
 
 			const exit = await Effect.runPromiseExit(
-				handlers.createStory({url: "example.com/path", title: "Test"}).pipe(Effect.provide(mockLayer)),
+				handlers
+					.createStory({url: "example.com/path", title: "Test"})
+					.pipe(Effect.provide(mockLayer)),
 			);
 
 			expect(Exit.isFailure(exit)).toBe(true);
@@ -238,9 +240,7 @@ describe("Library Handlers Unit Tests", () => {
 
 	describe("deleteStory", () => {
 		it("returns deleted false for non-existent story", async () => {
-			const mockLayer = makeMockSqlClient([
-				{pattern: /SELECT \* FROM story WHERE id/, result: []},
-			]);
+			const mockLayer = makeMockSqlClient([{pattern: /SELECT \* FROM story WHERE id/, result: []}]);
 
 			const result = await Effect.runPromise(
 				handlers.deleteStory({id: "story_nonexistent"}).pipe(Effect.provide(mockLayer)),
@@ -255,7 +255,7 @@ describe("Library Handlers Unit Tests", () => {
 				url: "https://example.com/delete",
 				title: "Delete Me",
 				description: null,
-				created_at: Date.now(),
+				createdAt: Date.now(),
 			};
 
 			const mockLayer = makeMockSqlClient([
@@ -290,8 +290,8 @@ describe("Library Handlers Unit Tests", () => {
 
 		it("returns stories with pagination info", async () => {
 			const stories = [
-				{id: "story_3", url: "https://a.com", title: "Third", description: null, created_at: 3},
-				{id: "story_2", url: "https://b.com", title: "Second", description: null, created_at: 2},
+				{id: "story_3", url: "https://a.com", title: "Third", description: null, createdAt: 3},
+				{id: "story_2", url: "https://b.com", title: "Second", description: null, createdAt: 2},
 			];
 
 			const mockLayer = makeMockSqlClient([

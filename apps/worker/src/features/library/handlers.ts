@@ -1,4 +1,4 @@
-import {SqlClient, SqlError} from "@effect/sql";
+import {SqlClient, type SqlError} from "@effect/sql";
 import {
 	InvalidTagColorError,
 	InvalidTagNameError,
@@ -13,30 +13,32 @@ import {getNormalizedUrl} from "./getNormalizedUrl";
 import {isValidHexColor, validateTagName} from "./schema";
 
 // Helper to convert SqlError to defects while preserving typed errors
-const orDieSql = <A, E, R>(effect: Effect.Effect<A, E | SqlError.SqlError, R>): Effect.Effect<A, E, R> =>
+const orDieSql = <A, E, R>(
+	effect: Effect.Effect<A, E | SqlError.SqlError, R>,
+): Effect.Effect<A, E, R> =>
 	effect.pipe(Effect.catchTag("SqlError", (e) => Effect.die(e))) as Effect.Effect<A, E, R>;
 
-// Row type for story with tags joined
+// Row types (camelCase - SqlClient transforms handle snake_case columns)
 interface StoryRow {
 	id: string;
 	url: string;
 	title: string;
 	description: string | null;
-	created_at: number;
+	createdAt: number;
 }
 
 interface TagRow {
 	id: string;
 	name: string;
 	color: string;
-	created_at: number;
+	createdAt: number;
 }
 
 interface StoryTagRow {
-	story_id: string;
-	tag_id: string;
-	tag_name: string;
-	tag_color: string;
+	storyId: string;
+	tagId: string;
+	tagName: string;
+	tagColor: string;
 }
 
 // Helper to format story with tags
@@ -45,7 +47,7 @@ const formatStory = (story: StoryRow, tags: Array<{id: string; name: string; col
 	url: story.url,
 	title: story.title,
 	description: story.description,
-	createdAt: new Date(story.created_at).toISOString(),
+	createdAt: new Date(story.createdAt).toISOString(),
 	tags,
 });
 
@@ -54,38 +56,11 @@ const formatTag = (tag: TagRow, storyCount: number) => ({
 	id: tag.id,
 	name: tag.name,
 	color: tag.color,
-	createdAt: new Date(tag.created_at).toISOString(),
+	createdAt: new Date(tag.createdAt).toISOString(),
 	storyCount,
 });
 
 // Fetch tags for multiple stories in one query
-const getTagsForStories = (storyIds: string[]) =>
-	Effect.gen(function* () {
-		if (storyIds.length === 0) {
-			return new Map<string, Array<{id: string; name: string; color: string}>>();
-		}
-		const sql = yield* SqlClient.SqlClient;
-		const placeholders = storyIds.map(() => "?").join(", ");
-		const rows = yield* sql<StoryTagRow>`
-			SELECT st.story_id, t.id as tag_id, t.name as tag_name, t.color as tag_color
-			FROM story_tag st
-			INNER JOIN tag t ON st.tag_id = t.id
-			WHERE st.story_id IN (${sql.literal(placeholders)})
-		`.withoutTransform.pipe(
-			Effect.map((r) => r as unknown as StoryTagRow[]),
-			Effect.provideService(SqlClient.SqlClient, sql.unsafe(`${storyIds.join("','")}`).pipe(() => sql)),
-		);
-
-		const tagsByStory = new Map<string, Array<{id: string; name: string; color: string}>>();
-		for (const row of rows) {
-			const tags = tagsByStory.get(row.story_id) ?? [];
-			tags.push({id: row.tag_id, name: row.tag_name, color: row.tag_color});
-			tagsByStory.set(row.story_id, tags);
-		}
-		return tagsByStory;
-	});
-
-// Simplified version using direct SQL with parameters
 const getTagsForStoriesSimple = (storyIds: string[]) =>
 	Effect.gen(function* () {
 		if (storyIds.length === 0) {
@@ -103,9 +78,9 @@ const getTagsForStoriesSimple = (storyIds: string[]) =>
 
 		const tagsByStory = new Map<string, Array<{id: string; name: string; color: string}>>();
 		for (const row of rows) {
-			const tags = tagsByStory.get(row.story_id) ?? [];
-			tags.push({id: row.tag_id, name: row.tag_name, color: row.tag_color});
-			tagsByStory.set(row.story_id, tags);
+			const tags = tagsByStory.get(row.storyId) ?? [];
+			tags.push({id: row.tagId, name: row.tagName, color: row.tagColor});
+			tagsByStory.set(row.storyId, tags);
 		}
 		return tagsByStory;
 	});
@@ -162,19 +137,19 @@ export const handlers = {
 
 			// Get story IDs for this tag
 			const storyIdRows = after
-				? yield* sql<{story_id: string}>`
+				? yield* sql<{storyId: string}>`
 					SELECT story_id FROM story_tag
 					WHERE tag_id = ${tagId} AND story_id < ${after}
 					ORDER BY story_id DESC LIMIT ${limit + 1}
 				`
-				: yield* sql<{story_id: string}>`
+				: yield* sql<{storyId: string}>`
 					SELECT story_id FROM story_tag
 					WHERE tag_id = ${tagId}
 					ORDER BY story_id DESC LIMIT ${limit + 1}
 				`;
 
 			const hasNextPage = storyIdRows.length > limit;
-			const paginatedIds = storyIdRows.slice(0, limit).map((r) => r.story_id);
+			const paginatedIds = storyIdRows.slice(0, limit).map((r) => r.storyId);
 
 			if (paginatedIds.length === 0) {
 				return {stories: [], hasNextPage: false, endCursor: null, totalCount};
@@ -232,7 +207,9 @@ export const handlers = {
 			// Tag the story if tagIds provided
 			if (tagIds && tagIds.length > 0) {
 				const idList = tagIds.map((id) => `'${id}'`).join(", ");
-				const existingTags = yield* sql.unsafe<{id: string}>(`SELECT id FROM tag WHERE id IN (${idList})`);
+				const existingTags = yield* sql.unsafe<{id: string}>(
+					`SELECT id FROM tag WHERE id IN (${idList})`,
+				);
 				const validTagIds = tagIds.filter((id) => existingTags.some((t) => t.id === id));
 
 				for (const tagId of validTagIds) {
@@ -281,10 +258,10 @@ export const handlers = {
 			// Update tags if provided
 			if (tagIds !== undefined) {
 				// Get current tags
-				const currentTagRows = yield* sql<{tag_id: string}>`
+				const currentTagRows = yield* sql<{tagId: string}>`
 					SELECT tag_id FROM story_tag WHERE story_id = ${storyId}
 				`;
-				const currentIds = new Set(currentTagRows.map((t) => t.tag_id));
+				const currentIds = new Set(currentTagRows.map((t) => t.tagId));
 				const newIds = new Set(tagIds);
 
 				// Remove old tags
@@ -297,7 +274,9 @@ export const handlers = {
 				const toAdd = [...newIds].filter((tid) => !currentIds.has(tid));
 				if (toAdd.length > 0) {
 					const idList = toAdd.map((id) => `'${id}'`).join(", ");
-					const existingTags = yield* sql.unsafe<{id: string}>(`SELECT id FROM tag WHERE id IN (${idList})`);
+					const existingTags = yield* sql.unsafe<{id: string}>(
+						`SELECT id FROM tag WHERE id IN (${idList})`,
+					);
 					const validTagIds = toAdd.filter((tid) => existingTags.some((t) => t.id === tid));
 
 					for (const tagId of validTagIds) {
@@ -332,12 +311,12 @@ export const handlers = {
 		Effect.gen(function* () {
 			const sql = yield* SqlClient.SqlClient;
 
-			const tags = yield* sql<TagRow & {story_count: number}>`
+			const tags = yield* sql<TagRow & {storyCount: number}>`
 				SELECT t.*, (SELECT COUNT(*) FROM story_tag WHERE tag_id = t.id) as story_count
 				FROM tag t
 			`;
 
-			return tags.map((tag) => formatTag(tag, tag.story_count));
+			return tags.map((tag) => formatTag(tag, tag.storyCount));
 		}).pipe(Effect.orDie),
 
 	createTag: ({name, color}: {name: string; color: string}) =>
@@ -398,7 +377,9 @@ export const handlers = {
 			if (!existing) return null;
 
 			// Get story count
-			const countRows = yield* sql<{count: number}>`SELECT COUNT(*) as count FROM story_tag WHERE tag_id = ${tagId}`;
+			const countRows = yield* sql<{
+				count: number;
+			}>`SELECT COUNT(*) as count FROM story_tag WHERE tag_id = ${tagId}`;
 			const storyCount = countRows[0]?.count ?? 0;
 
 			// If no updates provided, return existing tag
@@ -442,14 +423,14 @@ export const handlers = {
 		Effect.gen(function* () {
 			const sql = yield* SqlClient.SqlClient;
 
-			const results = yield* sql<TagRow & {story_count: number}>`
+			const results = yield* sql<TagRow & {storyCount: number}>`
 				SELECT t.*, (SELECT COUNT(*) FROM story_tag st WHERE st.tag_id = t.id) as story_count
 				FROM story_tag st
 				INNER JOIN tag t ON st.tag_id = t.id
 				WHERE st.story_id = ${storyId}
 			`;
 
-			return results.map((tag) => formatTag(tag, tag.story_count));
+			return results.map((tag) => formatTag(tag, tag.storyCount));
 		}).pipe(Effect.orDie),
 
 	setStoryTags: ({storyId, tagIds}: {storyId: string; tagIds: readonly string[]}) =>
@@ -457,8 +438,10 @@ export const handlers = {
 			const sql = yield* SqlClient.SqlClient;
 
 			// Get current tags
-			const currentTagRows = yield* sql<{tag_id: string}>`SELECT tag_id FROM story_tag WHERE story_id = ${storyId}`;
-			const currentIds = new Set(currentTagRows.map((t) => t.tag_id));
+			const currentTagRows = yield* sql<{
+				tagId: string;
+			}>`SELECT tag_id FROM story_tag WHERE story_id = ${storyId}`;
+			const currentIds = new Set(currentTagRows.map((t) => t.tagId));
 			const newIds = new Set(tagIds);
 
 			// Remove old tags
@@ -471,7 +454,9 @@ export const handlers = {
 			const toAdd = [...newIds].filter((id) => !currentIds.has(id));
 			if (toAdd.length > 0) {
 				const idList = toAdd.map((id) => `'${id}'`).join(", ");
-				const existingTags = yield* sql.unsafe<{id: string}>(`SELECT id FROM tag WHERE id IN (${idList})`);
+				const existingTags = yield* sql.unsafe<{id: string}>(
+					`SELECT id FROM tag WHERE id IN (${idList})`,
+				);
 				const validTagIds = toAdd.filter((id) => existingTags.some((t) => t.id === id));
 
 				for (const tagId of validTagIds) {
@@ -525,8 +510,6 @@ export const handlers = {
 					const message = err instanceof Error ? err.message : "Failed to fetch metadata";
 					return {title: null, description: null, error: message};
 				},
-			}).pipe(
-				Effect.catchAll((result) => Effect.succeed(result)),
-			);
+			}).pipe(Effect.catchAll((result) => Effect.succeed(result)));
 		}).pipe(Effect.orDie),
 };
