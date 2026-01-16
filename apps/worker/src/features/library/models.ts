@@ -1,5 +1,5 @@
 import {Model} from "@effect/sql";
-import {Effect, Schema} from "effect";
+import {Effect, Layer, Schema} from "effect";
 
 /**
  * Story Model for @effect/sql repository pattern.
@@ -15,6 +15,17 @@ export class Story extends Model.Class<Story>("Story")({
 }) {}
 
 /**
+ * Tag Model for @effect/sql repository pattern.
+ * Maps to the `tag` table with snake_case columns via SqlClient transforms.
+ */
+export class Tag extends Model.Class<Tag>("Tag")({
+	id: Model.GeneratedByApp(Schema.String),
+	name: Schema.String,
+	color: Schema.String,
+	createdAt: Model.DateTimeInsertFromNumber,
+}) {}
+
+/**
  * StoryRepo service providing CRUD operations for Story.
  */
 export class StoryRepo extends Effect.Service<StoryRepo>()("StoryRepo", {
@@ -26,6 +37,17 @@ export class StoryRepo extends Effect.Service<StoryRepo>()("StoryRepo", {
 }) {}
 
 /**
+ * TagRepo service providing CRUD operations for Tag.
+ */
+export class TagRepo extends Effect.Service<TagRepo>()("TagRepo", {
+	effect: Model.makeRepository(Tag, {
+		tableName: "tag",
+		spanPrefix: "Tag",
+		idColumn: "id",
+	}),
+}) {}
+
+/**
  * Combined repository layer for Library feature.
  */
-export const RepoLayer = StoryRepo.Default;
+export const RepoLayer = Layer.mergeAll(StoryRepo.Default, TagRepo.Default);

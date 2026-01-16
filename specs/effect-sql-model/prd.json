@@ -22,7 +22,7 @@
 				"Tag has id, name, color, createdAt fields",
 				"Tag.insert variant works for creating tags"
 			],
-			"passes": false
+			"passes": true
 		},
 		{
 			"id": "ESM-003",
@@ -33,8 +33,7 @@
 				"TagRepo extends Effect.Service with makeRepository",
 				"RepoLayer exports merged Layer"
 			],
-			"passes": false,
-			"notes": "StoryRepo done, TagRepo pending"
+			"passes": true
 		},
 		{
 			"id": "ESM-004",

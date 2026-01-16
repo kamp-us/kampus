@@ -22,3 +22,20 @@
 - ESM-002: Tag Model.Class
 - ESM-003: TagRepo Effect.Service
 - ESM-005: Replace raw SQL with repo methods in handlers
+
+## 2026-01-15: Tag Model + TagRepo (ESM-002, ESM-003)
+
+### Files Changed
+- apps/worker/src/features/library/models.ts (add Tag Model.Class, TagRepo, update RepoLayer)
+
+### Key Decisions
+1. Tag Model mirrors Drizzle schema: id, name, color, createdAt
+2. TagRepo uses Effect.Service with Model.makeRepository (same pattern as StoryRepo)
+3. RepoLayer now merges StoryRepo.Default + TagRepo.Default via Layer.mergeAll
+
+### Verification
+- turbo run typecheck --filter=worker: PASS
+- pnpm --filter worker run test: PASS (51 tests)
+
+### Next Steps
+- ESM-005: Refactor handlers to use StoryRepo/TagRepo instead of raw SQL
