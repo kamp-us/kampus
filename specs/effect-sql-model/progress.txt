@@ -100,3 +100,29 @@
 - turbo run typecheck: PASS
 - pnpm --filter worker run test: PASS (55 tests)
 - biome check: PASS (warnings OK)
+
+## 2026-01-15: Add updatedAt field to Story (ESM-137)
+
+### Files Changed
+- apps/worker/src/features/library/drizzle/migrations/0005_add_story_updated_at.sql (new)
+- apps/worker/src/features/library/drizzle/migrations/migrations.js (add m0005)
+- apps/worker/src/features/library/drizzle/migrations/meta/_journal.json (add entry)
+- apps/worker/src/features/library/drizzle/drizzle.schema.ts (add updatedAt)
+- apps/worker/src/features/library/models.ts (add updatedAt field)
+- apps/worker/src/features/library/handlers.ts (set updatedAt on update)
+- packages/library/src/schema.ts (add updatedAt to Story schema)
+- apps/worker/test/library-stories.spec.ts (add ESM-137 test)
+
+### Key Decisions
+1. updatedAt stored as nullable INTEGER (milliseconds) in DB
+2. Model uses Model.FieldOption(Schema.Number) for optional field
+3. On createStory: updatedAt = Option.none() (null in DB)
+4. On updateStory: set updated_at = Date.now() if any field or tags updated
+5. RPC schema updated to include updatedAt: NullOr(String)
+
+### Verification
+- turbo run typecheck: PASS
+- pnpm --filter worker run test: PASS (56 tests)
+
+### PRD Status
+- 50/67 items passing (75%)

@@ -26,6 +26,7 @@ interface StoryRow {
 	title: string;
 	description: string | null;
 	createdAt: number;
+	updatedAt: number | null;
 }
 
 interface TagRow {
@@ -49,6 +50,7 @@ const formatStory = (story: StoryRow, tags: Array<{id: string; name: string; col
 	title: story.title,
 	description: story.description,
 	createdAt: new Date(story.createdAt).toISOString(),
+	updatedAt: story.updatedAt ? new Date(story.updatedAt).toISOString() : null,
 	tags,
 });
 
@@ -62,6 +64,10 @@ const formatStoryFromModel = (
 	title: story.title,
 	description: Option.getOrNull(story.description),
 	createdAt: DateTime.formatIso(story.createdAt),
+	updatedAt: Option.match(story.updatedAt, {
+		onNone: () => null,
+		onSome: (ms) => new Date(ms).toISOString(),
+	}),
 	tags,
 });
 
@@ -229,6 +235,7 @@ export const handlers = {
 					normalizedUrl,
 					title,
 					description: Option.fromNullable(description),
+					updatedAt: Option.none(),
 				}),
 			);
 
@@ -270,10 +277,13 @@ export const handlers = {
 			if (!existing) return null;
 
 			// Update fields if provided
-			if (title !== undefined || description !== undefined) {
+			const hasFieldUpdate = title !== undefined || description !== undefined;
+			const hasTagUpdate = tagIds !== undefined;
+			if (hasFieldUpdate || hasTagUpdate) {
 				const newTitle = title ?? existing.title;
 				const newDesc = description === undefined ? existing.description : description;
-				yield* sql`UPDATE story SET title = ${newTitle}, description = ${newDesc} WHERE id = ${storyId}`;
+				const now = Date.now();
+				yield* sql`UPDATE story SET title = ${newTitle}, description = ${newDesc}, updated_at = ${now} WHERE id = ${storyId}`;
 			}
 
 			// Update tags if provided

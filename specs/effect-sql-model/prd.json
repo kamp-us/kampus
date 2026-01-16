@@ -333,8 +333,7 @@
 				"Update story",
 				"updatedAt > createdAt"
 			],
-			"passes": false,
-			"notes": "updatedAt field not in DB schema yet"
+			"passes": true
 		},
 		{
 			"id": "ESM-140",

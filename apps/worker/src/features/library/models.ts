@@ -12,6 +12,8 @@ export class Story extends Model.Class<Story>("Story")({
 	title: Schema.String,
 	description: Model.FieldOption(Schema.String),
 	createdAt: Model.DateTimeInsertFromNumber,
+	// updatedAt is nullable and not auto-managed - set manually in updateStory handler
+	updatedAt: Model.FieldOption(Schema.Number),
 }) {}
 
 /**

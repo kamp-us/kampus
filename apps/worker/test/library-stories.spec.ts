@@ -215,6 +215,26 @@ describe("Library Stories", () => {
 			expect(updated?.tags[0].id).toBe(tagB.id);
 		});
 
+		it("sets updatedAt timestamp on update", async () => {
+			const library = getLibrary("story-user-updated-at");
+			const story = await library.createStory({
+				url: "https://example.com/updated-at",
+				title: "Original",
+			});
+
+			// New story has no updatedAt
+			expect(story.updatedAt).toBeNull();
+
+			// Wait a bit then update
+			await new Promise((r) => setTimeout(r, 10));
+			const updated = await library.updateStory(story.id, {title: "Updated"});
+
+			expect(updated?.updatedAt).not.toBeNull();
+			const createdTime = new Date(story.createdAt).getTime();
+			const updatedTime = new Date(updated!.updatedAt!).getTime();
+			expect(updatedTime).toBeGreaterThan(createdTime);
+		});
+
 		it("deletes a story", async () => {
 			const library = getLibrary("story-user-9");
 			const story = await library.createStory({
