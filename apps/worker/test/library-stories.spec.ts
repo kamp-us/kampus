@@ -45,6 +45,35 @@ describe("Library Stories", () => {
 			expect(story.description).toBe("A detailed description");
 		});
 
+		it("creates a story with tags", async () => {
+			const library = getLibrary("story-user-create-tags");
+			const tag1 = await library.createTag("react", "61dafb");
+			const tag2 = await library.createTag("typescript", "3178c6");
+
+			const story = await library.createStory({
+				url: "https://example.com/with-tags",
+				title: "Story With Tags",
+				tagIds: [tag1.id, tag2.id],
+			});
+
+			expect(story.tags).toHaveLength(2);
+			expect(story.tags.map((t) => t.name).sort()).toEqual(["react", "typescript"]);
+		});
+
+		it("creates story with non-existent tagIds (silently ignores)", async () => {
+			const library = getLibrary("story-user-bad-tags");
+			const validTag = await library.createTag("valid", "123456");
+
+			const story = await library.createStory({
+				url: "https://example.com/mixed-tags",
+				title: "Mixed Tags",
+				tagIds: [validTag.id, "tag_nonexistent"],
+			});
+
+			expect(story.tags).toHaveLength(1);
+			expect(story.tags[0].id).toBe(validTag.id);
+		});
+
 		// Note: URL validation error cases tested in library-handlers.spec.ts unit tests
 
 		it("gets a story by id", async () => {
@@ -65,6 +94,27 @@ describe("Library Stories", () => {
 			const story = await library.getStory("story_nonexistent");
 
 			expect(story).toBeNull();
+		});
+
+		it("gets story with tags in correct format", async () => {
+			const library = getLibrary("story-user-tags-format");
+			const tag1 = await library.createTag("frontend", "ff5500");
+			const tag2 = await library.createTag("backend", "0055ff");
+
+			const created = await library.createStory({
+				url: "https://example.com/with-tags",
+				title: "Tags Format Test",
+				tagIds: [tag1.id, tag2.id],
+			});
+
+			const story = await library.getStory(created.id);
+			expect(story?.tags).toHaveLength(2);
+			// Each tag has id, name, color
+			for (const tag of story!.tags) {
+				expect(tag).toHaveProperty("id");
+				expect(tag).toHaveProperty("name");
+				expect(tag).toHaveProperty("color");
+			}
 		});
 
 		it("updates a story title", async () => {
@@ -95,6 +145,74 @@ describe("Library Stories", () => {
 
 			const result = await library.updateStory("story_nonexistent", {title: "New"});
 			expect(result).toBeNull();
+		});
+
+		it("updates a story description", async () => {
+			const library = getLibrary("story-user-update-desc");
+			const created = await library.createStory({
+				url: "https://example.com/update-desc",
+				title: "Update Desc",
+				description: "Original",
+			});
+
+			const updated = await library.updateStory(created.id, {description: "Updated description"});
+			expect(updated?.description).toBe("Updated description");
+		});
+
+		it("clears story description (set to null)", async () => {
+			const library = getLibrary("story-user-clear-desc");
+			const created = await library.createStory({
+				url: "https://example.com/clear-desc",
+				title: "Clear Desc",
+				description: "Has description",
+			});
+
+			const updated = await library.updateStory(created.id, {description: null});
+			expect(updated?.description).toBeNull();
+		});
+
+		it("updates story tags - add tags", async () => {
+			const library = getLibrary("story-user-add-tags");
+			const story = await library.createStory({
+				url: "https://example.com/add-tags",
+				title: "Add Tags",
+			});
+			const tag1 = await library.createTag("add1", "111111");
+			const tag2 = await library.createTag("add2", "222222");
+
+			const updated = await library.updateStory(story.id, {tagIds: [tag1.id, tag2.id]});
+			expect(updated?.tags).toHaveLength(2);
+		});
+
+		it("updates story tags - remove tags", async () => {
+			const library = getLibrary("story-user-remove-tags");
+			const tag = await library.createTag("remove-me", "333333");
+			const story = await library.createStory({
+				url: "https://example.com/remove-tags",
+				title: "Remove Tags",
+				tagIds: [tag.id],
+			});
+			expect(story.tags).toHaveLength(1);
+
+			const updated = await library.updateStory(story.id, {tagIds: []});
+			expect(updated?.tags).toHaveLength(0);
+		});
+
+		it("updates story tags - replace tags", async () => {
+			const library = getLibrary("story-user-replace-tags");
+			const tagA = await library.createTag("tagA", "aaaaaa");
+			const tagB = await library.createTag("tagB", "bbbbbb");
+
+			const story = await library.createStory({
+				url: "https://example.com/replace-tags",
+				title: "Replace Tags",
+				tagIds: [tagA.id],
+			});
+			expect(story.tags[0].id).toBe(tagA.id);
+
+			const updated = await library.updateStory(story.id, {tagIds: [tagB.id]});
+			expect(updated?.tags).toHaveLength(1);
+			expect(updated?.tags[0].id).toBe(tagB.id);
 		});
 
 		it("deletes a story", async () => {
@@ -210,6 +328,40 @@ describe("Library Stories", () => {
 
 			expect(result.edges).toHaveLength(20);
 			expect(result.hasNextPage).toBe(true);
+		});
+
+		it("lists stories with their tags", async () => {
+			const library = getLibrary("story-user-list-tags");
+			const tag1 = await library.createTag("tag-list-1", "111111");
+			const tag2 = await library.createTag("tag-list-2", "222222");
+
+			await library.createStory({
+				url: "https://example.com/list-tag-1",
+				title: "Story with tag1",
+				tagIds: [tag1.id],
+			});
+			await library.createStory({
+				url: "https://example.com/list-tag-2",
+				title: "Story with tag2",
+				tagIds: [tag2.id],
+			});
+			await library.createStory({
+				url: "https://example.com/list-tag-both",
+				title: "Story with both",
+				tagIds: [tag1.id, tag2.id],
+			});
+
+			const result = await library.listStories({first: 10});
+
+			// Stories ordered by id desc (newest first)
+			expect(result.edges).toHaveLength(3);
+			expect(result.edges[0].tags).toHaveLength(2); // both
+			expect(result.edges[1].tags).toHaveLength(1); // tag2
+			expect(result.edges[2].tags).toHaveLength(1); // tag1
+
+			// Verify correct tags (not mixed up)
+			expect(result.edges[2].tags[0].id).toBe(tag1.id);
+			expect(result.edges[1].tags[0].id).toBe(tag2.id);
 		});
 	});
 });

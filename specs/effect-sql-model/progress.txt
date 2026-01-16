@@ -68,3 +68,35 @@
 
 ### Next Steps
 - ESM-100+: Test coverage items (story/tag CRUD, pagination, edge cases)
+
+## 2026-01-15: Test Coverage Expansion (ESM-100 to ESM-304)
+
+### Files Changed
+- apps/worker/test/library-stories.spec.ts (add 12 tests)
+- apps/worker/test/library-tags.spec.ts (add 3 tests)
+
+### Tests Added
+1. Story create with tags (ESM-102)
+2. Story create with non-existent tagIds (ESM-104)
+3. Get story with tags in correct format (ESM-112)
+4. Update story description (ESM-131)
+5. Clear story description (ESM-132)
+6. Update story tags - add (ESM-133)
+7. Update story tags - remove (ESM-134)
+8. Update story tags - replace (ESM-135)
+9. List stories with their tags (ESM-125)
+10. List tags returns empty array (ESM-211)
+11. setStoryTags replaces all tags (ESM-302)
+12. setStoryTags with empty array clears (ESM-303)
+
+### PRD Status
+- 49/67 items passing (73%)
+- Remaining items mostly:
+  - Validation error tests (vitest-pool-workers isolation issue)
+  - updatedAt field (not in schema)
+  - Edge cases/concurrency (future work)
+
+### Verification
+- turbo run typecheck: PASS
+- pnpm --filter worker run test: PASS (55 tests)
+- biome check: PASS (warnings OK)

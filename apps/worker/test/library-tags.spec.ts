@@ -68,6 +68,12 @@ describe("Library Tags", () => {
 			expect(tags.map((t) => t.name).sort()).toEqual(["tag1", "tag2", "tag3"]);
 		});
 
+		it("returns empty array when no tags exist", async () => {
+			const library = getLibrary("test-user-no-tags");
+			const tags = await library.listTags();
+			expect(tags).toEqual([]);
+		});
+
 		it("updates a tag name", async () => {
 			const library = getLibrary("test-user-7");
 			const created = await library.createTag("oldname", "aaaaaa");
@@ -207,6 +213,42 @@ describe("Library Tags", () => {
 
 			await library.deleteTag(tag.id);
 
+			const tags = await library.getTagsForStory(story.id);
+			expect(tags).toEqual([]);
+		});
+
+		it("setStoryTags replaces all tags", async () => {
+			const library = getLibrary("test-user-replace-all");
+			const story = await library.createStory({
+				url: "https://example.com/replace",
+				title: "Replace All",
+			});
+			const tagA = await library.createTag("replaceA", "aaaaaa");
+			const tagB = await library.createTag("replaceB", "bbbbbb");
+			const tagC = await library.createTag("replaceC", "cccccc");
+			const tagD = await library.createTag("replaceD", "dddddd");
+
+			await library.tagStory(story.id, [tagA.id, tagB.id]);
+			expect(await library.getTagsForStory(story.id)).toHaveLength(2);
+
+			await library.tagStory(story.id, [tagC.id, tagD.id]);
+			const tags = await library.getTagsForStory(story.id);
+			expect(tags).toHaveLength(2);
+			expect(tags.map((t) => t.id).sort()).toEqual([tagC.id, tagD.id].sort());
+		});
+
+		it("setStoryTags with empty array clears all tags", async () => {
+			const library = getLibrary("test-user-clear-all");
+			const story = await library.createStory({
+				url: "https://example.com/clear",
+				title: "Clear All",
+			});
+			const tag = await library.createTag("clearme", "ffffff");
+
+			await library.tagStory(story.id, [tag.id]);
+			expect(await library.getTagsForStory(story.id)).toHaveLength(1);
+
+			await library.tagStory(story.id, []);
 			const tags = await library.getTagsForStory(story.id);
 			expect(tags).toEqual([]);
 		});
