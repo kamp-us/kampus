@@ -278,6 +278,61 @@ describe("Library Stories", () => {
 		});
 	});
 
+	describe("Edge Cases", () => {
+		it("creates story with very long title (500 chars)", async () => {
+			const library = getLibrary("story-user-long-title");
+			const longTitle = "A".repeat(500);
+
+			const story = await library.createStory({
+				url: "https://example.com/long-title",
+				title: longTitle,
+			});
+
+			expect(story.title).toBe(longTitle);
+			expect(story.title.length).toBe(500);
+
+			const fetched = await library.getStory(story.id);
+			expect(fetched?.title).toBe(longTitle);
+		});
+
+		it("creates story with unicode in title", async () => {
+			const library = getLibrary("story-user-unicode");
+			const unicodeTitle = "🚀 日本語タイトル 한국어 العربية émoji";
+
+			const story = await library.createStory({
+				url: "https://example.com/unicode",
+				title: unicodeTitle,
+			});
+
+			expect(story.title).toBe(unicodeTitle);
+
+			const fetched = await library.getStory(story.id);
+			expect(fetched?.title).toBe(unicodeTitle);
+		});
+
+		it("creates story with many tags (20 tags)", async () => {
+			const library = getLibrary("story-user-many-tags");
+
+			// Create 20 tags
+			const tagIds: string[] = [];
+			for (let i = 0; i < 20; i++) {
+				const tag = await library.createTag(`manytag-${i}`, `${i.toString().padStart(6, "0")}`);
+				tagIds.push(tag.id);
+			}
+
+			const story = await library.createStory({
+				url: "https://example.com/many-tags",
+				title: "Story with Many Tags",
+				tagIds,
+			});
+
+			expect(story.tags).toHaveLength(20);
+
+			const fetched = await library.getStory(story.id);
+			expect(fetched?.tags).toHaveLength(20);
+		});
+	});
+
 	describe("Story Listing and Pagination", () => {
 		it("lists stories ordered by id descending (newest first)", async () => {
 			const library = getLibrary("story-user-20");

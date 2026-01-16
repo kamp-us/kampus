@@ -74,6 +74,21 @@ describe("Library Tags", () => {
 			expect(tags).toEqual([]);
 		});
 
+		it("creates tag with unicode name (emoji)", async () => {
+			const library = getLibrary("test-user-unicode-tag");
+			const unicodeName = "🔥 火 カタカナ";
+
+			const tag = await library.createTag(unicodeName, "ff5500");
+
+			expect(tag.name).toBe(unicodeName);
+
+			const fetched = await library.getTag(tag.id);
+			expect(fetched?.name).toBe(unicodeName);
+
+			const all = await library.listTags();
+			expect(all[0].name).toBe(unicodeName);
+		});
+
 		it("returns tags ordered by name alphabetically", async () => {
 			const library = getLibrary("test-user-order");
 			await library.createTag("zebra", "111111");

@@ -143,3 +143,22 @@
 
 ### PRD Status
 - 51/67 items passing (76%)
+
+## 2026-01-15: Edge Case Tests (ESM-600 to ESM-603)
+
+### Files Changed
+- apps/worker/test/library-stories.spec.ts (add Edge Cases describe block)
+- apps/worker/test/library-tags.spec.ts (add unicode tag test)
+
+### Tests Added
+1. Story with very long title (500 chars) - ESM-600
+2. Story with unicode in title (emoji, CJK, Arabic) - ESM-601
+3. Tag with unicode name (emoji) - ESM-602
+4. Story with many tags (20 tags) - ESM-603
+
+### Verification
+- turbo run typecheck: PASS
+- pnpm --filter worker run test: PASS (61 tests)
+
+### PRD Status
+- 55/67 items passing (82%)

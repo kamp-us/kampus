@@ -627,7 +627,7 @@
 			"category": "test:edge-cases",
 			"description": "Story with very long title",
 			"steps_to_verify": ["Create story with 500 char title", "Story is created and retrievable"],
-			"passes": false
+			"passes": true
 		},
 		{
 			"id": "ESM-601",
@@ -637,14 +637,14 @@
 				"Create story with emoji and non-ASCII chars in title",
 				"Title is stored and returned correctly"
 			],
-			"passes": false
+			"passes": true
 		},
 		{
 			"id": "ESM-602",
 			"category": "test:edge-cases",
 			"description": "Tag with unicode name",
 			"steps_to_verify": ["Create tag with emoji name", "Name is stored and returned correctly"],
-			"passes": false
+			"passes": true
 		},
 		{
 			"id": "ESM-603",
@@ -655,7 +655,7 @@
 				"Create story with all 20 tags",
 				"getStory returns all 20 tags"
 			],
-			"passes": false
+			"passes": true
 		},
 		{
 			"id": "ESM-700",
