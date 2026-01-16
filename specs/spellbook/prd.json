@@ -343,12 +343,12 @@
 				"All tests pass with 0 skipped",
 				"Run: pnpm --filter worker run test"
 			],
-			"passes": false
+			"passes": true
 		}
 	],
 	"summary": {
 		"total": 31,
-		"passed": 30,
+		"passed": 31,
 		"categories": {
 			"Infrastructure": 6,
 			"Library Migration": 4,

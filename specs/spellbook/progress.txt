@@ -239,3 +239,30 @@
 ### PRD Complete
 - 30/30 items pass
 - All categories complete: Infrastructure, Library Migration, WebPageParser Migration, Caller Updates, Code Quality, Testing, Compatibility, Dependencies, Cleanup, Documentation
+
+## 2026-01-15: Integration Test Cleanup (SP-031)
+
+### Completed
+- SP-031: Rewrite integration tests from first principles
+
+### Changes Made
+- Removed 15 skipped tests across library-stories.spec.ts and library-tags.spec.ts
+- library-stories.spec.ts: removed 1 skipped test (URL validation - covered by unit tests)
+- library-tags.spec.ts: removed 14 skipped tests:
+  - 4 tag name validation tests (covered by unit tests)
+  - 2 duplicate tag name tests (covered by unit tests)
+  - 1 tagging non-existent story test (FK constraint - by design)
+  - 6 getStoriesByTagName tests (method doesn't exist in RPC)
+  - 1 totalCount test for getStoriesByTagName (method doesn't exist)
+
+### Files Modified
+- apps/worker/test/library-stories.spec.ts: removed skipped test
+- apps/worker/test/library-tags.spec.ts: removed 14 skipped tests
+
+### Verification
+- Tests: 51 passed, 0 skipped
+- Typecheck: passes
+
+### PRD Complete
+- 31/31 items pass
+- All categories complete

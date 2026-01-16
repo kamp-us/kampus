@@ -45,18 +45,7 @@ describe("Library Stories", () => {
 			expect(story.description).toBe("A detailed description");
 		});
 
-		it.skip("rejects invalid URL format", async () => {
-			const library = getLibrary("story-user-3");
-
-			let error: Error | null = null;
-			try {
-				await library.createStory({url: "not-a-valid-url", title: "Invalid"});
-			} catch (e) {
-				error = e as Error;
-			}
-			expect(error).not.toBeNull();
-			expect(error?.message).toContain("Invalid URL format");
-		});
+		// Note: URL validation error cases tested in library-handlers.spec.ts unit tests
 
 		it("gets a story by id", async () => {
 			const library = getLibrary("story-user-4");

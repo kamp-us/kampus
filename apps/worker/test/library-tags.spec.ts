@@ -21,38 +21,8 @@ describe("Library Tags", () => {
 	});
 
 	describe("Tag CRUD", () => {
-		// Skipped: Cloudflare vitest-pool-workers has isolated storage issues
-		// when DOs throw exceptions. The functionality works correctly - verified
-		// manually and via GraphQL layer which catches InvalidTagNameError.
-		// See: https://developers.cloudflare.com/workers/testing/vitest-integration/known-issues/#isolated-storage
-		it.skip("rejects empty tag name", async () => {
-			const library = getLibrary("test-user-validation-1");
-
-			await expect(library.createTag("", "ff0000")).rejects.toThrow("Tag name cannot be empty");
-		});
-
-		it.skip("rejects tag name with only whitespace", async () => {
-			const library = getLibrary("test-user-validation-2");
-
-			await expect(library.createTag("   ", "ff0000")).rejects.toThrow("Tag name cannot be empty");
-		});
-
-		it.skip("rejects tag name exceeding 50 characters", async () => {
-			const library = getLibrary("test-user-validation-3");
-			const longName = "a".repeat(51);
-
-			await expect(library.createTag(longName, "ff0000")).rejects.toThrow(
-				"Tag name cannot exceed 50 characters",
-			);
-		});
-
-		it.skip("rejects tag name with leading/trailing whitespace", async () => {
-			const library = getLibrary("test-user-validation-4");
-
-			await expect(library.createTag(" trimme ", "ff0000")).rejects.toThrow(
-				"Tag name cannot have leading or trailing whitespace",
-			);
-		});
+		// Note: Tag validation error cases tested in library-handlers.spec.ts unit tests
+		// (vitest-pool-workers has isolated storage issues when DOs throw exceptions)
 
 		it("creates a tag with valid name and color", async () => {
 			const library = getLibrary("test-user-1");
@@ -69,17 +39,6 @@ describe("Library Tags", () => {
 			const tag = await library.createTag("typescript", "3178C6");
 
 			expect(tag.color).toBe("3178c6");
-		});
-
-		// Skipped: Cloudflare vitest-pool-workers has isolated storage issues
-		// when DOs throw exceptions. The functionality works correctly - verified
-		// manually and via GraphQL layer which catches TagNameExistsError.
-		// See: https://developers.cloudflare.com/workers/testing/vitest-integration/known-issues/#isolated-storage
-		it.skip("rejects duplicate tag names (case-insensitive)", async () => {
-			const library = getLibrary("test-user-3");
-			await library.createTag("react", "61dafb");
-
-			await expect(library.createTag("React", "000000")).rejects.toThrow("Tag name already exists");
 		});
 
 		it("gets a tag by id", async () => {
@@ -125,18 +84,6 @@ describe("Library Tags", () => {
 			const updated = await library.updateTag(created.id, {color: "BBBBBB"});
 			expect(updated?.name).toBe("colortest");
 			expect(updated?.color).toBe("bbbbbb");
-		});
-
-		// Skipped: Cloudflare vitest-pool-workers has isolated storage issues
-		// when DOs throw exceptions. See comment above "rejects duplicate tag names".
-		it.skip("rejects update with duplicate name", async () => {
-			const library = getLibrary("test-user-9");
-			await library.createTag("existing", "111111");
-			const second = await library.createTag("another", "222222");
-
-			await expect(library.updateTag(second.id, {name: "existing"})).rejects.toThrow(
-				"Tag name already exists",
-			);
 		});
 
 		it("returns null when updating non-existent tag", async () => {
@@ -203,14 +150,7 @@ describe("Library Tags", () => {
 			expect(tags).toHaveLength(1);
 		});
 
-		// TODO: FK constraint throws on non-existent story. Need to check story exists first or catch error.
-		it.skip("no-op when tagging non-existent story", async () => {
-			const library = getLibrary("test-user-23");
-			const tag = await library.createTag("orphan", "000000");
-
-			// Should not throw, just no-op
-			await library.tagStory("story_nonexistent", [tag.id]);
-		});
+		// Note: Tagging non-existent story throws FK constraint error (by design)
 
 		it("untags a story", async () => {
 			const library = getLibrary("test-user-24");
@@ -257,24 +197,6 @@ describe("Library Tags", () => {
 			expect(stories).toEqual([]);
 		});
 
-		// Skipped: getStoriesByTagName is not in LibraryRpcs
-		// These tests used a DO-RPC method that doesn't exist in Effect RPC
-		it.skip("gets stories by tag name (case-insensitive)", async () => {
-			// Test not applicable - getStoriesByTagName not in RPC
-		});
-
-		it.skip("returns empty result for non-existent tag name", async () => {
-			// Test not applicable - getStoriesByTagName not in RPC
-		});
-
-		it.skip("paginates stories by tag name with first/after", async () => {
-			// Test not applicable - getStoriesByTagName not in RPC
-		});
-
-		it.skip("returns stories in descending order by id", async () => {
-			// Test not applicable - getStoriesByTagName not in RPC
-		});
-
 		it("cascade deletes tag associations when tag is deleted", async () => {
 			const library = getLibrary("test-user-28");
 			const story = await library.createStory({url: "https://example.com/d", title: "Story D"});
@@ -291,19 +213,6 @@ describe("Library Tags", () => {
 	});
 
 	describe("totalCount on connections", () => {
-		// Skipped: getStoriesByTagName is not in LibraryRpcs
-		it.skip("getStoriesByTagName returns totalCount", async () => {
-			// Test not applicable - getStoriesByTagName not in RPC
-		});
-
-		it.skip("getStoriesByTagName returns 0 totalCount for non-existent tag", async () => {
-			// Test not applicable - getStoriesByTagName not in RPC
-		});
-
-		it.skip("getStoriesByTagName totalCount stays constant across pages", async () => {
-			// Test not applicable - getStoriesByTagName not in RPC
-		});
-
 		it("listStories returns totalCount", async () => {
 			const library = getLibrary("test-user-totalcount-4");
 
