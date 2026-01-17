@@ -522,10 +522,12 @@
       "category": "Maintainability",
       "description": "GraphQL schema is single source of API truth",
       "stepsToVerify": [
-        "Verify all frontend queries match schema types",
-        "Verify no duplicate type definitions outside schema.ts"
+        "M2: Verify all frontend queries match schema types (requires Relay migration)",
+        "M1: Backend GraphQL types defined only in schema.ts + connections.ts (factory)",
+        "M1: No duplicate Story/Tag GraphQL type definitions in worker codebase"
       ],
-      "passes": false
+      "passes": false,
+      "notes": "M2 item - requires frontend to use GraphQL. Backend portion (no duplicate types) is satisfied."
     },
     {
       "id": "NFR-4.1",

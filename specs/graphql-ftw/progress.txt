@@ -252,3 +252,30 @@ Runtime (FR-9.1):
 
 **Remaining:**
 - NFR-3.1: Schema single source of truth (M2 - frontend work)
+
+## 2026-01-17: M1 Complete (Backend Only)
+
+**Final Status:**
+- 50/51 items pass
+- NFR-3.1 deferred to M2 (requires frontend Relay migration)
+
+**NFR-3.1 Clarification:**
+- Updated verification steps to clarify M1 vs M2 scope
+- Backend portion satisfied: GraphQL types only in schema.ts + connections.ts
+- Full verification requires frontend to use GraphQL (M2 work)
+
+**M1 Deliverables:**
+- Batch RPC endpoints (getBatchStory, getBatchTag)
+- Spellcaster RPC client factory
+- Effect RequestResolver + batched loaders
+- GraphQL schema (types, queries, mutations)
+- Relay connection types + toConnection helper
+- Per-request runtime with LibraryClient layer
+- SqlError auto-catching in Spellbook
+- 82 passing tests
+
+**Ready for M2:**
+- Frontend Relay integration
+- RelayEnvironment + fetchQuery
+- Fragment-based components
+- NFR-3.1 full verification
