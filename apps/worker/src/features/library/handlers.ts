@@ -7,7 +7,7 @@ import {
 	TagNameExistsError,
 } from "@kampus/library";
 import {id} from "@usirin/forge";
-import {count, desc, eq, lt} from "drizzle-orm";
+import {and, count, desc, eq, inArray, lt} from "drizzle-orm";
 import {DateTime, Effect, Option} from "effect";
 import {DurableObjectEnv} from "../../services";
 import {makeWebPageParserClient} from "../web-page-parser/client";
@@ -183,27 +183,32 @@ export const handlers = {
 
 	listStoriesByTag: ({tagId, first, after}: {tagId: string; first?: number; after?: string}) =>
 		Effect.gen(function* () {
-			const sql = yield* SqlClient.SqlClient;
+			const db = yield* SqliteDrizzle;
 			const limit = first ?? 20;
 
 			// Count total stories with this tag
-			const countRows = yield* sql<{count: number}>`
-				SELECT COUNT(*) as count FROM story_tag WHERE tag_id = ${tagId}
-			`;
-			const totalCount = countRows[0]?.count ?? 0;
+			const [countResult] = yield* db
+				.select({total: count()})
+				.from(schema.storyTag)
+				.where(eq(schema.storyTag.tagId, tagId));
+			const totalCount = countResult?.total ?? 0;
 
-			// Get story IDs for this tag
+			// Get story IDs for this tag with pagination
+			const baseQuery = db
+				.select({storyId: schema.storyTag.storyId})
+				.from(schema.storyTag)
+				.where(eq(schema.storyTag.tagId, tagId))
+				.orderBy(desc(schema.storyTag.storyId))
+				.limit(limit + 1);
+
 			const storyIdRows = after
-				? yield* sql<{storyId: string}>`
-					SELECT story_id FROM story_tag
-					WHERE tag_id = ${tagId} AND story_id < ${after}
-					ORDER BY story_id DESC LIMIT ${limit + 1}
-				`
-				: yield* sql<{storyId: string}>`
-					SELECT story_id FROM story_tag
-					WHERE tag_id = ${tagId}
-					ORDER BY story_id DESC LIMIT ${limit + 1}
-				`;
+				? yield* db
+						.select({storyId: schema.storyTag.storyId})
+						.from(schema.storyTag)
+						.where(and(eq(schema.storyTag.tagId, tagId), lt(schema.storyTag.storyId, after)))
+						.orderBy(desc(schema.storyTag.storyId))
+						.limit(limit + 1)
+				: yield* baseQuery;
 
 			const hasNextPage = storyIdRows.length > limit;
 			const paginatedIds = storyIdRows.slice(0, limit).map((r) => r.storyId);
@@ -212,20 +217,34 @@ export const handlers = {
 				return {stories: [], hasNextPage: false, endCursor: null, totalCount};
 			}
 
-			// Fetch stories
-			const idList = paginatedIds.map((id) => `'${id}'`).join(", ");
-			const stories = yield* sql.unsafe<StoryRow>(`SELECT * FROM story WHERE id IN (${idList})`);
+			// Fetch stories using inArray
+			const stories = yield* db
+				.select()
+				.from(schema.story)
+				.where(inArray(schema.story.id, paginatedIds));
 
-			// Sort to match order
+			// Sort to match pagination order
 			const storyMap = new Map(stories.map((s) => [s.id, s]));
 			const orderedStories = paginatedIds
-				.map((id) => storyMap.get(id))
-				.filter((s): s is StoryRow => s !== undefined);
+				.map((pid) => storyMap.get(pid))
+				.filter((s): s is typeof stories[number] => s !== undefined);
 
 			const tagsByStory = yield* getTagsForStoriesSimple(paginatedIds);
 
 			return {
-				stories: orderedStories.map((s) => formatStory(s, tagsByStory.get(s.id) ?? [])),
+				stories: orderedStories.map((s) =>
+					formatStory(
+						{
+							id: s.id,
+							url: s.url,
+							title: s.title,
+							description: s.description,
+							createdAt: s.createdAt.getTime(),
+							updatedAt: s.updatedAt?.getTime() ?? null,
+						},
+						tagsByStory.get(s.id) ?? [],
+					),
+				),
 				hasNextPage,
 				endCursor: orderedStories.length > 0 ? orderedStories[orderedStories.length - 1].id : null,
 				totalCount,

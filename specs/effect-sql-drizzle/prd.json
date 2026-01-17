@@ -3,7 +3,7 @@
 	"description": "Replace @effect/sql Model.Class with @effect/sql-drizzle for single schema source",
 	"summary": {
 		"total": 45,
-		"passed": 5
+		"passed": 6
 	},
 	"items": [
 		{
@@ -122,11 +122,11 @@
 			"category": "library:handler",
 			"description": "Migrate listStoriesByTag to Drizzle",
 			"steps_to_verify": [
-				"Uses Drizzle joins for story_tag relation",
-				"Pagination works correctly",
+				"Uses db.select().from(schema.storyTag) with inArray for stories",
+				"Pagination with and(eq(), lt()) for cursor",
 				"No sql.unsafe() calls"
 			],
-			"passes": false
+			"passes": true
 		},
 		{
 			"id": "ESD-103",

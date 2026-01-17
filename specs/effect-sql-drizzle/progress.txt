@@ -63,3 +63,22 @@ Key decisions:
 - 68 tests pass
 
 Next: migrate listStoriesByTag (ESD-102)
+
+## 2026-01-16: Migrate listStoriesByTag to Drizzle (ESD-102)
+
+Files changed:
+- apps/worker/src/features/library/handlers.ts
+  - Added `and`, `inArray` imports from drizzle-orm
+  - Replaced raw sql`` for count with db.select({total: count()}).from(schema.storyTag)
+  - Replaced raw sql`` for story IDs with Drizzle query + and(eq(), lt()) for cursor
+  - Replaced sql.unsafe() for stories with db.select().from(schema.story).where(inArray())
+  - Drizzle returns Date objects, convert to timestamps for formatStory
+
+Key decisions:
+- Use inArray() for fetching stories by ID list instead of sql.unsafe()
+- Use and() to combine multiple where conditions (eq + lt for cursor pagination)
+- Keep getTagsForStoriesSimple as raw SQL - deferred to ESD-112
+
+68 tests pass
+
+Next: migrate createStory (ESD-103)
