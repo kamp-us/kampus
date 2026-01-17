@@ -288,3 +288,25 @@ Key decisions:
 68 tests pass
 
 Next: web-page-parser migration (ESD-200) or test item verification (ESD-300+)
+
+## 2026-01-16: Migrate web-page-parser handlers to Drizzle (ESD-200)
+
+Files changed:
+- apps/worker/src/features/web-page-parser/handlers.ts
+  - Replaced SqlClient.SqlClient with SqliteDrizzle
+  - Uses db.select().from(schema.fetchlog).orderBy(desc(...)).limit(1) for cache lookup
+  - Uses db.insert(schema.fetchlog).values({...}) for saving metadata
+  - Removed FetchLogRow interface (types inferred from Drizzle schema)
+  - isRecent now takes Date object instead of timestamp number
+- apps/worker/test/web-page-parser-handlers.spec.ts
+  - Replaced SqlClient mock with SqliteDrizzle mock
+  - Updated cached row objects to use createdAt: Date instead of created_at: number
+
+Key decisions:
+- Pattern consistent with library handlers: SqliteDrizzle instead of SqlClient
+- Schema already passed to Spellbook.make (done in ESD-002/003)
+- Drizzle schema uses timestamp mode for createdAt (returns Date objects)
+
+68 tests pass
+
+Next: test verification items (ESD-300+)

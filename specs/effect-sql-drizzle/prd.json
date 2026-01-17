@@ -3,7 +3,7 @@
 	"description": "Replace @effect/sql Model.Class with @effect/sql-drizzle for single schema source",
 	"summary": {
 		"total": 45,
-		"passed": 22
+		"passed": 23
 	},
 	"items": [
 		{
@@ -254,7 +254,7 @@
 				"No raw sql`` templates",
 				"Schema passed to Spellbook.make"
 			],
-			"passes": false
+			"passes": true
 		},
 		{
 			"id": "ESD-300",
