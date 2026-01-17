@@ -81,3 +81,16 @@
 - Test: parallel loadTag calls batch into single getBatchTag RPC
 - Test: sequential calls do NOT batch (expected)
 - Test: null returned for missing items, order preserved
+
+## 2026-01-16: PRD Audit
+
+**Reset all FR-1.x, FR-2.x, FR-3.x to passes: false**
+
+Reason: items were marked passing without proper test coverage.
+
+**Status:**
+- FR-1.x: needs integration tests (getBatchStory/getBatchTag handlers)
+- FR-2.x: verified by typecheck only, no runtime tests
+- FR-3.x: has test coverage in request-resolver.spec.ts
+
+**Next:** Write integration tests for FR-1.x, then mark items as passing
