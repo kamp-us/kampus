@@ -3,7 +3,7 @@
 	"description": "Replace @effect/sql Model.Class with @effect/sql-drizzle for single schema source",
 	"summary": {
 		"total": 45,
-		"passed": 11
+		"passed": 12
 	},
 	"items": [
 		{
@@ -193,7 +193,7 @@
 				"Case-insensitive uniqueness via sql.lower() or similar",
 				"Returns null when not found"
 			],
-			"passes": false
+			"passes": true
 		},
 		{
 			"id": "ESD-109",

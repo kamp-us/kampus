@@ -176,3 +176,20 @@ Key decisions:
 68 tests pass
 
 Next: migrate updateTag (ESD-108)
+## 2026-01-16: Migrate updateTag to Drizzle (ESD-108)
+
+Files changed:
+- apps/worker/src/features/library/handlers.ts
+  - Replaced SqlClient with SqliteDrizzle
+  - Uses db.select().from(schema.tag).where(eq(...)) to check existence
+  - Uses db.update(schema.tag).set({name, color}).where(eq(...)) for updates
+  - Case-insensitive uniqueness via drizzleSql`lower(...) = lower(...)` with `and()` for id exclusion
+  - Inline formatting instead of formatTag helper (prep for helper removal)
+
+Key decisions:
+- Use `and()` with two `drizzleSql` template conditions for case-insensitive duplicate check
+- Inline return object instead of formatTag (consistent with createTag pattern)
+
+68 tests pass
+
+Next: migrate deleteTag (ESD-109)

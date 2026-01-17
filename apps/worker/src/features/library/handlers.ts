@@ -512,29 +512,42 @@ export const handlers = {
 				return yield* Effect.fail(new InvalidTagColorError({color}));
 			}
 
-			const sql = yield* SqlClient.SqlClient;
+			const db = yield* SqliteDrizzle;
 
-			const existingRows = yield* sql<TagRow>`SELECT * FROM tag WHERE id = ${tagId}`;
-			const existing = existingRows[0];
+			// Check if tag exists
+			const [existing] = yield* db.select().from(schema.tag).where(eq(schema.tag.id, tagId));
 			if (!existing) return null;
 
 			// Get story count
-			const countRows = yield* sql<{
-				count: number;
-			}>`SELECT COUNT(*) as count FROM story_tag WHERE tag_id = ${tagId}`;
-			const storyCount = countRows[0]?.count ?? 0;
+			const [countResult] = yield* db
+				.select({count: count()})
+				.from(schema.storyTag)
+				.where(eq(schema.storyTag.tagId, tagId));
+			const storyCount = countResult?.count ?? 0;
 
 			// If no updates provided, return existing tag
 			if (!name && !color) {
-				return formatTag(existing, storyCount);
+				return {
+					id: existing.id,
+					name: existing.name,
+					color: existing.color,
+					createdAt: existing.createdAt.toISOString(),
+					storyCount,
+				};
 			}
 
-			// Check uniqueness if updating name
+			// Check uniqueness if updating name (case-insensitive)
 			if (name) {
-				const duplicateRows = yield* sql<TagRow>`
-					SELECT * FROM tag WHERE lower(name) = lower(${name}) AND id != ${tagId}
-				`;
-				if (duplicateRows[0]) {
+				const [duplicate] = yield* db
+					.select()
+					.from(schema.tag)
+					.where(
+						and(
+							drizzleSql`lower(${schema.tag.name}) = lower(${name})`,
+							drizzleSql`${schema.tag.id} != ${tagId}`,
+						),
+					);
+				if (duplicate) {
 					return yield* Effect.fail(new TagNameExistsError({tagName: name}));
 				}
 			}
@@ -542,10 +555,19 @@ export const handlers = {
 			const newName = name ?? existing.name;
 			const newColor = color ? color.toLowerCase() : existing.color;
 
-			yield* sql`UPDATE tag SET name = ${newName}, color = ${newColor} WHERE id = ${tagId}`;
+			yield* db
+				.update(schema.tag)
+				.set({name: newName, color: newColor})
+				.where(eq(schema.tag.id, tagId));
 
-			const updatedRows = yield* sql<TagRow>`SELECT * FROM tag WHERE id = ${tagId}`;
-			return formatTag(updatedRows[0]!, storyCount);
+			const [updated] = yield* db.select().from(schema.tag).where(eq(schema.tag.id, tagId));
+			return {
+				id: updated!.id,
+				name: updated!.name,
+				color: updated!.color,
+				createdAt: updated!.createdAt.toISOString(),
+				storyCount,
+			};
 		}).pipe(orDieSql),
 
 	deleteTag: ({id: tagId}: {id: string}) =>
