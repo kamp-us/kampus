@@ -31,3 +31,25 @@
 **Verified:**
 - `turbo run typecheck` passes
 - `pnpm --filter worker run test` passes (68 tests)
+
+## 2026-01-16: Spellcaster RPC Client Factory (FR-2.1 - FR-2.5)
+
+**Files:**
+- apps/worker/src/shared/Spellcaster.ts - NEW: generic RPC client factory for DO stubs
+- apps/worker/src/graphql/resolvers/LibraryClient.ts - NEW: LibraryClient service + layer factory
+- apps/worker/src/graphql/resolvers/index.ts - NEW: barrel export
+
+**Implementation:**
+- `Spellcaster.make({rpcs, stub})` returns `Effect<RpcClient<R>>`
+- Uses Effect RPC protocol: `RpcClient.layerProtocolHttp` + `RpcSerialization.layerJson`
+- Custom fetch wraps DO stub.fetch() for DO-to-DO communication
+- `LibraryClient` Context.Tag provides typed RPC client in Effect programs
+- `LibraryClient.layer(env, userId)` static method creates per-request layer routing to user's DO
+
+**Design Decisions:**
+- Used `Fetchable` interface instead of importing `@cloudflare/workers-types` (not in deps)
+- Used `RpcClient.FromGroup<typeof LibraryRpcs>` for correct type extraction from RpcGroup
+
+**Verified:**
+- `turbo run typecheck --filter=worker` passes
+- `pnpm --filter worker run test` passes (68 tests)

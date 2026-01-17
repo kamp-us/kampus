@@ -49,7 +49,7 @@
         "Verify returned client has all RPC methods typed correctly",
         "Verify TypeScript shows correct parameter and return types"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FR-2.2",
@@ -61,7 +61,7 @@
         "Verify return type is Effect.Effect<Story | null, ...>",
         "Verify must use yield* or Effect.runPromise to execute"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FR-2.3",
@@ -73,7 +73,7 @@
         "Verify uses RpcSerialization.layerJson",
         "Verify requests go to DO stub.fetch()"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FR-2.4",
@@ -84,18 +84,18 @@
         "Verify LibraryClient extends Context.Tag",
         "Verify can yield* LibraryClient in Effect.gen"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FR-2.5",
       "category": "Spellcaster RPC Client Factory",
-      "description": "makeLibraryClientLayer(env, userId) creates per-request layer",
+      "description": "LibraryClient.layer(env, userId) creates per-request layer",
       "stepsToVerify": [
-        "Call makeLibraryClientLayer(env, 'user_123')",
+        "Call LibraryClient.layer(env, 'user_123')",
         "Verify returns Layer that provides LibraryClient",
         "Verify layer routes to correct user's DO"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FR-3.1",
@@ -407,7 +407,7 @@
       "description": "Per-request runtime includes LibraryClient layer",
       "stepsToVerify": [
         "Inspect GraphQLRuntime.make in runtime.ts",
-        "Verify makeLibraryClientLayer is included",
+        "Verify LibraryClient.layer is included",
         "Verify layer is created with session userId"
       ],
       "passes": false
