@@ -160,3 +160,19 @@ Key decisions:
 68 tests pass
 
 Next: migrate createTag (ESD-107)
+## 2026-01-16: Migrate createTag to Drizzle (ESD-107)
+
+Files changed:
+- apps/worker/src/features/library/handlers.ts
+  - Replaced SqlClient + TagRepo with SqliteDrizzle
+  - Uses db.insert(schema.tag).values(...).returning()
+  - Case-insensitive uniqueness via drizzleSql`lower(${schema.tag.name}) = lower(${name})`
+  - Inline formatting instead of formatTagFromModel
+
+Key decisions:
+- Use Drizzle's sql template for case-insensitive comparison
+- Inline return object instead of formatTagFromModel (prep for helper removal)
+
+68 tests pass
+
+Next: migrate updateTag (ESD-108)

@@ -3,7 +3,7 @@
 	"description": "Replace @effect/sql Model.Class with @effect/sql-drizzle for single schema source",
 	"summary": {
 		"total": 45,
-		"passed": 10
+		"passed": 11
 	},
 	"items": [
 		{
@@ -182,7 +182,7 @@
 				"Uniqueness check via db.select().where()",
 				"No TagRepo usage"
 			],
-			"passes": false
+			"passes": true
 		},
 		{
 			"id": "ESD-108",

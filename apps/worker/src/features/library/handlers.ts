@@ -464,27 +464,37 @@ export const handlers = {
 				return yield* Effect.fail(new InvalidTagColorError({color}));
 			}
 
-			const sql = yield* SqlClient.SqlClient;
-			const tagRepo = yield* TagRepo;
+			const db = yield* SqliteDrizzle;
 
-			// Check uniqueness (case-insensitive) - keep raw SQL for case-insensitive query
-			const existingRows = yield* sql<TagRow>`SELECT * FROM tag WHERE lower(name) = lower(${name})`;
-			if (existingRows[0]) {
+			// Check uniqueness (case-insensitive)
+			const [existing] = yield* db
+				.select()
+				.from(schema.tag)
+				.where(drizzleSql`lower(${schema.tag.name}) = lower(${name})`);
+
+			if (existing) {
 				return yield* Effect.fail(new TagNameExistsError({tagName: name}));
 			}
 
 			const tagId = id("tag");
 			const lowerColor = color.toLowerCase();
 
-			const tag = yield* tagRepo.insert(
-				Tag.insert.make({
+			const [tag] = yield* db
+				.insert(schema.tag)
+				.values({
 					id: tagId,
 					name,
 					color: lowerColor,
-				}),
-			);
+				})
+				.returning();
 
-			return formatTagFromModel(tag, 0);
+			return {
+				id: tag.id,
+				name: tag.name,
+				color: tag.color,
+				createdAt: tag.createdAt.toISOString(),
+				storyCount: 0,
+			};
 		}).pipe(orDieSql),
 
 	updateTag: ({id: tagId, name, color}: {id: string; name?: string; color?: string}) =>
