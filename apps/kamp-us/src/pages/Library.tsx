@@ -814,9 +814,11 @@ function AllStoriesListRelay({
 			{hasStories ? (
 				<>
 					<div className={styles.storyList}>
-						{stories.map(({node}) => (
-							<StoryRow key={node.id} story={node} availableTags={availableTags} />
-						))}
+						{stories
+							.filter(({node}) => node != null)
+							.map(({node}) => (
+								<StoryRow key={node.id} story={node} availableTags={availableTags} />
+							))}
 					</div>
 					{hasNext && <LoadMoreButton onClick={handleLoadMore} isLoading={isLoadingNext} />}
 				</>
@@ -868,9 +870,11 @@ function FilteredStoriesListRelay({
 			{hasStories ? (
 				<>
 					<div className={styles.storyList}>
-						{stories.map(({node}) => (
-							<StoryRow key={node.id} story={node} availableTags={availableTags} />
-						))}
+						{stories
+							.filter(({node}) => node != null)
+							.map(({node}) => (
+								<StoryRow key={node.id} story={node} availableTags={availableTags} />
+							))}
 					</div>
 					{hasNext && <LoadMoreButton onClick={handleLoadMore} isLoading={isLoadingNext} />}
 				</>
