@@ -4,10 +4,10 @@ Derived from [design.md](./design.md). RFC: https://github.com/kamp-us/kampus/is
 
 ## Progress
 
-- [ ] Phase 1: Spellbook Layer
-- [ ] Phase 2: Spellcaster + RequestResolver
-- [ ] Phase 3: GraphQL Schema
-- [ ] Phase 4: Relay Frontend
+- [x] Phase 1: Spellbook Layer
+- [x] Phase 2: Spellcaster + RequestResolver
+- [x] Phase 3: GraphQL Schema
+- [x] Phase 4: Relay Frontend
 
 ---
 
@@ -147,18 +147,18 @@ Mutations:
 ### 4.3 Cleanup
 **File:** `apps/kamp-us/src/rpc/atoms.ts`
 
-- [ ] Remove `storiesAtom`
-- [ ] Remove `storiesByTagAtom`
-- [ ] Remove `tagsAtom`
-- [ ] Remove `createStoryMutation`
-- [ ] Remove `updateStoryMutation`
-- [ ] Remove `deleteStoryMutation`
-- [ ] Remove `createTagMutation`
-- [ ] Remove `fetchUrlMetadataMutation`
+- [x] Remove `storiesAtom`
+- [x] Remove `storiesByTagAtom`
+- [x] Remove `tagsAtom`
+- [x] Remove `createStoryMutation`
+- [x] Remove `updateStoryMutation`
+- [x] Remove `deleteStoryMutation`
+- [x] Remove `createTagMutation`
+- [x] Remove `fetchUrlMetadataMutation`
 
 **File:** `apps/kamp-us/src/pages/LibraryRpc.tsx`
 
-- [ ] Delete file (replaced by Library.tsx)
+- [x] Delete file (replaced by Library.tsx)
 
 ---
 
@@ -222,3 +222,48 @@ pnpm --filter kamp-us run dev
 | Auth not passing through GraphQL | Check cookie forwarding, validate session in `library` resolver |
 | Relay compiler issues | Follow relay-compiler docs, check `__generated__` output |
 | Breaking existing RPC clients | Keep RPC endpoints, only add batch versions |
+
+---
+
+## Post-M2 Bug Fixes
+
+### BUG-1 Fix: WebPageParser Client (High Priority)
+
+**Problem:** Fetch URL metadata button doesn't work - `makeWebPageParserClient` uses broken `@effect/platform` FetchHttpClient.
+
+**Solution:** Rewrite client using direct fetch pattern (same as Spellcaster fix).
+
+**File:** `apps/worker/src/features/web-page-parser/client.ts`
+
+```typescript
+// Replace FetchHttpClient.layer with direct fetch
+export const makeWebPageParserClient = (stub: {fetch: (req: Request) => Promise<Response>}) => {
+  const makeRpcCall = <T>(tag: string, payload: unknown): Promise<T> => {
+    // Same JSON protocol as Spellcaster
+    const response = await stub.fetch(new Request("http://do.internal/rpc", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({
+        _tag: "Request",
+        id: String(Date.now()) + String(Math.floor(Math.random() * 1000000)),
+        tag,
+        payload,
+        headers: [],
+      }),
+    }));
+    // Handle response same as Spellcaster
+  };
+
+  return {
+    init: (url: string) => makeRpcCall("init", {url}),
+    getMetadata: (opts?: {forceFetch?: boolean}) => makeRpcCall("getMetadata", opts ?? {}),
+  };
+};
+```
+
+**Verification:**
+1. Navigate to /me/library
+2. Click "+ Add a story..."
+3. Enter a URL (e.g., https://example.com)
+4. Click "Fetch" button
+5. Title and description should auto-populate

@@ -90,3 +90,81 @@ Derived from [instructions.md](./instructions.md).
 | FR-8 | US-4 (faster loads) | Nested field batching |
 | NFR-2.2 | - | SqlError auto-caught |
 | NFR-3.3 | US-2 (no reactivityKeys) | Relay normalized cache |
+
+---
+
+## Known Issues (Post-M2)
+
+### BUG-1: Fetch URL Metadata Broken
+**Severity:** High
+**Status:** Open
+
+The "Fetch" button in CreateStoryForm does not work. The GraphQL `fetchUrlMetadata` query fails silently.
+
+**Root Cause:**
+`makeWebPageParserClient` in `apps/worker/src/features/web-page-parser/client.ts` uses `@effect/platform`'s `FetchHttpClient.layer` which doesn't work in Cloudflare Workers runtime (same issue we fixed for Spellcaster).
+
+**Fix Required:**
+Rewrite `makeWebPageParserClient` to use direct fetch like Spellcaster does:
+- Remove `FetchHttpClient.layer` dependency
+- Use `Effect.promise(() => stub.fetch(...))` pattern
+- Follow the same JSON protocol as Spellcaster
+
+**Files:**
+- `apps/worker/src/features/web-page-parser/client.ts` - rewrite client
+- `apps/worker/src/graphql/schema.ts` - fetchUrlMetadata resolver may need updates
+
+**Comparison (LibraryRpc.tsx):**
+- Old implementation used `fetchUrlMetadataMutation` from effect-atom which worked via RPC
+- New implementation calls GraphQL which calls broken WebPageParser client
+
+### BUG-2: createStory null/undefined Mismatch
+**Severity:** Medium
+**Status:** Partially Fixed (delete/update fixed, create may still have issues)
+
+GraphQL passes `null` for optional fields, but Effect Schema expects `undefined`.
+
+**Root Cause:**
+The `createStory` resolver passes `args.description ?? undefined` but if there are any code paths where null sneaks through, the RPC will fail with schema validation error.
+
+**Evidence from logs:**
+```
+Expected string, actual null
+Expected undefined, actual null
+```
+
+**Files:**
+- `apps/worker/src/graphql/schema.ts` - createStory resolver
+
+### MISSING-1: "Refreshing..." Indicator
+**Severity:** Low
+**Status:** Not implemented
+
+LibraryRpc.tsx showed a "Refreshing..." indicator during background refetches:
+```tsx
+{waiting && <div className={styles.refreshing}>Refreshing...</div>}
+```
+
+The Relay implementation doesn't have this - Relay handles background updates differently.
+
+**Decision needed:** Is this UX worth adding back?
+
+### PARITY-1: Feature Parity Checklist
+
+| Feature | LibraryRpc.tsx | Library.tsx (Relay) | Status |
+|---------|---------------|---------------------|--------|
+| Tag filter via URL | ✅ tagFilterAtom | ✅ tagFilterAtom | ✅ |
+| Create story form | ✅ | ✅ | ✅ |
+| Fetch URL metadata | ✅ fetchUrlMetadataMutation | ❌ GraphQL broken | **BUG-1** |
+| Create tag inline | ✅ reactivityKeys | ✅ Relay mutation | ✅ |
+| Tag input on create | ✅ | ✅ | ✅ |
+| Tag input on edit | ✅ | ✅ | ✅ |
+| Edit story | ✅ | ✅ | ✅ |
+| Delete story | ✅ | ✅ | ✅ |
+| Delete confirmation | ✅ | ✅ | ✅ |
+| Tag filter bar | ✅ | ✅ | ✅ |
+| Empty state | ✅ | ✅ | ✅ |
+| Load More pagination | ⚠️ stub | ✅ usePaginationFragment | ✅ |
+| Refreshing indicator | ✅ | ❌ | MISSING-1 |
+| Optimistic updates | ❌ | ✅ | ✅ Improved |
+| Normalized cache | ❌ | ✅ | ✅ Improved |

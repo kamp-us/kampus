@@ -115,7 +115,8 @@
         "Navigate away and back",
         "Verify cached data shown, no redundant fetch"
       ],
-      "passes": false
+      "passes": true,
+      "notes": "Relay store provides normalized caching"
     },
     {
       "id": "NFR-3.2",
@@ -160,7 +161,7 @@
         "Verify storiesAtom is removed",
         "Verify no imports of storiesAtom elsewhere"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "CLEANUP-2",
@@ -171,7 +172,7 @@
         "Verify storiesByTagAtom is removed",
         "Verify no imports of storiesByTagAtom elsewhere"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "CLEANUP-3",
@@ -182,7 +183,8 @@
         "Verify tagsAtom is removed",
         "Verify no imports of tagsAtom elsewhere"
       ],
-      "passes": false
+      "passes": false,
+      "notes": "tagsAtom kept - still used by TagManagement.tsx"
     },
     {
       "id": "CLEANUP-4",
@@ -196,7 +198,7 @@
         "Verify fetchUrlMetadataMutation removed (replaced by library.webPage query)",
         "Verify non-library atoms untouched"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "CLEANUP-5",
@@ -207,7 +209,7 @@
         "Verify route updated to use new Library.tsx",
         "Verify no broken imports"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "ERR-4",
@@ -218,7 +220,8 @@
         "Verify error is available in useMutation onError",
         "Verify UI can display error message"
       ],
-      "passes": false
+      "passes": true,
+      "notes": "Errors handled via mutation onCompleted checking error field"
     },
     {
       "id": "TEST-3",
@@ -229,7 +232,7 @@
         "Navigate to /me/library",
         "Verify stories load and display correctly"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "TEST-4",
@@ -240,7 +243,7 @@
         "Verify story appears immediately (optimistic)",
         "Verify story persists after refresh"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "TEST-5",
@@ -251,7 +254,7 @@
         "Verify story removed immediately from UI",
         "Verify story gone after refresh"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "TEST-6",
@@ -262,7 +265,8 @@
         "Verify initial load shows first page",
         "Click Load More, verify more stories appended"
       ],
-      "passes": false
+      "passes": false,
+      "notes": "Not tested - requires >10 stories"
     },
     {
       "id": "TEST-7",
@@ -274,7 +278,22 @@
         "Open in new tab, verify filter applied",
         "Clear filter, verify all stories shown"
       ],
-      "passes": false
+      "passes": true
+    },
+    {
+      "id": "BUG-1",
+      "category": "Bug",
+      "description": "Fetch URL metadata button broken - makeWebPageParserClient uses @effect/platform FetchHttpClient which fails in Workers",
+      "stepsToVerify": [
+        "Navigate to /me/library",
+        "Click + Add a story...",
+        "Enter URL and click Fetch",
+        "Observe error or no response"
+      ],
+      "passes": false,
+      "severity": "high",
+      "rootCause": "makeWebPageParserClient in apps/worker/src/features/web-page-parser/client.ts uses FetchHttpClient.layer from @effect/platform which doesn't work in Cloudflare Workers runtime",
+      "fix": "Rewrite makeWebPageParserClient to use direct fetch pattern like Spellcaster - use Effect.promise(() => stub.fetch(...)) with JSON RPC protocol"
     }
   ]
 }
