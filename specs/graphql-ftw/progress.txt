@@ -94,3 +94,29 @@ Reason: items were marked passing without proper test coverage.
 - FR-3.x: has test coverage in request-resolver.spec.ts
 
 **Next:** Write integration tests for FR-1.x, then mark items as passing
+
+## 2026-01-17: FR-1.x, FR-2.x, FR-3.x Complete
+
+**Files:**
+- apps/worker/test/rpc-test-client.ts - added getBatchStory/getBatchTag methods
+- apps/worker/test/library-stories.spec.ts - added "Batch Story Operations (FR-1.1)" tests
+- apps/worker/test/library-tags.spec.ts - added "Batch Tag Operations (FR-1.2, FR-1.3)" tests
+
+**Tests Added:**
+- getBatchStory returns stories in input order
+- getBatchStory returns null for missing stories at correct index
+- getBatchStory returns stories with their tags
+- getBatchStory with empty array returns empty array
+- getBatchTag returns tags in input order
+- getBatchTag returns null for missing tags at correct index
+- getBatchTag includes storyCount for each tag
+- getBatchTag with empty array returns empty array
+
+**Verified:**
+- `turbo run typecheck --filter=worker` passes
+- `pnpm --filter worker run test` passes (82 tests)
+
+**PRD Status:**
+- FR-1.1, FR-1.2, FR-1.3: passes=true (integration tests)
+- FR-2.1 - FR-2.5: passes=true (typecheck + code inspection)
+- FR-3.1 - FR-3.7: passes=true (request-resolver.spec.ts)

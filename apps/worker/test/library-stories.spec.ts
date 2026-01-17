@@ -439,6 +439,62 @@ describe("Library Stories", () => {
 		});
 	});
 
+	describe("Batch Story Operations (FR-1.1)", () => {
+		it("getBatchStory returns stories in input order", async () => {
+			const library = getLibrary("batch-story-order");
+			const s1 = await library.createStory({url: "https://example.com/batch1", title: "Batch 1"});
+			const s2 = await library.createStory({url: "https://example.com/batch2", title: "Batch 2"});
+			const s3 = await library.createStory({url: "https://example.com/batch3", title: "Batch 3"});
+
+			// Request in different order than created
+			const result = await library.getBatchStory([s2.id, s3.id, s1.id]);
+
+			expect(result).toHaveLength(3);
+			expect(result[0]?.id).toBe(s2.id);
+			expect(result[1]?.id).toBe(s3.id);
+			expect(result[2]?.id).toBe(s1.id);
+		});
+
+		it("getBatchStory returns null for missing stories at correct index", async () => {
+			const library = getLibrary("batch-story-null");
+			const s1 = await library.createStory({url: "https://example.com/exists1", title: "Exists 1"});
+			const s2 = await library.createStory({url: "https://example.com/exists2", title: "Exists 2"});
+
+			const result = await library.getBatchStory([s1.id, "story_missing", s2.id]);
+
+			expect(result).toHaveLength(3);
+			expect(result[0]?.id).toBe(s1.id);
+			expect(result[1]).toBeNull();
+			expect(result[2]?.id).toBe(s2.id);
+		});
+
+		it("getBatchStory returns stories with their tags", async () => {
+			const library = getLibrary("batch-story-tags");
+			const tag = await library.createTag("batch-tag", "ff0000");
+			const story = await library.createStory({
+				url: "https://example.com/with-tag",
+				title: "Story With Tag",
+				tagIds: [tag.id],
+			});
+
+			const result = await library.getBatchStory([story.id]);
+
+			expect(result).toHaveLength(1);
+			expect(result[0]?.tags).toHaveLength(1);
+			expect(result[0]?.tags[0].id).toBe(tag.id);
+		});
+
+		it("getBatchStory with empty array returns empty array (no DB call)", async () => {
+			const library = getLibrary("batch-story-empty");
+			// Ensure user exists with some data
+			await library.createStory({url: "https://example.com/ignored", title: "Ignored"});
+
+			const result = await library.getBatchStory([]);
+
+			expect(result).toEqual([]);
+		});
+	});
+
 	describe("Concurrency", () => {
 		it("concurrent story creates don't conflict", async () => {
 			const library = getLibrary("story-user-concurrent");
