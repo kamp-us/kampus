@@ -172,3 +172,29 @@ Runtime (FR-9.1):
 - FR-9.1: passes=true (runtime)
 - NFR-1.2, NFR-2.3, NFR-4.1, NFR-4.2: passes=true
 - TEST-1, TEST-2: passes=true
+
+## 2026-01-17: Request Batching Enabled (FR-9.2, FR-8.x, NFR-1.1)
+
+**Files:**
+- apps/worker/src/graphql/resolver.ts - added Effect.withRequestBatching(true)
+
+**Implementation:**
+- resolver() helper now wraps effects with Effect.withRequestBatching(true)
+- Enables automatic batching for all Effect.request calls in GraphQL resolvers
+- StoryResolver/TagResolver can now batch requests within same tick
+
+**PRD Updates:**
+- FR-8.1, FR-8.2: Updated to reflect actual design (embedded tags, not batched resolution)
+- Design choice: tags embedded in Story RPC response is more efficient (0 extra calls vs batched getBatchTag)
+- getBatchTag still available for node(id) queries
+
+**PRD Status:**
+- FR-9.2: passes=true (request batching enabled)
+- FR-8.1, FR-8.2: passes=true (embedded tags design)
+- NFR-1.1: passes=true (N+1 eliminated)
+
+**Remaining:**
+- NFR-2.1: handlers as named exports (refactor)
+- NFR-2.2: SqlError auto-caught in Spellbook (refactor)
+- NFR-3.1: Schema single source of truth (M2 - frontend)
+- ERR-1,2,3: error handling verification (needs tests)

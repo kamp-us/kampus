@@ -9,11 +9,15 @@ export interface EffectContext<R> {
 
 /**
  * Wraps an Effect generator function as a GraphQL resolver.
+ *
+ * Enables request batching so that multiple Effect.request calls in the same
+ * tick are automatically batched via RequestResolvers (e.g., StoryResolver, TagResolver).
  */
 export function resolver<TSource, TArgs, A>(
 	body: (source: TSource, args: TArgs) => Generator<any, A, any>,
 ): (source: TSource, args: TArgs, context: EffectContext<any>) => Promise<A> {
 	return (source, args, context) => {
-		return context.runtime.runPromise(Effect.gen(() => body(source, args)));
+		const effect = Effect.gen(() => body(source, args)).pipe(Effect.withRequestBatching(true));
+		return context.runtime.runPromise(effect);
 	};
 }
