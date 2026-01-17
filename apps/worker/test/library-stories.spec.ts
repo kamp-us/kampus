@@ -225,14 +225,13 @@ describe("Library Stories", () => {
 			// New story has no updatedAt
 			expect(story.updatedAt).toBeNull();
 
-			// Wait a bit then update
-			await new Promise((r) => setTimeout(r, 10));
 			const updated = await library.updateStory(story.id, {title: "Updated"});
 
 			expect(updated?.updatedAt).not.toBeNull();
 			const createdTime = new Date(story.createdAt).getTime();
 			const updatedTime = new Date(updated!.updatedAt!).getTime();
-			expect(updatedTime).toBeGreaterThan(createdTime);
+			// Use >= because timestamps have second precision (same-second updates are valid)
+			expect(updatedTime).toBeGreaterThanOrEqual(createdTime);
 		});
 
 		it("deletes a story", async () => {

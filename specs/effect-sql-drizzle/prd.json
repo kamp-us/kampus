@@ -3,7 +3,7 @@
 	"description": "Replace @effect/sql Model.Class with @effect/sql-drizzle for single schema source",
 	"summary": {
 		"total": 45,
-		"passed": 7
+		"passed": 8
 	},
 	"items": [
 		{
@@ -146,10 +146,10 @@
 			"description": "Migrate updateStory to Drizzle",
 			"steps_to_verify": [
 				"Uses db.update(schema.story).set(...).where(...)",
-				"Tag updates via db.delete + db.insert",
+				"Tag updates via db.delete + db.insert with inArray()",
 				"No raw sql`` for updates"
 			],
-			"passes": false
+			"passes": true
 		},
 		{
 			"id": "ESD-105",

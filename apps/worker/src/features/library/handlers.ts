@@ -328,11 +328,10 @@ export const handlers = {
 		tagIds?: readonly string[];
 	}) =>
 		Effect.gen(function* () {
-			const sql = yield* SqlClient.SqlClient;
+			const db = yield* SqliteDrizzle;
 
 			// Check if story exists
-			const existingRows = yield* sql<StoryRow>`SELECT * FROM story WHERE id = ${storyId}`;
-			const existing = existingRows[0];
+			const [existing] = yield* db.select().from(schema.story).where(eq(schema.story.id, storyId));
 			if (!existing) return null;
 
 			// Update fields if provided
@@ -341,46 +340,65 @@ export const handlers = {
 			if (hasFieldUpdate || hasTagUpdate) {
 				const newTitle = title ?? existing.title;
 				const newDesc = description === undefined ? existing.description : description;
-				const now = Date.now();
-				yield* sql`UPDATE story SET title = ${newTitle}, description = ${newDesc}, updated_at = ${now} WHERE id = ${storyId}`;
+				yield* db
+					.update(schema.story)
+					.set({title: newTitle, description: newDesc, updatedAt: new Date()})
+					.where(eq(schema.story.id, storyId));
 			}
 
 			// Update tags if provided
 			if (tagIds !== undefined) {
 				// Get current tags
-				const currentTagRows = yield* sql<{tagId: string}>`
-					SELECT tag_id FROM story_tag WHERE story_id = ${storyId}
-				`;
+				const currentTagRows = yield* db
+					.select({tagId: schema.storyTag.tagId})
+					.from(schema.storyTag)
+					.where(eq(schema.storyTag.storyId, storyId));
 				const currentIds = new Set(currentTagRows.map((t) => t.tagId));
 				const newIds = new Set(tagIds);
 
 				// Remove old tags
 				const toRemove = [...currentIds].filter((tid) => !newIds.has(tid));
-				for (const tagId of toRemove) {
-					yield* sql`DELETE FROM story_tag WHERE story_id = ${storyId} AND tag_id = ${tagId}`;
+				if (toRemove.length > 0) {
+					yield* db
+						.delete(schema.storyTag)
+						.where(
+							and(eq(schema.storyTag.storyId, storyId), inArray(schema.storyTag.tagId, toRemove)),
+						);
 				}
 
 				// Add new tags
 				const toAdd = [...newIds].filter((tid) => !currentIds.has(tid));
 				if (toAdd.length > 0) {
-					const idList = toAdd.map((id) => `'${id}'`).join(", ");
-					const existingTags = yield* sql.unsafe<{id: string}>(
-						`SELECT id FROM tag WHERE id IN (${idList})`,
-					);
+					const existingTags = yield* db
+						.select({id: schema.tag.id})
+						.from(schema.tag)
+						.where(inArray(schema.tag.id, toAdd));
 					const validTagIds = toAdd.filter((tid) => existingTags.some((t) => t.id === tid));
 
-					for (const tagId of validTagIds) {
-						yield* sql`INSERT OR IGNORE INTO story_tag (story_id, tag_id) VALUES (${storyId}, ${tagId})`;
+					if (validTagIds.length > 0) {
+						yield* db
+							.insert(schema.storyTag)
+							.values(validTagIds.map((tagId) => ({storyId, tagId})))
+							.onConflictDoNothing();
 					}
 				}
 			}
 
 			// Fetch updated story
-			const updatedRows = yield* sql<StoryRow>`SELECT * FROM story WHERE id = ${storyId}`;
-			const updated = updatedRows[0]!;
+			const [updated] = yield* db.select().from(schema.story).where(eq(schema.story.id, storyId));
 			const tagsByStory = yield* getTagsForStoriesSimple([storyId]);
 
-			return formatStory(updated, tagsByStory.get(storyId) ?? []);
+			return formatStory(
+				{
+					id: updated!.id,
+					url: updated!.url,
+					title: updated!.title,
+					description: updated!.description,
+					createdAt: updated!.createdAt.getTime(),
+					updatedAt: updated!.updatedAt?.getTime() ?? null,
+				},
+				tagsByStory.get(storyId) ?? [],
+			);
 		}).pipe(Effect.orDie),
 
 	deleteStory: ({id: storyId}: {id: string}) =>

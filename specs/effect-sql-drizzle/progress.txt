@@ -104,3 +104,25 @@ Key decisions:
 68 tests pass
 
 Next: migrate updateStory (ESD-104)
+
+## 2026-01-16: Migrate updateStory to Drizzle (ESD-104)
+
+Files changed:
+- apps/worker/src/features/library/handlers.ts
+  - Replaced SqlClient queries with SqliteDrizzle
+  - Uses db.select().from(schema.story).where(eq(...)) to check existence
+  - Uses db.update(schema.story).set({...}).where(...) for updates
+  - Tag removals via db.delete(schema.storyTag).where(and(eq(), inArray()))
+  - Tag additions via db.insert(schema.storyTag).values(...).onConflictDoNothing()
+  - Tag validation via db.select().from(schema.tag).where(inArray(...))
+- apps/worker/test/library-stories.spec.ts
+  - Changed updatedAt assertion from toBeGreaterThan to toBeGreaterThanOrEqual
+  - Reason: Drizzle timestamps have second precision, same-second updates valid
+
+Key decisions:
+- Use inArray() for bulk delete instead of looping individual deletes
+- Timestamp precision: Drizzle stores seconds, test adjusted accordingly
+
+68 tests pass
+
+Next: migrate deleteStory (ESD-105)
