@@ -330,6 +330,53 @@ export const handlers = {
 			return {deleted: true};
 		}).pipe(Effect.orDie),
 
+	getBatchTag: ({ids}: {ids: readonly string[]}) =>
+		Effect.gen(function* () {
+			if (ids.length === 0) return [];
+
+			const db = yield* SqliteDrizzle;
+
+			// Subquery for story count
+			const storyCountSubquery = db
+				.select({
+					tagId: schema.storyTag.tagId,
+					count: count().as("count"),
+				})
+				.from(schema.storyTag)
+				.groupBy(schema.storyTag.tagId)
+				.as("story_counts");
+
+			// Fetch tags with story counts
+			const tags = yield* db
+				.select({
+					id: schema.tag.id,
+					name: schema.tag.name,
+					color: schema.tag.color,
+					createdAt: schema.tag.createdAt,
+					storyCount: drizzleSql<number>`COALESCE(${storyCountSubquery.count}, 0)`,
+				})
+				.from(schema.tag)
+				.leftJoin(storyCountSubquery, eq(schema.tag.id, storyCountSubquery.tagId))
+				.where(inArray(schema.tag.id, [...ids]));
+
+			// Build map for O(1) lookup
+			const tagMap = new Map(
+				tags.map((t) => [
+					t.id,
+					{
+						id: t.id,
+						name: t.name,
+						color: t.color,
+						createdAt: t.createdAt.toISOString(),
+						storyCount: t.storyCount,
+					},
+				]),
+			);
+
+			// Return array preserving input order, null for missing tags
+			return ids.map((tagId) => tagMap.get(tagId) ?? null);
+		}).pipe(Effect.orDie),
+
 	listTags: () =>
 		Effect.gen(function* () {
 			const db = yield* SqliteDrizzle;

@@ -26,7 +26,7 @@
         "Verify order matches input order",
         "Verify missing tags return null at correct index"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FR-1.3",
@@ -37,7 +37,7 @@
         "Verify response is []",
         "Verify no SQL query was executed (check logs or mock)"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FR-2.1",

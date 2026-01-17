@@ -56,6 +56,11 @@ export const LibraryRpcs = RpcGroup.make(
 	}),
 
 	// Tag operations
+	Rpc.make("getBatchTag", {
+		payload: {ids: Schema.Array(Schema.String)},
+		success: Schema.Array(Schema.NullOr(Tag)),
+	}),
+
 	Rpc.make("listTags", {
 		payload: Schema.Void,
 		success: Schema.Array(Tag),

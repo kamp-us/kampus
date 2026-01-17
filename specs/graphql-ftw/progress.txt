@@ -15,3 +15,19 @@
 **Verified:**
 - `pnpm --filter worker run typecheck` passes
 - `pnpm --filter worker run test` passes (68 tests)
+
+## 2026-01-16: getBatchTag RPC (FR-1.2, FR-1.3)
+
+**Files:**
+- packages/library/src/rpc.ts - added getBatchTag RPC definition
+- apps/worker/src/features/library/handlers.ts - added getBatchTag handler
+
+**Implementation:**
+- RPC: `getBatchTag({ids: string[]})` returns `(Tag | null)[]`
+- Handler uses `inArray` query with story count subquery
+- Returns nulls for missing tags, preserves input order
+- Early return for empty array (no DB call) - verifies FR-1.3
+
+**Verified:**
+- `turbo run typecheck` passes
+- `pnpm --filter worker run test` passes (68 tests)
