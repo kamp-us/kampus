@@ -288,12 +288,12 @@
         "Navigate to /me/library",
         "Click + Add a story...",
         "Enter URL and click Fetch",
-        "Observe error or no response"
+        "Verify title and description are populated from URL"
       ],
-      "passes": false,
+      "passes": true,
       "severity": "high",
       "rootCause": "makeWebPageParserClient in apps/worker/src/features/web-page-parser/client.ts uses FetchHttpClient.layer from @effect/platform which doesn't work in Cloudflare Workers runtime",
-      "fix": "Rewrite makeWebPageParserClient to use direct fetch pattern like Spellcaster - use Effect.promise(() => stub.fetch(...)) with JSON RPC protocol"
+      "fix": "Deleted makeWebPageParserClient, now uses Spellcaster.make directly for consistent DO-to-DO RPC pattern"
     }
   ]
 }

@@ -1,3 +1,4 @@
+import {WebPageParserRpcs} from "@kampus/web-page-parser";
 import {Effect} from "effect";
 import {
 	GraphQLBoolean,
@@ -15,8 +16,8 @@ import {
 	printSchema,
 } from "graphql";
 import {getNormalizedUrl} from "../features/library/getNormalizedUrl";
-import {makeWebPageParserClient} from "../features/web-page-parser/client";
 import {Auth, CloudflareEnv, RequestContext} from "../services";
+import * as Spellcaster from "../shared/Spellcaster";
 import {createConnectionTypes, toConnection} from "./connections";
 import {resolver} from "./resolver";
 import {LibraryClient} from "./resolvers/LibraryClient";
@@ -212,20 +213,16 @@ const LibraryType: GraphQLObjectType = new GraphQLObjectType({
 					const parserId = env.WEB_PAGE_PARSER.idFromName(normalizedUrl);
 					const stub = env.WEB_PAGE_PARSER.get(parserId);
 
-					const client = makeWebPageParserClient((req) => stub.fetch(req));
-					try {
-						yield* Effect.promise(() => client.init(args.url));
-						const metadata = yield* Effect.promise(() => client.getMetadata());
+					const client = yield* Spellcaster.make({rpcs: WebPageParserRpcs, stub});
+					yield* client.init({url: args.url});
+					const metadata = yield* client.getMetadata({});
 
-						return {
-							url: args.url,
-							title: metadata.title || null,
-							description: metadata.description || null,
-							error: null,
-						};
-					} finally {
-						yield* Effect.promise(() => client.dispose());
-					}
+					return {
+						url: args.url,
+						title: metadata.title || null,
+						description: metadata.description || null,
+						error: null,
+					};
 				} catch (err) {
 					const message = err instanceof Error ? err.message : "Failed to fetch metadata";
 					return {url: args.url, title: null, description: null, error: message};
@@ -412,20 +409,15 @@ const QueryType = new GraphQLObjectType({
 					const parserId = env.WEB_PAGE_PARSER.idFromName(normalizedUrl);
 					const stub = env.WEB_PAGE_PARSER.get(parserId);
 
-					// Use Effect RPC client to call WebPageParser
-					const client = makeWebPageParserClient((req) => stub.fetch(req));
-					try {
-						yield* Effect.promise(() => client.init(args.url));
-						const metadata = yield* Effect.promise(() => client.getMetadata());
+					const client = yield* Spellcaster.make({rpcs: WebPageParserRpcs, stub});
+					yield* client.init({url: args.url});
+					const metadata = yield* client.getMetadata({});
 
-						return {
-							title: metadata.title || null,
-							description: metadata.description || null,
-							error: null,
-						};
-					} finally {
-						yield* Effect.promise(() => client.dispose());
-					}
+					return {
+						title: metadata.title || null,
+						description: metadata.description || null,
+						error: null,
+					};
 				} catch (err) {
 					const message = err instanceof Error ? err.message : "Failed to fetch metadata";
 					return {title: null, description: null, error: message};

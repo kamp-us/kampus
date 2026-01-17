@@ -333,3 +333,28 @@ URL State:
 - CLEANUP-1 to CLEANUP-5: Remove old atoms, delete LibraryRpc.tsx
 - ERR-4: Error handling verification
 - TEST-3 to TEST-7: Manual E2E testing
+
+## 2026-01-17: Fix Fetch URL Metadata (BUG-1)
+
+**Files:**
+- apps/worker/src/features/web-page-parser/client.ts - DELETED
+- apps/worker/src/graphql/schema.ts - use Spellcaster.make instead of makeWebPageParserClient
+- apps/worker/src/features/library/handlers.ts - use Spellcaster.make instead of makeWebPageParserClient
+
+**Problem:**
+`makeWebPageParserClient` used `FetchHttpClient.layer` from `@effect/platform` which doesn't work in Cloudflare Workers runtime.
+
+**Fix:**
+Deleted `makeWebPageParserClient` entirely. Now uses `Spellcaster.make` directly for WebPageParser DO-to-DO calls, same pattern as LibraryClient. This keeps the codebase consistent - one way to call DOs.
+
+**Verified:**
+- `turbo run typecheck --filter=worker` passes
+- `pnpm --filter worker run test` passes (82 tests)
+- Tested fetch button in browser: entered https://github.com, clicked Fetch, title/description populated correctly
+
+**PRD Status:**
+- BUG-1: passes=true
+
+**Remaining:**
+- CLEANUP-3: tagsAtom kept (used by TagManagement.tsx)
+- TEST-6: Pagination test (needs >10 stories)

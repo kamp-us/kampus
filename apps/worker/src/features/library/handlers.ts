@@ -5,11 +5,12 @@ import {
 	InvalidUrlError,
 	TagNameExistsError,
 } from "@kampus/library";
+import {WebPageParserRpcs} from "@kampus/web-page-parser";
 import {id} from "@usirin/forge";
 import {and, asc, count, desc, sql as drizzleSql, eq, inArray, lt} from "drizzle-orm";
 import {Effect} from "effect";
 import {DurableObjectEnv} from "../../services";
-import {makeWebPageParserClient} from "../web-page-parser/client";
+import * as Spellcaster from "../../shared/Spellcaster";
 import * as schema from "./drizzle/drizzle.schema";
 import {getNormalizedUrl} from "./getNormalizedUrl";
 import {isValidHexColor, validateTagName} from "./schema";
@@ -645,31 +646,25 @@ export const fetchUrlMetadata = ({url}: {url: string}) =>
 
 		const env = yield* DurableObjectEnv;
 
-		return yield* Effect.tryPromise({
-			try: async () => {
-				// Use normalized URL as DO key for deduplication
-				const normalizedUrl = getNormalizedUrl(url);
-				const parserId = env.WEB_PAGE_PARSER.idFromName(normalizedUrl);
-				const stub = env.WEB_PAGE_PARSER.get(parserId);
+		// Use normalized URL as DO key for deduplication
+		const normalizedUrl = getNormalizedUrl(url);
+		const parserId = env.WEB_PAGE_PARSER.idFromName(normalizedUrl);
+		const stub = env.WEB_PAGE_PARSER.get(parserId);
 
-				// Use Effect RPC client to call WebPageParser
-				const client = makeWebPageParserClient((req) => stub.fetch(req));
-				try {
-					await client.init(url);
-					const metadata = await client.getMetadata();
+		return yield* Effect.gen(function* () {
+			const client = yield* Spellcaster.make({rpcs: WebPageParserRpcs, stub});
+			yield* client.init({url});
+			const metadata = yield* client.getMetadata({});
 
-					return {
-						title: metadata.title || null,
-						description: metadata.description || null,
-						error: null,
-					};
-				} finally {
-					await client.dispose();
-				}
-			},
-			catch: (err) => {
+			return {
+				title: metadata.title || null,
+				description: metadata.description || null,
+				error: null,
+			};
+		}).pipe(
+			Effect.catchAllDefect((err) => {
 				const message = err instanceof Error ? err.message : "Failed to fetch metadata";
-				return {title: null, description: null, error: message};
-			},
-		}).pipe(Effect.catchAll((result) => Effect.succeed(result)));
+				return Effect.succeed({title: null, description: null, error: message});
+			}),
+		);
 	});
