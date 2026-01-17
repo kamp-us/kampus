@@ -53,3 +53,31 @@
 **Verified:**
 - `turbo run typecheck --filter=worker` passes
 - `pnpm --filter worker run test` passes (68 tests)
+
+## 2026-01-16: Effect RequestResolver + Batched Loaders (FR-3.1 - FR-3.7)
+
+**Files:**
+- apps/worker/src/graphql/requests.ts - NEW: Effect Request types (GetStory, GetTag)
+- apps/worker/src/graphql/resolvers/StoryResolver.ts - NEW: batched resolver + loadStory helper
+- apps/worker/src/graphql/resolvers/TagResolver.ts - NEW: batched resolver + loadTag helper
+- apps/worker/src/graphql/resolvers/index.ts - added exports for resolvers/helpers
+- apps/worker/test/request-resolver.spec.ts - NEW: tests for batching behavior
+
+**Implementation:**
+- `GetStory`/`GetTag` interfaces extend `Request.Request<T | null, never>` with tagged constructors
+- `StoryResolver`/`TagResolver` use `RequestResolver.makeBatched` with `contextFromServices(LibraryClient)`
+- Resolvers call `getBatchStory`/`getBatchTag` RPC and distribute results to individual requests
+- `loadStory(id)`/`loadTag(id)` helpers wrap `Effect.request` for ergonomic usage in GraphQL resolvers
+
+**IMPORTANT: Batching requires explicit opt-in**
+- Effect does NOT batch by default - must use `batching: true` option
+- GraphQL resolvers must use `Effect.all([...], {concurrency: "unbounded", batching: true})`
+- Or wrap with `Effect.withRequestBatching(true)` at the runtime level
+
+**Verified (with tests):**
+- `turbo run typecheck --filter=worker` passes
+- `pnpm --filter worker run test` passes (74 tests)
+- Test: parallel loadStory calls batch into single getBatchStory RPC
+- Test: parallel loadTag calls batch into single getBatchTag RPC
+- Test: sequential calls do NOT batch (expected)
+- Test: null returned for missing items, order preserved

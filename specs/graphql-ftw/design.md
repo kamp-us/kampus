@@ -183,28 +183,37 @@ export const GetTag = Request.tagged<GetTag>("GetTag")
 
 ### RequestResolvers
 
+**IMPORTANT: Batching requires explicit opt-in.** Effect does NOT batch by default.
+Use `batching: true` in Effect.all/forEach options, or wrap with `Effect.withRequestBatching(true)`.
+
 ```typescript
 // apps/worker/src/graphql/resolvers/StoryResolver.ts
-import {RequestResolver, Effect, Request, Exit} from "effect"
+import {RequestResolver, Effect, Request} from "effect"
 import {GetStory} from "../requests"
 import {LibraryClient} from "./LibraryClient"
 
 export const StoryResolver = RequestResolver.makeBatched(
-  (requests: readonly GetStory[]) =>
+  (requests: ReadonlyArray<GetStory>) =>
     Effect.gen(function* () {
       const client = yield* LibraryClient
       const ids = requests.map((r) => r.id)
       const results = yield* client.getBatchStory({ids})
 
       yield* Effect.forEach(requests, (req, i) =>
-        Request.complete(req, Exit.succeed(results[i]))
+        Request.completeEffect(req, Effect.succeed(results[i] ?? null))
       )
     })
-)
+).pipe(RequestResolver.contextFromServices(LibraryClient))
 
 // Helper for use in resolvers
 export const loadStory = (id: string) =>
   Effect.request(GetStory({id}), StoryResolver)
+
+// Usage - batching must be enabled!
+Effect.all([loadStory("1"), loadStory("2"), loadStory("3")], {
+  concurrency: "unbounded",
+  batching: true,  // <-- required for batching to occur
+})
 ```
 
 ### Relay Connection Types

@@ -12,9 +12,10 @@
         "Call getBatchStory with ids ['story_1', 'story_2', 'story_3']",
         "Verify response is array of same length as input",
         "Verify order matches input order",
-        "Verify missing stories return null at correct index"
+        "Verify missing stories return null at correct index",
+        "Tests: NEEDED - add integration test in library-stories.spec.ts"
       ],
-      "passes": true
+      "passes": false
     },
     {
       "id": "FR-1.2",
@@ -24,9 +25,10 @@
         "Call getBatchTag with ids ['tag_1', 'tag_2', 'tag_3']",
         "Verify response is array of same length as input",
         "Verify order matches input order",
-        "Verify missing tags return null at correct index"
+        "Verify missing tags return null at correct index",
+        "Tests: NEEDED - add integration test in library-tags.spec.ts"
       ],
-      "passes": true
+      "passes": false
     },
     {
       "id": "FR-1.3",
@@ -35,9 +37,10 @@
       "stepsToVerify": [
         "Call getBatchStory with empty array []",
         "Verify response is []",
-        "Verify no SQL query was executed (check logs or mock)"
+        "Verify no SQL query was executed (check logs or mock)",
+        "Tests: NEEDED - add integration test for empty array case"
       ],
-      "passes": true
+      "passes": false
     },
     {
       "id": "FR-2.1",
@@ -47,9 +50,10 @@
         "Import Spellcaster from apps/worker/src/shared/Spellcaster.ts",
         "Call Spellcaster.make({rpcs: LibraryRpcs, stub: doStub})",
         "Verify returned client has all RPC methods typed correctly",
-        "Verify TypeScript shows correct parameter and return types"
+        "Verify TypeScript shows correct parameter and return types",
+        "Tests: Verified by typecheck (turbo run typecheck)"
       ],
-      "passes": true
+      "passes": false
     },
     {
       "id": "FR-2.2",
@@ -59,9 +63,10 @@
         "Get client from Spellcaster.make()",
         "Call client.getStory({id: 'test'})",
         "Verify return type is Effect.Effect<Story | null, ...>",
-        "Verify must use yield* or Effect.runPromise to execute"
+        "Verify must use yield* or Effect.runPromise to execute",
+        "Tests: Verified by typecheck (turbo run typecheck)"
       ],
-      "passes": true
+      "passes": false
     },
     {
       "id": "FR-2.3",
@@ -71,9 +76,10 @@
         "Inspect Spellcaster.make implementation",
         "Verify uses RpcClient.layerProtocolHttp",
         "Verify uses RpcSerialization.layerJson",
-        "Verify requests go to DO stub.fetch()"
+        "Verify requests go to DO stub.fetch()",
+        "Tests: Verified by code inspection"
       ],
-      "passes": true
+      "passes": false
     },
     {
       "id": "FR-2.4",
@@ -82,9 +88,10 @@
       "stepsToVerify": [
         "Import LibraryClient from graphql/resolvers/LibraryClient.ts",
         "Verify LibraryClient extends Context.Tag",
-        "Verify can yield* LibraryClient in Effect.gen"
+        "Verify can yield* LibraryClient in Effect.gen",
+        "Tests: Verified by typecheck (turbo run typecheck)"
       ],
-      "passes": true
+      "passes": false
     },
     {
       "id": "FR-2.5",
@@ -93,9 +100,10 @@
       "stepsToVerify": [
         "Call LibraryClient.layer(env, 'user_123')",
         "Verify returns Layer that provides LibraryClient",
-        "Verify layer routes to correct user's DO"
+        "Verify layer routes to correct user's DO",
+        "Tests: Verified by typecheck (turbo run typecheck)"
       ],
-      "passes": true
+      "passes": false
     },
     {
       "id": "FR-3.1",
@@ -104,7 +112,8 @@
       "stepsToVerify": [
         "Import GetStory from apps/worker/src/graphql/requests.ts",
         "Verify GetStory has _tag: 'GetStory' and id: string",
-        "Verify extends Request.Request<Story | null, never>"
+        "Verify extends Request.Request<Story | null, never>",
+        "Tests: test/request-resolver.spec.ts covers this"
       ],
       "passes": false
     },
@@ -115,7 +124,8 @@
       "stepsToVerify": [
         "Import GetTag from apps/worker/src/graphql/requests.ts",
         "Verify GetTag has _tag: 'GetTag' and id: string",
-        "Verify extends Request.Request<Tag | null, never>"
+        "Verify extends Request.Request<Tag | null, never>",
+        "Tests: test/request-resolver.spec.ts covers this"
       ],
       "passes": false
     },
@@ -124,9 +134,10 @@
       "category": "Effect RequestResolver",
       "description": "StoryResolver batches GetStory requests and calls getBatchStory",
       "stepsToVerify": [
-        "Execute multiple Effect.request(GetStory({id}), StoryResolver) in parallel",
+        "Execute multiple loadStory() in parallel with Effect.all([...], {batching: true})",
         "Verify only one getBatchStory RPC call is made",
-        "Verify all requests receive correct results"
+        "Verify all requests receive correct results",
+        "Tests: test/request-resolver.spec.ts 'batches multiple loadStory calls'"
       ],
       "passes": false
     },
@@ -135,20 +146,22 @@
       "category": "Effect RequestResolver",
       "description": "TagResolver batches GetTag requests and calls getBatchTag",
       "stepsToVerify": [
-        "Execute multiple Effect.request(GetTag({id}), TagResolver) in parallel",
+        "Execute multiple loadTag() in parallel with Effect.all([...], {batching: true})",
         "Verify only one getBatchTag RPC call is made",
-        "Verify all requests receive correct results"
+        "Verify all requests receive correct results",
+        "Tests: test/request-resolver.spec.ts 'batches multiple loadTag calls'"
       ],
       "passes": false
     },
     {
       "id": "FR-3.5",
       "category": "Effect RequestResolver",
-      "description": "Batching occurs within single Effect execution tick",
+      "description": "Batching occurs within single Effect execution tick (when batching: true)",
       "stepsToVerify": [
-        "Run Effect.all([loadStory('1'), loadStory('2'), loadStory('3')])",
+        "Run Effect.all([loadStory('1'), loadStory('2'), loadStory('3')], {batching: true})",
         "Verify requests made in same tick are batched together",
-        "Verify requests in different ticks are separate batches"
+        "Verify requests in different ticks are separate batches",
+        "Tests: test/request-resolver.spec.ts 'makes separate RPC calls for requests in different Effect ticks'"
       ],
       "passes": false
     },
@@ -159,7 +172,8 @@
       "stepsToVerify": [
         "Import loadStory from resolvers",
         "Call loadStory('story_123')",
-        "Verify returns Effect that resolves to Story | null"
+        "Verify returns Effect that resolves to Story | null",
+        "Tests: test/request-resolver.spec.ts 'returns null for missing stories'"
       ],
       "passes": false
     },
@@ -170,7 +184,8 @@
       "stepsToVerify": [
         "Import loadTag from resolvers",
         "Call loadTag('tag_123')",
-        "Verify returns Effect that resolves to Tag | null"
+        "Verify returns Effect that resolves to Tag | null",
+        "Tests: test/request-resolver.spec.ts 'returns null for missing tags'"
       ],
       "passes": false
     },
@@ -386,7 +401,8 @@
       "stepsToVerify": [
         "Query { library { stories(first: 10) { edges { node { tags { name } } } } } }",
         "Verify tags are returned for each story",
-        "Check logs: only one getBatchTag call for all stories"
+        "Check logs: only one getBatchTag call for all stories",
+        "PREREQ: GraphQL runtime must use Effect.withRequestBatching(true)"
       ],
       "passes": false
     },
@@ -397,7 +413,8 @@
       "stepsToVerify": [
         "Add logging to getBatchTag handler",
         "Query 10 stories with tags",
-        "Verify getBatchTag called once with all unique tag IDs"
+        "Verify getBatchTag called once with all unique tag IDs",
+        "PREREQ: GraphQL runtime must use Effect.withRequestBatching(true)"
       ],
       "passes": false
     },
@@ -429,7 +446,8 @@
       "stepsToVerify": [
         "Query stories with nested tags",
         "Count DB/RPC calls in logs",
-        "Verify 1 listStories + 1 getBatchTag (not N getBatchTag calls)"
+        "Verify 1 listStories + 1 getBatchTag (not N getBatchTag calls)",
+        "PREREQ: GraphQL runtime must use Effect.withRequestBatching(true)"
       ],
       "passes": false
     },
