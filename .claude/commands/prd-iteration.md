@@ -18,6 +18,7 @@ Work on a single feature from a PRD file, following a structured workflow.
    - Run `turbo run typecheck` to verify types
    - Run `turbo run test` to verify tests pass
    - Use playwright mcp to verify ui changes if applicable
+   - Do not try to run the dev servers, they are already running in a tmux pane, figure it out and read the output from that
 
 3. **Update PRD**
    - Set `passes: true` for completed items
