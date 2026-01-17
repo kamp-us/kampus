@@ -1,5 +1,5 @@
 /**
- * @generated SignedSource<<67fb0cd10734c94602fcce7006f8a6d7>>
+ * @generated SignedSource<<1af3962c2e1bcab16dad7df71d1ed173>>
  * @lightSyntaxTransform
  * @nogrep
  */
@@ -9,8 +9,11 @@
 // @ts-nocheck
 
 import { ConcreteRequest } from 'relay-runtime';
-export type TagManagementDeleteTagMutation$variables = {
+export type DeleteTagInput = {
   id: string;
+};
+export type TagManagementDeleteTagMutation$variables = {
+  input: DeleteTagInput;
 };
 export type TagManagementDeleteTagMutation$data = {
   readonly deleteTag: {
@@ -32,14 +35,14 @@ var v0 = [
   {
     "defaultValue": null,
     "kind": "LocalArgument",
-    "name": "id"
+    "name": "input"
   }
 ],
 v1 = [
   {
     "kind": "Variable",
-    "name": "id",
-    "variableName": "id"
+    "name": "input",
+    "variableName": "input"
   }
 ],
 v2 = {
@@ -138,16 +141,16 @@ return {
     ]
   },
   "params": {
-    "cacheID": "2fe77ccae7bd4b6f622314b3cf37d130",
+    "cacheID": "773a39f5d0e228e1867796af6c6eac47",
     "id": null,
     "metadata": {},
     "name": "TagManagementDeleteTagMutation",
     "operationKind": "mutation",
-    "text": "mutation TagManagementDeleteTagMutation(\n  $id: ID!\n) {\n  deleteTag(id: $id) {\n    deletedTagId\n    success\n    error {\n      code\n      message\n    }\n  }\n}\n"
+    "text": "mutation TagManagementDeleteTagMutation(\n  $input: DeleteTagInput!\n) {\n  deleteTag(input: $input) {\n    deletedTagId\n    success\n    error {\n      code\n      message\n    }\n  }\n}\n"
   }
 };
 })();
 
-(node as any).hash = "0329b46dc2e65c4d699ef4f4c9113b50";
+(node as any).hash = "88e7ea39096b92dc7feeb380611e11ae";
 
 export default node;

@@ -181,13 +181,8 @@ const LibraryStoryFragment = graphql`
 `;
 
 const CreateStoryMutation = graphql`
-	mutation LibraryCreateStoryMutation(
-		$url: String!
-		$title: String!
-		$description: String
-		$tagIds: [String!]
-	) {
-		createStory(url: $url, title: $title, description: $description, tagIds: $tagIds) {
+	mutation LibraryCreateStoryMutation($input: CreateStoryInput!) {
+		createStory(input: $input) {
 			story {
 				id
 				...Library_story
@@ -197,13 +192,8 @@ const CreateStoryMutation = graphql`
 `;
 
 const UpdateStoryMutation = graphql`
-	mutation LibraryUpdateStoryMutation(
-		$id: ID!
-		$title: String
-		$description: String
-		$tagIds: [ID!]
-	) {
-		updateStory(id: $id, title: $title, description: $description, tagIds: $tagIds) {
+	mutation LibraryUpdateStoryMutation($input: UpdateStoryInput!) {
+		updateStory(input: $input) {
 			story {
 				id
 				...Library_story
@@ -218,8 +208,8 @@ const UpdateStoryMutation = graphql`
 `;
 
 const DeleteStoryMutation = graphql`
-	mutation LibraryDeleteStoryMutation($id: ID!) {
-		deleteStory(id: $id) {
+	mutation LibraryDeleteStoryMutation($input: DeleteStoryInput!) {
+		deleteStory(input: $input) {
 			deletedStoryId @deleteRecord
 			success
 			error {
@@ -230,8 +220,8 @@ const DeleteStoryMutation = graphql`
 `;
 
 const CreateTagMutation = graphql`
-	mutation LibraryCreateTagMutation($name: String!, $color: String!) {
-		createTag(name: $name, color: $color) {
+	mutation LibraryCreateTagMutation($input: CreateTagInput!) {
+		createTag(input: $input) {
 			tag {
 				id
 				name
@@ -396,7 +386,7 @@ function CreateStoryForm({
 	const handleCreateTag = (name: string) => {
 		const color = getNextTagColor(availableTags);
 		commitCreateTag({
-			variables: {name, color},
+			variables: {input: {name, color}},
 			onCompleted: (response) => {
 				if (response.createTag.tag) {
 					// Add the new tag to selected tags
@@ -414,10 +404,12 @@ function CreateStoryForm({
 
 		commitCreateStory({
 			variables: {
-				url: url.trim(),
-				title: title.trim(),
-				description: description.trim() || undefined,
-				tagIds,
+				input: {
+					url: url.trim(),
+					title: title.trim(),
+					description: description.trim() || undefined,
+					tagIds,
+				},
 			},
 			optimisticResponse: {
 				createStory: {
@@ -588,7 +580,7 @@ function StoryRow({
 	const handleCreateTag = (name: string) => {
 		const color = getNextTagColor(availableTags);
 		commitCreateTag({
-			variables: {name, color},
+			variables: {input: {name, color}},
 			onCompleted: (response) => {
 				if (response.createTag.tag) {
 					setEditTags([...editTags, response.createTag.tag]);
@@ -615,10 +607,12 @@ function StoryRow({
 
 		commitUpdateStory({
 			variables: {
-				id: story.id,
-				title: titleChanged ? trimmedTitle : undefined,
-				description: descriptionChanged ? editDescription : undefined,
-				tagIds: tagsChanged ? editTags.map((t) => t.id) : undefined,
+				input: {
+					id: story.id,
+					title: titleChanged ? trimmedTitle : undefined,
+					description: descriptionChanged ? editDescription : undefined,
+					tagIds: tagsChanged ? editTags.map((t) => t.id) : undefined,
+				},
 			},
 			optimisticResponse: {
 				updateStory: {
@@ -652,7 +646,7 @@ function StoryRow({
 
 	const handleDelete = () => {
 		commitDeleteStory({
-			variables: {id: story.id},
+			variables: {input: {id: story.id}},
 			optimisticResponse: {
 				deleteStory: {
 					deletedStoryId: story.id,

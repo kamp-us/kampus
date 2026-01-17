@@ -3,6 +3,7 @@ import {Effect} from "effect";
 import {
 	GraphQLBoolean,
 	GraphQLID,
+	GraphQLInputObjectType,
 	GraphQLInt,
 	GraphQLInterfaceType,
 	GraphQLList,
@@ -370,6 +371,61 @@ const DeleteTagPayload = new GraphQLObjectType({
 });
 
 // =============================================================================
+// Mutation Input Types
+// =============================================================================
+
+const CreateStoryInput = new GraphQLInputObjectType({
+	name: "CreateStoryInput",
+	fields: {
+		url: {type: new GraphQLNonNull(GraphQLString)},
+		title: {type: new GraphQLNonNull(GraphQLString)},
+		description: {type: GraphQLString},
+		tagIds: {type: new GraphQLList(new GraphQLNonNull(GraphQLID))},
+	},
+});
+
+const UpdateStoryInput = new GraphQLInputObjectType({
+	name: "UpdateStoryInput",
+	fields: {
+		id: {type: new GraphQLNonNull(GraphQLID)},
+		title: {type: GraphQLString},
+		description: {type: GraphQLString},
+		tagIds: {type: new GraphQLList(new GraphQLNonNull(GraphQLID))},
+	},
+});
+
+const DeleteStoryInput = new GraphQLInputObjectType({
+	name: "DeleteStoryInput",
+	fields: {
+		id: {type: new GraphQLNonNull(GraphQLID)},
+	},
+});
+
+const CreateTagInput = new GraphQLInputObjectType({
+	name: "CreateTagInput",
+	fields: {
+		name: {type: new GraphQLNonNull(GraphQLString)},
+		color: {type: new GraphQLNonNull(GraphQLString)},
+	},
+});
+
+const UpdateTagInput = new GraphQLInputObjectType({
+	name: "UpdateTagInput",
+	fields: {
+		id: {type: new GraphQLNonNull(GraphQLID)},
+		name: {type: GraphQLString},
+		color: {type: GraphQLString},
+	},
+});
+
+const DeleteTagInput = new GraphQLInputObjectType({
+	name: "DeleteTagInput",
+	fields: {
+		id: {type: new GraphQLNonNull(GraphQLID)},
+	},
+});
+
+// =============================================================================
 // Query Type
 // =============================================================================
 
@@ -549,22 +605,26 @@ const MutationType = new GraphQLObjectType({
 		createStory: {
 			type: new GraphQLNonNull(CreateStoryPayload),
 			args: {
-				url: {type: new GraphQLNonNull(GraphQLString)},
-				title: {type: new GraphQLNonNull(GraphQLString)},
-				description: {type: GraphQLString},
-				tagIds: {type: new GraphQLList(new GraphQLNonNull(GraphQLString))},
+				input: {type: new GraphQLNonNull(CreateStoryInput)},
 			},
 			resolve: resolver(function* (
 				_source: unknown,
-				args: {url: string; title: string; description?: string | null; tagIds?: string[] | null},
+				args: {
+					input: {
+						url: string;
+						title: string;
+						description?: string | null;
+						tagIds?: string[] | null;
+					};
+				},
 			) {
 				yield* Auth.required;
 				const client = yield* LibraryClient;
 				const story = yield* client.createStory({
-					url: args.url,
-					title: args.title,
-					description: args.description ?? undefined,
-					tagIds: args.tagIds ?? undefined,
+					url: args.input.url,
+					title: args.input.title,
+					description: args.input.description ?? undefined,
+					tagIds: args.input.tagIds ?? undefined,
 				});
 				return {story};
 			}),
@@ -572,35 +632,34 @@ const MutationType = new GraphQLObjectType({
 		updateStory: {
 			type: new GraphQLNonNull(UpdateStoryPayload),
 			args: {
-				id: {type: new GraphQLNonNull(GraphQLID)},
-				title: {type: GraphQLString},
-				description: {type: GraphQLString},
-				tagIds: {type: new GraphQLList(new GraphQLNonNull(GraphQLID))},
+				input: {type: new GraphQLNonNull(UpdateStoryInput)},
 			},
 			resolve: resolver(function* (
 				_source: unknown,
 				args: {
-					id: string;
-					title?: string | null;
-					description?: string | null;
-					tagIds?: string[] | null;
+					input: {
+						id: string;
+						title?: string | null;
+						description?: string | null;
+						tagIds?: string[] | null;
+					};
 				},
 			) {
 				yield* Auth.required;
 				const client = yield* LibraryClient;
 				const story = yield* client.updateStory({
-					id: args.id,
-					title: args.title ?? undefined,
-					description: args.description ?? undefined,
-					tagIds: args.tagIds ?? undefined,
+					id: args.input.id,
+					title: args.input.title ?? undefined,
+					description: args.input.description ?? undefined,
+					tagIds: args.input.tagIds ?? undefined,
 				});
 				if (!story) {
 					return {
 						story: null,
 						error: {
 							code: "STORY_NOT_FOUND",
-							message: `Story with id "${args.id}" was not found`,
-							storyId: args.id,
+							message: `Story with id "${args.input.id}" was not found`,
+							storyId: args.input.id,
 						},
 					};
 				}
@@ -610,15 +669,15 @@ const MutationType = new GraphQLObjectType({
 		deleteStory: {
 			type: new GraphQLNonNull(DeleteStoryPayload),
 			args: {
-				id: {type: new GraphQLNonNull(GraphQLID)},
+				input: {type: new GraphQLNonNull(DeleteStoryInput)},
 			},
-			resolve: resolver(function* (_source: unknown, args: {id: string}) {
+			resolve: resolver(function* (_source: unknown, args: {input: {id: string}}) {
 				yield* Auth.required;
 				const client = yield* LibraryClient;
-				const result = yield* client.deleteStory({id: args.id});
+				const result = yield* client.deleteStory({id: args.input.id});
 				if (result.deleted) {
 					return {
-						deletedStoryId: args.id,
+						deletedStoryId: args.input.id,
 						success: true,
 						error: null,
 					};
@@ -628,8 +687,8 @@ const MutationType = new GraphQLObjectType({
 					success: false,
 					error: {
 						code: "STORY_NOT_FOUND",
-						message: `Story with id "${args.id}" was not found`,
-						storyId: args.id,
+						message: `Story with id "${args.input.id}" was not found`,
+						storyId: args.input.id,
 					},
 				};
 			}),
@@ -637,15 +696,14 @@ const MutationType = new GraphQLObjectType({
 		createTag: {
 			type: new GraphQLNonNull(CreateTagPayload),
 			args: {
-				name: {type: new GraphQLNonNull(GraphQLString)},
-				color: {type: new GraphQLNonNull(GraphQLString)},
+				input: {type: new GraphQLNonNull(CreateTagInput)},
 			},
-			resolve: resolver(function* (_source: unknown, args: {name: string; color: string}) {
+			resolve: resolver(function* (_source: unknown, args: {input: {name: string; color: string}}) {
 				yield* Auth.required;
 				const client = yield* LibraryClient;
 				const tag = yield* client.createTag({
-					name: args.name,
-					color: args.color,
+					name: args.input.name,
+					color: args.input.color,
 				});
 				return {tag, error: null};
 			}),
@@ -653,25 +711,23 @@ const MutationType = new GraphQLObjectType({
 		updateTag: {
 			type: new GraphQLNonNull(UpdateTagPayload),
 			args: {
-				id: {type: new GraphQLNonNull(GraphQLID)},
-				name: {type: GraphQLString},
-				color: {type: GraphQLString},
+				input: {type: new GraphQLNonNull(UpdateTagInput)},
 			},
 			resolve: resolver(function* (
 				_source: unknown,
-				args: {id: string; name?: string | null; color?: string | null},
+				args: {input: {id: string; name?: string | null; color?: string | null}},
 			) {
 				yield* Auth.required;
 				const client = yield* LibraryClient;
 				const result = yield* client.updateTag({
-					id: args.id,
-					name: args.name ?? undefined,
-					color: args.color ?? undefined,
+					id: args.input.id,
+					name: args.input.name ?? undefined,
+					color: args.input.color ?? undefined,
 				});
 				if (!result) {
 					return {
 						tag: null,
-						error: {code: "TAG_NOT_FOUND", message: "Tag not found", tagId: args.id},
+						error: {code: "TAG_NOT_FOUND", message: "Tag not found", tagId: args.input.id},
 					};
 				}
 				return {tag: result, error: null};
@@ -680,19 +736,19 @@ const MutationType = new GraphQLObjectType({
 		deleteTag: {
 			type: new GraphQLNonNull(DeleteTagPayload),
 			args: {
-				id: {type: new GraphQLNonNull(GraphQLID)},
+				input: {type: new GraphQLNonNull(DeleteTagInput)},
 			},
-			resolve: resolver(function* (_source: unknown, args: {id: string}) {
+			resolve: resolver(function* (_source: unknown, args: {input: {id: string}}) {
 				yield* Auth.required;
 				const client = yield* LibraryClient;
-				const result = yield* client.deleteTag({id: args.id});
+				const result = yield* client.deleteTag({id: args.input.id});
 				if (result.deleted) {
-					return {deletedTagId: args.id, success: true, error: null};
+					return {deletedTagId: args.input.id, success: true, error: null};
 				}
 				return {
 					deletedTagId: null,
 					success: false,
-					error: {code: "TAG_NOT_FOUND", message: "Tag not found", tagId: args.id},
+					error: {code: "TAG_NOT_FOUND", message: "Tag not found", tagId: args.input.id},
 				};
 			}),
 		},

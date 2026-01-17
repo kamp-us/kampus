@@ -3,9 +3,21 @@ type ApiKey {
   name: String!
 }
 
+input CreateStoryInput {
+  description: String
+  tagIds: [ID!]
+  title: String!
+  url: String!
+}
+
 type CreateStoryPayload {
   story: Story
   storyEdge: StoryEdge
+}
+
+input CreateTagInput {
+  color: String!
+  name: String!
 }
 
 type CreateTagPayload {
@@ -13,10 +25,18 @@ type CreateTagPayload {
   tag: Tag
 }
 
+input DeleteStoryInput {
+  id: ID!
+}
+
 type DeleteStoryPayload {
   deletedStoryId: ID
   error: StoryNotFoundError
   success: Boolean!
+}
+
+input DeleteTagInput {
+  id: ID!
 }
 
 type DeleteTagPayload {
@@ -43,13 +63,13 @@ type Library implements Node {
 type Mutation {
   bootstrap(email: String!, name: String!, password: String!): User
   createApiKey(name: String!): ApiKey
-  createStory(description: String, tagIds: [String!], title: String!, url: String!): CreateStoryPayload!
-  createTag(color: String!, name: String!): CreateTagPayload!
-  deleteStory(id: ID!): DeleteStoryPayload!
-  deleteTag(id: ID!): DeleteTagPayload!
+  createStory(input: CreateStoryInput!): CreateStoryPayload!
+  createTag(input: CreateTagInput!): CreateTagPayload!
+  deleteStory(input: DeleteStoryInput!): DeleteStoryPayload!
+  deleteTag(input: DeleteTagInput!): DeleteTagPayload!
   signIn(email: String!, password: String!): SignInResponse
-  updateStory(description: String, id: ID!, tagIds: [ID!], title: String): UpdateStoryPayload!
-  updateTag(color: String, id: ID!, name: String): UpdateTagPayload!
+  updateStory(input: UpdateStoryInput!): UpdateStoryPayload!
+  updateTag(input: UpdateTagInput!): UpdateTagPayload!
 }
 
 interface Node {
@@ -121,12 +141,25 @@ type TagNotFoundError {
   tagId: String!
 }
 
+input UpdateStoryInput {
+  description: String
+  id: ID!
+  tagIds: [ID!]
+  title: String
+}
+
 type UpdateStoryPayload {
   error: StoryNotFoundError
   story: Story
 }
 
 union UpdateTagError = InvalidTagNameError | TagNameExistsError | TagNotFoundError
+
+input UpdateTagInput {
+  color: String
+  id: ID!
+  name: String
+}
 
 type UpdateTagPayload {
   error: UpdateTagError

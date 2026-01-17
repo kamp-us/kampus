@@ -1,5 +1,5 @@
 /**
- * @generated SignedSource<<19a9c100a09648d53687d0388eafe479>>
+ * @generated SignedSource<<94dd38b664aa39f1415034c1f9bfe980>>
  * @lightSyntaxTransform
  * @nogrep
  */
@@ -9,10 +9,13 @@
 // @ts-nocheck
 
 import { ConcreteRequest } from 'relay-runtime';
-export type TagManagementUpdateTagMutation$variables = {
+export type UpdateTagInput = {
   color?: string | null | undefined;
   id: string;
   name?: string | null | undefined;
+};
+export type TagManagementUpdateTagMutation$variables = {
+  input: UpdateTagInput;
 };
 export type TagManagementUpdateTagMutation$data = {
   readonly updateTag: {
@@ -36,39 +39,21 @@ export type TagManagementUpdateTagMutation = {
 };
 
 const node: ConcreteRequest = (function(){
-var v0 = {
-  "defaultValue": null,
-  "kind": "LocalArgument",
-  "name": "color"
-},
-v1 = {
-  "defaultValue": null,
-  "kind": "LocalArgument",
-  "name": "id"
-},
-v2 = {
-  "defaultValue": null,
-  "kind": "LocalArgument",
-  "name": "name"
-},
-v3 = [
+var v0 = [
   {
-    "kind": "Variable",
-    "name": "color",
-    "variableName": "color"
-  },
-  {
-    "kind": "Variable",
-    "name": "id",
-    "variableName": "id"
-  },
-  {
-    "kind": "Variable",
-    "name": "name",
-    "variableName": "name"
+    "defaultValue": null,
+    "kind": "LocalArgument",
+    "name": "input"
   }
 ],
-v4 = {
+v1 = [
+  {
+    "kind": "Variable",
+    "name": "input",
+    "variableName": "input"
+  }
+],
+v2 = {
   "alias": null,
   "args": null,
   "concreteType": "Tag",
@@ -118,7 +103,7 @@ v4 = {
   ],
   "storageKey": null
 },
-v5 = [
+v3 = [
   {
     "alias": null,
     "args": null,
@@ -134,44 +119,40 @@ v5 = [
     "storageKey": null
   }
 ],
-v6 = {
+v4 = {
   "kind": "InlineFragment",
-  "selections": (v5/*: any*/),
+  "selections": (v3/*: any*/),
   "type": "InvalidTagNameError",
   "abstractKey": null
 },
-v7 = {
+v5 = {
   "kind": "InlineFragment",
-  "selections": (v5/*: any*/),
+  "selections": (v3/*: any*/),
   "type": "TagNameExistsError",
   "abstractKey": null
 },
-v8 = {
+v6 = {
   "kind": "InlineFragment",
-  "selections": (v5/*: any*/),
+  "selections": (v3/*: any*/),
   "type": "TagNotFoundError",
   "abstractKey": null
 };
 return {
   "fragment": {
-    "argumentDefinitions": [
-      (v0/*: any*/),
-      (v1/*: any*/),
-      (v2/*: any*/)
-    ],
+    "argumentDefinitions": (v0/*: any*/),
     "kind": "Fragment",
     "metadata": null,
     "name": "TagManagementUpdateTagMutation",
     "selections": [
       {
         "alias": null,
-        "args": (v3/*: any*/),
+        "args": (v1/*: any*/),
         "concreteType": "UpdateTagPayload",
         "kind": "LinkedField",
         "name": "updateTag",
         "plural": false,
         "selections": [
-          (v4/*: any*/),
+          (v2/*: any*/),
           {
             "alias": null,
             "args": null,
@@ -180,9 +161,9 @@ return {
             "name": "error",
             "plural": false,
             "selections": [
-              (v6/*: any*/),
-              (v7/*: any*/),
-              (v8/*: any*/)
+              (v4/*: any*/),
+              (v5/*: any*/),
+              (v6/*: any*/)
             ],
             "storageKey": null
           }
@@ -195,23 +176,19 @@ return {
   },
   "kind": "Request",
   "operation": {
-    "argumentDefinitions": [
-      (v1/*: any*/),
-      (v2/*: any*/),
-      (v0/*: any*/)
-    ],
+    "argumentDefinitions": (v0/*: any*/),
     "kind": "Operation",
     "name": "TagManagementUpdateTagMutation",
     "selections": [
       {
         "alias": null,
-        "args": (v3/*: any*/),
+        "args": (v1/*: any*/),
         "concreteType": "UpdateTagPayload",
         "kind": "LinkedField",
         "name": "updateTag",
         "plural": false,
         "selections": [
-          (v4/*: any*/),
+          (v2/*: any*/),
           {
             "alias": null,
             "args": null,
@@ -227,9 +204,9 @@ return {
                 "name": "__typename",
                 "storageKey": null
               },
-              (v6/*: any*/),
-              (v7/*: any*/),
-              (v8/*: any*/)
+              (v4/*: any*/),
+              (v5/*: any*/),
+              (v6/*: any*/)
             ],
             "storageKey": null
           }
@@ -239,16 +216,16 @@ return {
     ]
   },
   "params": {
-    "cacheID": "d33c33dda2af8d4b4eb3f2ef061a11be",
+    "cacheID": "69b45cdd394fcdde17834075045d7a97",
     "id": null,
     "metadata": {},
     "name": "TagManagementUpdateTagMutation",
     "operationKind": "mutation",
-    "text": "mutation TagManagementUpdateTagMutation(\n  $id: ID!\n  $name: String\n  $color: String\n) {\n  updateTag(id: $id, name: $name, color: $color) {\n    tag {\n      id\n      name\n      color\n      stories {\n        totalCount\n      }\n    }\n    error {\n      __typename\n      ... on InvalidTagNameError {\n        code\n        message\n      }\n      ... on TagNameExistsError {\n        code\n        message\n      }\n      ... on TagNotFoundError {\n        code\n        message\n      }\n    }\n  }\n}\n"
+    "text": "mutation TagManagementUpdateTagMutation(\n  $input: UpdateTagInput!\n) {\n  updateTag(input: $input) {\n    tag {\n      id\n      name\n      color\n      stories {\n        totalCount\n      }\n    }\n    error {\n      __typename\n      ... on InvalidTagNameError {\n        code\n        message\n      }\n      ... on TagNameExistsError {\n        code\n        message\n      }\n      ... on TagNotFoundError {\n        code\n        message\n      }\n    }\n  }\n}\n"
   }
 };
 })();
 
-(node as any).hash = "a9045da266a80ffe6a96084b75d2425e";
+(node as any).hash = "a87a30dc12ec40c17e2123418d2bdbb2";
 
 export default node;

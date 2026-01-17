@@ -1,5 +1,5 @@
 /**
- * @generated SignedSource<<ff88efd40243f1467792c8fcfb3e822c>>
+ * @generated SignedSource<<a9bdc8d3fb0c80ea82f4773e55cdba50>>
  * @lightSyntaxTransform
  * @nogrep
  */
@@ -9,8 +9,11 @@
 // @ts-nocheck
 
 import { ConcreteRequest } from 'relay-runtime';
-export type LibraryDeleteStoryMutation$variables = {
+export type DeleteStoryInput = {
   id: string;
+};
+export type LibraryDeleteStoryMutation$variables = {
+  input: DeleteStoryInput;
 };
 export type LibraryDeleteStoryMutation$data = {
   readonly deleteStory: {
@@ -31,14 +34,14 @@ var v0 = [
   {
     "defaultValue": null,
     "kind": "LocalArgument",
-    "name": "id"
+    "name": "input"
   }
 ],
 v1 = [
   {
     "kind": "Variable",
-    "name": "id",
-    "variableName": "id"
+    "name": "input",
+    "variableName": "input"
   }
 ],
 v2 = {
@@ -130,16 +133,16 @@ return {
     ]
   },
   "params": {
-    "cacheID": "e5fccba59af38abe02682f8eb21054b4",
+    "cacheID": "e7d952555903041d65caf16b5b7543ad",
     "id": null,
     "metadata": {},
     "name": "LibraryDeleteStoryMutation",
     "operationKind": "mutation",
-    "text": "mutation LibraryDeleteStoryMutation(\n  $id: ID!\n) {\n  deleteStory(id: $id) {\n    deletedStoryId\n    success\n    error {\n      message\n    }\n  }\n}\n"
+    "text": "mutation LibraryDeleteStoryMutation(\n  $input: DeleteStoryInput!\n) {\n  deleteStory(input: $input) {\n    deletedStoryId\n    success\n    error {\n      message\n    }\n  }\n}\n"
   }
 };
 })();
 
-(node as any).hash = "1fa3def2dc3ec50525e3d98dc75206ab";
+(node as any).hash = "054602bad63c3658c10aea4ab8120fe3";
 
 export default node;

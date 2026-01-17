@@ -1,5 +1,5 @@
 /**
- * @generated SignedSource<<7191a22e57402c492f4ea85588fbdcb2>>
+ * @generated SignedSource<<dba50702b2117af9534bdbd100f617b8>>
  * @lightSyntaxTransform
  * @nogrep
  */
@@ -9,9 +9,12 @@
 // @ts-nocheck
 
 import { ConcreteRequest } from 'relay-runtime';
-export type LibraryCreateTagMutation$variables = {
+export type CreateTagInput = {
   color: string;
   name: string;
+};
+export type LibraryCreateTagMutation$variables = {
+  input: CreateTagInput;
 };
 export type LibraryCreateTagMutation$data = {
   readonly createTag: {
@@ -31,29 +34,21 @@ export type LibraryCreateTagMutation = {
 };
 
 const node: ConcreteRequest = (function(){
-var v0 = {
-  "defaultValue": null,
-  "kind": "LocalArgument",
-  "name": "color"
-},
-v1 = {
-  "defaultValue": null,
-  "kind": "LocalArgument",
-  "name": "name"
-},
-v2 = [
+var v0 = [
   {
-    "kind": "Variable",
-    "name": "color",
-    "variableName": "color"
-  },
-  {
-    "kind": "Variable",
-    "name": "name",
-    "variableName": "name"
+    "defaultValue": null,
+    "kind": "LocalArgument",
+    "name": "input"
   }
 ],
-v3 = {
+v1 = [
+  {
+    "kind": "Variable",
+    "name": "input",
+    "variableName": "input"
+  }
+],
+v2 = {
   "alias": null,
   "args": null,
   "concreteType": "Tag",
@@ -85,7 +80,7 @@ v3 = {
   ],
   "storageKey": null
 },
-v4 = [
+v3 = [
   {
     "alias": null,
     "args": null,
@@ -94,37 +89,34 @@ v4 = [
     "storageKey": null
   }
 ],
-v5 = {
+v4 = {
   "kind": "InlineFragment",
-  "selections": (v4/*: any*/),
+  "selections": (v3/*: any*/),
   "type": "InvalidTagNameError",
   "abstractKey": null
 },
-v6 = {
+v5 = {
   "kind": "InlineFragment",
-  "selections": (v4/*: any*/),
+  "selections": (v3/*: any*/),
   "type": "TagNameExistsError",
   "abstractKey": null
 };
 return {
   "fragment": {
-    "argumentDefinitions": [
-      (v0/*: any*/),
-      (v1/*: any*/)
-    ],
+    "argumentDefinitions": (v0/*: any*/),
     "kind": "Fragment",
     "metadata": null,
     "name": "LibraryCreateTagMutation",
     "selections": [
       {
         "alias": null,
-        "args": (v2/*: any*/),
+        "args": (v1/*: any*/),
         "concreteType": "CreateTagPayload",
         "kind": "LinkedField",
         "name": "createTag",
         "plural": false,
         "selections": [
-          (v3/*: any*/),
+          (v2/*: any*/),
           {
             "alias": null,
             "args": null,
@@ -133,8 +125,8 @@ return {
             "name": "error",
             "plural": false,
             "selections": [
-              (v5/*: any*/),
-              (v6/*: any*/)
+              (v4/*: any*/),
+              (v5/*: any*/)
             ],
             "storageKey": null
           }
@@ -147,22 +139,19 @@ return {
   },
   "kind": "Request",
   "operation": {
-    "argumentDefinitions": [
-      (v1/*: any*/),
-      (v0/*: any*/)
-    ],
+    "argumentDefinitions": (v0/*: any*/),
     "kind": "Operation",
     "name": "LibraryCreateTagMutation",
     "selections": [
       {
         "alias": null,
-        "args": (v2/*: any*/),
+        "args": (v1/*: any*/),
         "concreteType": "CreateTagPayload",
         "kind": "LinkedField",
         "name": "createTag",
         "plural": false,
         "selections": [
-          (v3/*: any*/),
+          (v2/*: any*/),
           {
             "alias": null,
             "args": null,
@@ -178,8 +167,8 @@ return {
                 "name": "__typename",
                 "storageKey": null
               },
-              (v5/*: any*/),
-              (v6/*: any*/)
+              (v4/*: any*/),
+              (v5/*: any*/)
             ],
             "storageKey": null
           }
@@ -189,16 +178,16 @@ return {
     ]
   },
   "params": {
-    "cacheID": "40f0c4400579892fb7214b6b4a985b12",
+    "cacheID": "f7b503afae3eb4ae59076c50a4dd564b",
     "id": null,
     "metadata": {},
     "name": "LibraryCreateTagMutation",
     "operationKind": "mutation",
-    "text": "mutation LibraryCreateTagMutation(\n  $name: String!\n  $color: String!\n) {\n  createTag(name: $name, color: $color) {\n    tag {\n      id\n      name\n      color\n    }\n    error {\n      __typename\n      ... on InvalidTagNameError {\n        message\n      }\n      ... on TagNameExistsError {\n        message\n      }\n    }\n  }\n}\n"
+    "text": "mutation LibraryCreateTagMutation(\n  $input: CreateTagInput!\n) {\n  createTag(input: $input) {\n    tag {\n      id\n      name\n      color\n    }\n    error {\n      __typename\n      ... on InvalidTagNameError {\n        message\n      }\n      ... on TagNameExistsError {\n        message\n      }\n    }\n  }\n}\n"
   }
 };
 })();
 
-(node as any).hash = "b073b673a1055cafea8daf8b94091e02";
+(node as any).hash = "f94b8643fc4040724c684e98ff616ec9";
 
 export default node;

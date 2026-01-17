@@ -385,7 +385,8 @@
         "Regenerate Relay types after schema change",
         "Update frontend mutations to use input pattern"
       ],
-      "passes": false
+      "passes": true,
+      "notes": "Added GraphQLInputObjectType for all 6 mutations. Backend uses input: {type: InputType} pattern. Frontend mutations updated to pass {input: {...}}. Verified with Playwright E2E: all CRUD operations work."
     }
   ]
 }

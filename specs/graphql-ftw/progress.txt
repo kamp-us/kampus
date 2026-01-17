@@ -457,3 +457,29 @@ TagManagement.tsx was already migrated to Relay in previous iteration:
 
 **Remaining:**
 - REFACTOR-2
+
+## 2026-01-17: Use GraphQLInputObjectType for mutation args (REFACTOR-2)
+
+**Files:**
+- apps/worker/src/graphql/schema.ts - added 6 GraphQLInputObjectType defs, updated mutations to use input pattern
+- apps/kamp-us/src/pages/Library.tsx - updated mutation calls to pass {input: {...}}
+- apps/kamp-us/src/pages/library/TagManagement.tsx - updated mutation calls to pass {input: {...}}
+- apps/kamp-us/schema.graphql - fetched updated schema
+- apps/kamp-us/src/__generated__/* - regenerated Relay types
+
+**Input Types Added:**
+- CreateStoryInput (url, title, description, tagIds)
+- UpdateStoryInput (id, title, description, tagIds)
+- DeleteStoryInput (id)
+- CreateTagInput (name, color)
+- UpdateTagInput (id, name, color)
+- DeleteTagInput (id)
+
+**Verified:**
+- `turbo run typecheck` passes
+- `pnpm --filter worker run test` passes (82 tests)
+- Playwright E2E: all 6 mutations work (createStory, updateStory, deleteStory, createTag, updateTag, deleteTag)
+
+**PRD Status:**
+- REFACTOR-2: passes=true
+- M2 PRD COMPLETE: All items pass

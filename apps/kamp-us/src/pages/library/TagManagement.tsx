@@ -34,8 +34,8 @@ const TagManagementQueryDef = graphql`
 `;
 
 const UpdateTagMutation = graphql`
-	mutation TagManagementUpdateTagMutation($id: ID!, $name: String, $color: String) {
-		updateTag(id: $id, name: $name, color: $color) {
+	mutation TagManagementUpdateTagMutation($input: UpdateTagInput!) {
+		updateTag(input: $input) {
 			tag {
 				id
 				name
@@ -63,8 +63,8 @@ const UpdateTagMutation = graphql`
 `;
 
 const DeleteTagMutation = graphql`
-	mutation TagManagementDeleteTagMutation($id: ID!) {
-		deleteTag(id: $id) {
+	mutation TagManagementDeleteTagMutation($input: DeleteTagInput!) {
+		deleteTag(input: $input) {
 			deletedTagId @deleteRecord
 			success
 			error {
@@ -109,7 +109,7 @@ function TagRow({tag}: {tag: TagData}) {
 
 		setError(null);
 		commitUpdateTag({
-			variables: {id: tag.id, name: trimmed},
+			variables: {input: {id: tag.id, name: trimmed}},
 			optimisticResponse: {
 				updateTag: {
 					tag: {
@@ -142,7 +142,7 @@ function TagRow({tag}: {tag: TagData}) {
 
 		setError(null);
 		commitUpdateTag({
-			variables: {id: tag.id, color: newColor},
+			variables: {input: {id: tag.id, color: newColor}},
 			optimisticResponse: {
 				updateTag: {
 					tag: {
@@ -170,7 +170,7 @@ function TagRow({tag}: {tag: TagData}) {
 	const handleDelete = () => {
 		setError(null);
 		commitDeleteTag({
-			variables: {id: tag.id},
+			variables: {input: {id: tag.id}},
 			optimisticResponse: {
 				deleteTag: {
 					deletedTagId: tag.id,
