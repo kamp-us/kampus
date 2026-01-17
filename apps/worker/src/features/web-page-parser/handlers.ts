@@ -1,13 +1,17 @@
-import {SqliteDrizzle} from "@effect/sql-drizzle/Sqlite";
+import {SqlClient} from "@effect/sql";
+import {make as makeSqliteDrizzle} from "@effect/sql-drizzle/Sqlite";
 import {type PageMetadata, PageMetadata as PageMetadataSchema} from "@kampus/web-page-parser";
 import {id} from "@usirin/forge";
-import {desc, eq} from "drizzle-orm";
+import {desc} from "drizzle-orm";
 import {Effect, Schema} from "effect";
 import {DurableObjectCtx} from "../../services";
 import * as schema from "./drizzle/drizzle.schema";
 import {fetchPageMetadata} from "./fetchPageMetadata";
 
 const ONE_DAY_MS = 1000 * 60 * 60 * 24;
+
+// Helper to get typed database
+const getDb = () => makeSqliteDrizzle({schema});
 
 const isRecent = (createdAt: Date | null) => createdAt && createdAt.getTime() > Date.now() - ONE_DAY_MS;
 
@@ -18,10 +22,10 @@ export const handlers = {
 			yield* Effect.promise(() => ctx.storage.put("url", url));
 		}),
 
-	getMetadata: ({forceFetch}: {forceFetch?: boolean}): Effect.Effect<PageMetadata, never, SqliteDrizzle | DurableObjectCtx> =>
+	getMetadata: ({forceFetch}: {forceFetch?: boolean}): Effect.Effect<PageMetadata, never, DurableObjectCtx | SqlClient.SqlClient> =>
 		Effect.gen(function* () {
 			const ctx = yield* DurableObjectCtx;
-			const db = yield* SqliteDrizzle;
+			const db = yield* getDb();
 
 			// Get URL from storage
 			const url = yield* Effect.promise(() => ctx.storage.get<string>("url"));

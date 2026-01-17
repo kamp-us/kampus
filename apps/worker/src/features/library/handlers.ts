@@ -1,5 +1,5 @@
 import {SqlError} from "@effect/sql";
-import {SqliteDrizzle} from "@effect/sql-drizzle/Sqlite";
+import {make as makeSqliteDrizzle} from "@effect/sql-drizzle/Sqlite";
 import {
 	InvalidTagColorError,
 	InvalidTagNameError,
@@ -7,7 +7,7 @@ import {
 	TagNameExistsError,
 } from "@kampus/library";
 import {id} from "@usirin/forge";
-import {count, desc, eq, inArray, sql as drizzleSql} from "drizzle-orm";
+import {and, count, desc, eq, inArray, lt, ne, sql as drizzleSql} from "drizzle-orm";
 import {Effect} from "effect";
 import {DurableObjectEnv} from "../../services";
 import {makeWebPageParserClient} from "../web-page-parser/client";
@@ -18,6 +18,9 @@ import {isValidHexColor, validateTagName} from "./schema";
 // Helper to convert SqlError to defects while preserving typed errors
 const orDieSql = <A, E, R>(effect: Effect.Effect<A, E | SqlError.SqlError, R>): Effect.Effect<A, E, R> =>
 	effect.pipe(Effect.catchTag("SqlError", (e) => Effect.die(e))) as Effect.Effect<A, E, R>;
+
+// Helper to get typed database
+const getDb = () => makeSqliteDrizzle({schema});
 
 // Type for story with tags
 type StoryWithTags = typeof schema.story.$inferSelect & {
@@ -52,7 +55,7 @@ const getTagsForStories = (storyIds: string[]) =>
 		if (storyIds.length === 0) {
 			return new Map<string, Array<{id: string; name: string; color: string}>>();
 		}
-		const db = yield* SqliteDrizzle;
+		const db = yield* getDb();
 		const rows = yield* db
 			.select({
 				storyId: schema.storyTag.storyId,
@@ -76,7 +79,7 @@ const getTagsForStories = (storyIds: string[]) =>
 export const handlers = {
 	getStory: ({id}: {id: string}) =>
 		Effect.gen(function* () {
-			const db = yield* SqliteDrizzle;
+			const db = yield* getDb();
 			const [story] = yield* db.select().from(schema.story).where(eq(schema.story.id, id));
 			if (!story) return null;
 
@@ -86,7 +89,7 @@ export const handlers = {
 
 	listStories: ({first, after}: {first?: number; after?: string}) =>
 		Effect.gen(function* () {
-			const db = yield* SqliteDrizzle;
+			const db = yield* getDb();
 			const limit = first ?? 20;
 
 			// Get total count
@@ -94,11 +97,18 @@ export const handlers = {
 			const totalCount = countResult[0]?.count ?? 0;
 
 			// Get stories with pagination
-			let query = db.select().from(schema.story).orderBy(desc(schema.story.id)).limit(limit + 1);
-			if (after) {
-				query = query.where(drizzleSql`${schema.story.id} < ${after}`);
-			}
-			const stories = yield* query;
+			const stories = after
+				? yield* db
+						.select()
+						.from(schema.story)
+						.where(lt(schema.story.id, after))
+						.orderBy(desc(schema.story.id))
+						.limit(limit + 1)
+				: yield* db
+						.select()
+						.from(schema.story)
+						.orderBy(desc(schema.story.id))
+						.limit(limit + 1);
 
 			const hasNextPage = stories.length > limit;
 			const edges = stories.slice(0, limit);
@@ -115,7 +125,7 @@ export const handlers = {
 
 	listStoriesByTag: ({tagId, first, after}: {tagId: string; first?: number; after?: string}) =>
 		Effect.gen(function* () {
-			const db = yield* SqliteDrizzle;
+			const db = yield* getDb();
 			const limit = first ?? 20;
 
 			// Count total stories with this tag
@@ -126,20 +136,19 @@ export const handlers = {
 			const totalCount = countResult[0]?.count ?? 0;
 
 			// Get story IDs for this tag
-			let idQuery = db
-				.select({storyId: schema.storyTag.storyId})
-				.from(schema.storyTag)
-				.where(eq(schema.storyTag.tagId, tagId))
-				.orderBy(desc(schema.storyTag.storyId))
-				.limit(limit + 1);
-
-			if (after) {
-				idQuery = idQuery.where(
-					drizzleSql`${schema.storyTag.tagId} = ${tagId} AND ${schema.storyTag.storyId} < ${after}`,
-				);
-			}
-
-			const storyIdRows = yield* idQuery;
+			const storyIdRows = after
+				? yield* db
+						.select({storyId: schema.storyTag.storyId})
+						.from(schema.storyTag)
+						.where(and(eq(schema.storyTag.tagId, tagId), lt(schema.storyTag.storyId, after)))
+						.orderBy(desc(schema.storyTag.storyId))
+						.limit(limit + 1)
+				: yield* db
+						.select({storyId: schema.storyTag.storyId})
+						.from(schema.storyTag)
+						.where(eq(schema.storyTag.tagId, tagId))
+						.orderBy(desc(schema.storyTag.storyId))
+						.limit(limit + 1);
 
 			const hasNextPage = storyIdRows.length > limit;
 			const paginatedIds = storyIdRows.slice(0, limit).map((r) => r.storyId);
@@ -189,7 +198,7 @@ export const handlers = {
 				return yield* Effect.fail(new InvalidUrlError({url}));
 			}
 
-			const db = yield* SqliteDrizzle;
+			const db = yield* getDb();
 			const storyId = id("story");
 			const normalizedUrl = getNormalizedUrl(url);
 
@@ -237,7 +246,7 @@ export const handlers = {
 		tagIds?: readonly string[];
 	}) =>
 		Effect.gen(function* () {
-			const db = yield* SqliteDrizzle;
+			const db = yield* getDb();
 
 			// Check if story exists
 			const [existing] = yield* db.select().from(schema.story).where(eq(schema.story.id, storyId));
@@ -270,7 +279,7 @@ export const handlers = {
 					yield* db
 						.delete(schema.storyTag)
 						.where(
-							drizzleSql`${schema.storyTag.storyId} = ${storyId} AND ${schema.storyTag.tagId} IN ${toRemove}`,
+							and(eq(schema.storyTag.storyId, storyId), inArray(schema.storyTag.tagId, toRemove))
 						);
 				}
 
@@ -303,7 +312,7 @@ export const handlers = {
 
 	deleteStory: ({id: storyId}: {id: string}) =>
 		Effect.gen(function* () {
-			const db = yield* SqliteDrizzle;
+			const db = yield* getDb();
 
 			const [existing] = yield* db.select().from(schema.story).where(eq(schema.story.id, storyId));
 			if (!existing) return {deleted: false};
@@ -317,24 +326,22 @@ export const handlers = {
 
 	listTags: () =>
 		Effect.gen(function* () {
-			const db = yield* SqliteDrizzle;
+			const db = yield* getDb();
 
-			const tags = yield* db
+			const tags = yield* db.select().from(schema.tag);
+
+			// Get story counts for all tags in one query
+			const storyCounts = yield* db
 				.select({
-					id: schema.tag.id,
-					name: schema.tag.name,
-					color: schema.tag.color,
-					createdAt: schema.tag.createdAt,
-					storyCount: drizzleSql<number>`(SELECT COUNT(*) FROM ${schema.storyTag} WHERE ${schema.storyTag.tagId} = ${schema.tag.id})`,
+					tagId: schema.storyTag.tagId,
+					count: count(),
 				})
-				.from(schema.tag);
+				.from(schema.storyTag)
+				.groupBy(schema.storyTag.tagId);
 
-			return tags.map((tag) =>
-				formatTag(
-					{id: tag.id, name: tag.name, color: tag.color, createdAt: tag.createdAt},
-					tag.storyCount,
-				),
-			);
+			const countMap = new Map(storyCounts.map((sc) => [sc.tagId, sc.count]));
+
+			return tags.map((tag) => formatTag(tag, countMap.get(tag.id) ?? 0));
 		}).pipe(Effect.orDie),
 
 	createTag: ({name, color}: {name: string; color: string}) =>
@@ -350,13 +357,13 @@ export const handlers = {
 				return yield* Effect.fail(new InvalidTagColorError({color}));
 			}
 
-			const db = yield* SqliteDrizzle;
+			const db = yield* getDb();
 
 			// Check uniqueness (case-insensitive)
 			const existingRows = yield* db
 				.select()
 				.from(schema.tag)
-				.where(drizzleSql`lower(${schema.tag.name}) = lower(${name})`);
+				.where(drizzleSql`lower(name) = lower(${name})`);
 			if (existingRows[0]) {
 				return yield* Effect.fail(new TagNameExistsError({tagName: name}));
 			}
@@ -390,7 +397,7 @@ export const handlers = {
 				return yield* Effect.fail(new InvalidTagColorError({color}));
 			}
 
-			const db = yield* SqliteDrizzle;
+			const db = yield* getDb();
 
 			const [existing] = yield* db.select().from(schema.tag).where(eq(schema.tag.id, tagId));
 			if (!existing) return null;
@@ -413,7 +420,10 @@ export const handlers = {
 					.select()
 					.from(schema.tag)
 					.where(
-						drizzleSql`lower(${schema.tag.name}) = lower(${name}) AND ${schema.tag.id} != ${tagId}`,
+						and(
+							drizzleSql`lower(name) = lower(${name})`,
+							ne(schema.tag.id, tagId)
+						)
 					);
 				if (duplicateRows[0]) {
 					return yield* Effect.fail(new TagNameExistsError({tagName: name}));
@@ -434,7 +444,7 @@ export const handlers = {
 
 	deleteTag: ({id: tagId}: {id: string}) =>
 		Effect.gen(function* () {
-			const db = yield* SqliteDrizzle;
+			const db = yield* getDb();
 
 			const [existing] = yield* db.select().from(schema.tag).where(eq(schema.tag.id, tagId));
 			if (!existing) return {deleted: false};
@@ -447,7 +457,7 @@ export const handlers = {
 
 	getTagsForStory: ({storyId}: {storyId: string}) =>
 		Effect.gen(function* () {
-			const db = yield* SqliteDrizzle;
+			const db = yield* getDb();
 
 			const results = yield* db
 				.select({
@@ -455,23 +465,34 @@ export const handlers = {
 					name: schema.tag.name,
 					color: schema.tag.color,
 					createdAt: schema.tag.createdAt,
-					storyCount: drizzleSql<number>`(SELECT COUNT(*) FROM ${schema.storyTag} st WHERE st.${schema.storyTag.tagId} = ${schema.tag.id})`,
 				})
 				.from(schema.storyTag)
 				.innerJoin(schema.tag, eq(schema.storyTag.tagId, schema.tag.id))
 				.where(eq(schema.storyTag.storyId, storyId));
 
-			return results.map((tag) =>
-				formatTag(
-					{id: tag.id, name: tag.name, color: tag.color, createdAt: tag.createdAt},
-					tag.storyCount,
-				),
-			);
+			// Get story counts for these tags
+			const tagIds = results.map((t) => t.id);
+			if (tagIds.length === 0) {
+				return [];
+			}
+
+			const storyCounts = yield* db
+				.select({
+					tagId: schema.storyTag.tagId,
+					count: count(),
+				})
+				.from(schema.storyTag)
+				.where(inArray(schema.storyTag.tagId, tagIds))
+				.groupBy(schema.storyTag.tagId);
+
+			const countMap = new Map(storyCounts.map((sc) => [sc.tagId, sc.count]));
+
+			return results.map((tag) => formatTag(tag, countMap.get(tag.id) ?? 0));
 		}).pipe(Effect.orDie),
 
 	setStoryTags: ({storyId, tagIds}: {storyId: string; tagIds: readonly string[]}) =>
 		Effect.gen(function* () {
-			const db = yield* SqliteDrizzle;
+			const db = yield* getDb();
 
 			// Get current tags
 			const currentTagRows = yield* db
@@ -487,7 +508,7 @@ export const handlers = {
 				yield* db
 					.delete(schema.storyTag)
 					.where(
-						drizzleSql`${schema.storyTag.storyId} = ${storyId} AND ${schema.storyTag.tagId} IN ${toRemove}`,
+						and(eq(schema.storyTag.storyId, storyId), inArray(schema.storyTag.tagId, toRemove))
 					);
 			}
 

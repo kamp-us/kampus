@@ -3,7 +3,6 @@ import {HttpServerRequest, HttpServerResponse} from "@effect/platform";
 import type {Rpc, RpcGroup} from "@effect/rpc";
 import {RpcSerialization, RpcServer} from "@effect/rpc";
 import {SqliteClient} from "@effect/sql-sqlite-do";
-import {SqliteDrizzle, make as makeSqliteDrizzle} from "@effect/sql-drizzle/Sqlite";
 import {drizzle} from "drizzle-orm/durable-sqlite";
 import {migrate} from "drizzle-orm/durable-sqlite/migrator";
 import {Effect, Layer, ManagedRuntime} from "effect";
@@ -18,15 +17,15 @@ interface DrizzleMigrations {
 /**
  * Configuration for creating a Durable Object class with Spellbook.
  */
-export interface MakeConfig<R extends Rpc.Any, TSchema extends Record<string, unknown> = Record<string, never>> {
+export interface MakeConfig<R extends Rpc.Any> {
 	/** RPC group definitions (from @kampus/library etc.) */
 	readonly rpcs: RpcGroup.RpcGroup<R>;
 	/** Handler implementations for each RPC method */
 	readonly handlers: RpcGroup.HandlersFrom<R>;
 	/** Drizzle migrations bundle (import from drizzle/migrations/migrations.js) */
 	readonly migrations: DrizzleMigrations;
-	/** Drizzle schema object (from drizzle/drizzle.schema.ts) */
-	readonly schema: TSchema;
+	/** Drizzle schema object (from drizzle/drizzle.schema.ts) - for documentation only */
+	readonly schema?: unknown;
 }
 
 /**
@@ -35,9 +34,9 @@ export interface MakeConfig<R extends Rpc.Any, TSchema extends Record<string, un
  * Features:
  * - Runs migrations in constructor via blockConcurrencyWhile
  * - Provides SqlClient to handlers via layer
- * - Provides SqliteDrizzle service with typed schema
  * - Provides DurableObjectEnv and DurableObjectCtx services
  * - Handles HTTP requests via RpcServer.toHttpApp
+ * - Handlers can create typed Drizzle instances using makeSqliteDrizzle({schema})
  *
  * @example
  * ```ts
@@ -47,11 +46,11 @@ export interface MakeConfig<R extends Rpc.Any, TSchema extends Record<string, un
  *   rpcs: LibraryRpcs,
  *   handlers,
  *   migrations,
- *   schema,
+ *   schema, // for documentation
  * });
  * ```
  */
-export const make = <R extends Rpc.Any, TSchema extends Record<string, unknown> = Record<string, never>, TEnv extends Env = Env>(config: MakeConfig<R, TSchema>) => {
+export const make = <R extends Rpc.Any, TEnv extends Env = Env>(config: MakeConfig<R>) => {
 	return class extends DurableObject<TEnv> {
 		// biome-ignore lint/suspicious/noExplicitAny: Complex layer types inferred at runtime
 		private runtime: ManagedRuntime.ManagedRuntime<any, any>;
@@ -61,12 +60,6 @@ export const make = <R extends Rpc.Any, TSchema extends Record<string, unknown> 
 
 			// SQLite client layer with Reactivity included
 			const sqliteLayer = SqliteClient.layer({db: ctx.storage.sql});
-
-			// Drizzle layer with typed schema
-			const drizzleLayer = Layer.effect(
-				SqliteDrizzle,
-				makeSqliteDrizzle({schema: config.schema}),
-			);
 
 			// Durable Object context services
 			const doLayer = Layer.mergeAll(
@@ -81,8 +74,8 @@ export const make = <R extends Rpc.Any, TSchema extends Record<string, unknown> 
 				Layer.scope,
 			);
 
-			// Compose all layers: handlers get sql + drizzle + do services
-			const fullLayer = Layer.provideMerge(handlerLayer, Layer.mergeAll(doLayer, sqliteLayer, drizzleLayer));
+			// Compose all layers: handlers get sql + do services
+			const fullLayer = Layer.provideMerge(handlerLayer, Layer.mergeAll(doLayer, sqliteLayer));
 
 			// biome-ignore lint/suspicious/noExplicitAny: Layer composition types are complex
 			this.runtime = ManagedRuntime.make(fullLayer as Layer.Layer<any, any, never>);
