@@ -45,6 +45,35 @@ describe("Library Stories", () => {
 			expect(story.description).toBe("A detailed description");
 		});
 
+		it("creates a story with tags", async () => {
+			const library = getLibrary("story-user-create-tags");
+			const tag1 = await library.createTag("react", "61dafb");
+			const tag2 = await library.createTag("typescript", "3178c6");
+
+			const story = await library.createStory({
+				url: "https://example.com/with-tags",
+				title: "Story With Tags",
+				tagIds: [tag1.id, tag2.id],
+			});
+
+			expect(story.tags).toHaveLength(2);
+			expect(story.tags.map((t) => t.name).sort()).toEqual(["react", "typescript"]);
+		});
+
+		it("creates story with non-existent tagIds (silently ignores)", async () => {
+			const library = getLibrary("story-user-bad-tags");
+			const validTag = await library.createTag("valid", "123456");
+
+			const story = await library.createStory({
+				url: "https://example.com/mixed-tags",
+				title: "Mixed Tags",
+				tagIds: [validTag.id, "tag_nonexistent"],
+			});
+
+			expect(story.tags).toHaveLength(1);
+			expect(story.tags[0].id).toBe(validTag.id);
+		});
+
 		// Note: URL validation error cases tested in library-handlers.spec.ts unit tests
 
 		it("gets a story by id", async () => {
@@ -65,6 +94,27 @@ describe("Library Stories", () => {
 			const story = await library.getStory("story_nonexistent");
 
 			expect(story).toBeNull();
+		});
+
+		it("gets story with tags in correct format", async () => {
+			const library = getLibrary("story-user-tags-format");
+			const tag1 = await library.createTag("frontend", "ff5500");
+			const tag2 = await library.createTag("backend", "0055ff");
+
+			const created = await library.createStory({
+				url: "https://example.com/with-tags",
+				title: "Tags Format Test",
+				tagIds: [tag1.id, tag2.id],
+			});
+
+			const story = await library.getStory(created.id);
+			expect(story?.tags).toHaveLength(2);
+			// Each tag has id, name, color
+			for (const tag of story!.tags) {
+				expect(tag).toHaveProperty("id");
+				expect(tag).toHaveProperty("name");
+				expect(tag).toHaveProperty("color");
+			}
 		});
 
 		it("updates a story title", async () => {
@@ -95,6 +145,93 @@ describe("Library Stories", () => {
 
 			const result = await library.updateStory("story_nonexistent", {title: "New"});
 			expect(result).toBeNull();
+		});
+
+		it("updates a story description", async () => {
+			const library = getLibrary("story-user-update-desc");
+			const created = await library.createStory({
+				url: "https://example.com/update-desc",
+				title: "Update Desc",
+				description: "Original",
+			});
+
+			const updated = await library.updateStory(created.id, {description: "Updated description"});
+			expect(updated?.description).toBe("Updated description");
+		});
+
+		it("clears story description (set to null)", async () => {
+			const library = getLibrary("story-user-clear-desc");
+			const created = await library.createStory({
+				url: "https://example.com/clear-desc",
+				title: "Clear Desc",
+				description: "Has description",
+			});
+
+			const updated = await library.updateStory(created.id, {description: null});
+			expect(updated?.description).toBeNull();
+		});
+
+		it("updates story tags - add tags", async () => {
+			const library = getLibrary("story-user-add-tags");
+			const story = await library.createStory({
+				url: "https://example.com/add-tags",
+				title: "Add Tags",
+			});
+			const tag1 = await library.createTag("add1", "111111");
+			const tag2 = await library.createTag("add2", "222222");
+
+			const updated = await library.updateStory(story.id, {tagIds: [tag1.id, tag2.id]});
+			expect(updated?.tags).toHaveLength(2);
+		});
+
+		it("updates story tags - remove tags", async () => {
+			const library = getLibrary("story-user-remove-tags");
+			const tag = await library.createTag("remove-me", "333333");
+			const story = await library.createStory({
+				url: "https://example.com/remove-tags",
+				title: "Remove Tags",
+				tagIds: [tag.id],
+			});
+			expect(story.tags).toHaveLength(1);
+
+			const updated = await library.updateStory(story.id, {tagIds: []});
+			expect(updated?.tags).toHaveLength(0);
+		});
+
+		it("updates story tags - replace tags", async () => {
+			const library = getLibrary("story-user-replace-tags");
+			const tagA = await library.createTag("tagA", "aaaaaa");
+			const tagB = await library.createTag("tagB", "bbbbbb");
+
+			const story = await library.createStory({
+				url: "https://example.com/replace-tags",
+				title: "Replace Tags",
+				tagIds: [tagA.id],
+			});
+			expect(story.tags[0].id).toBe(tagA.id);
+
+			const updated = await library.updateStory(story.id, {tagIds: [tagB.id]});
+			expect(updated?.tags).toHaveLength(1);
+			expect(updated?.tags[0].id).toBe(tagB.id);
+		});
+
+		it("sets updatedAt timestamp on update", async () => {
+			const library = getLibrary("story-user-updated-at");
+			const story = await library.createStory({
+				url: "https://example.com/updated-at",
+				title: "Original",
+			});
+
+			// New story has no updatedAt
+			expect(story.updatedAt).toBeNull();
+
+			const updated = await library.updateStory(story.id, {title: "Updated"});
+
+			expect(updated?.updatedAt).not.toBeNull();
+			const createdTime = new Date(story.createdAt).getTime();
+			const updatedTime = new Date(updated!.updatedAt!).getTime();
+			// Use >= because timestamps have second precision (same-second updates are valid)
+			expect(updatedTime).toBeGreaterThanOrEqual(createdTime);
 		});
 
 		it("deletes a story", async () => {
@@ -137,6 +274,61 @@ describe("Library Stories", () => {
 			// Tag should still exist, but no stories should have it
 			const storiesWithTag = await library.getStoriesByTag(tag.id);
 			expect(storiesWithTag).toHaveLength(0);
+		});
+	});
+
+	describe("Edge Cases", () => {
+		it("creates story with very long title (500 chars)", async () => {
+			const library = getLibrary("story-user-long-title");
+			const longTitle = "A".repeat(500);
+
+			const story = await library.createStory({
+				url: "https://example.com/long-title",
+				title: longTitle,
+			});
+
+			expect(story.title).toBe(longTitle);
+			expect(story.title.length).toBe(500);
+
+			const fetched = await library.getStory(story.id);
+			expect(fetched?.title).toBe(longTitle);
+		});
+
+		it("creates story with unicode in title", async () => {
+			const library = getLibrary("story-user-unicode");
+			const unicodeTitle = "🚀 日本語タイトル 한국어 العربية émoji";
+
+			const story = await library.createStory({
+				url: "https://example.com/unicode",
+				title: unicodeTitle,
+			});
+
+			expect(story.title).toBe(unicodeTitle);
+
+			const fetched = await library.getStory(story.id);
+			expect(fetched?.title).toBe(unicodeTitle);
+		});
+
+		it("creates story with many tags (20 tags)", async () => {
+			const library = getLibrary("story-user-many-tags");
+
+			// Create 20 tags
+			const tagIds: string[] = [];
+			for (let i = 0; i < 20; i++) {
+				const tag = await library.createTag(`manytag-${i}`, `${i.toString().padStart(6, "0")}`);
+				tagIds.push(tag.id);
+			}
+
+			const story = await library.createStory({
+				url: "https://example.com/many-tags",
+				title: "Story with Many Tags",
+				tagIds,
+			});
+
+			expect(story.tags).toHaveLength(20);
+
+			const fetched = await library.getStory(story.id);
+			expect(fetched?.tags).toHaveLength(20);
 		});
 	});
 
@@ -210,6 +402,105 @@ describe("Library Stories", () => {
 
 			expect(result.edges).toHaveLength(20);
 			expect(result.hasNextPage).toBe(true);
+		});
+
+		it("lists stories with their tags", async () => {
+			const library = getLibrary("story-user-list-tags");
+			const tag1 = await library.createTag("tag-list-1", "111111");
+			const tag2 = await library.createTag("tag-list-2", "222222");
+
+			await library.createStory({
+				url: "https://example.com/list-tag-1",
+				title: "Story with tag1",
+				tagIds: [tag1.id],
+			});
+			await library.createStory({
+				url: "https://example.com/list-tag-2",
+				title: "Story with tag2",
+				tagIds: [tag2.id],
+			});
+			await library.createStory({
+				url: "https://example.com/list-tag-both",
+				title: "Story with both",
+				tagIds: [tag1.id, tag2.id],
+			});
+
+			const result = await library.listStories({first: 10});
+
+			// Stories ordered by id desc (newest first)
+			expect(result.edges).toHaveLength(3);
+			expect(result.edges[0].tags).toHaveLength(2); // both
+			expect(result.edges[1].tags).toHaveLength(1); // tag2
+			expect(result.edges[2].tags).toHaveLength(1); // tag1
+
+			// Verify correct tags (not mixed up)
+			expect(result.edges[2].tags[0].id).toBe(tag1.id);
+			expect(result.edges[1].tags[0].id).toBe(tag2.id);
+		});
+	});
+
+	describe("Concurrency", () => {
+		it("concurrent story creates don't conflict", async () => {
+			const library = getLibrary("story-user-concurrent");
+
+			// Create 10 stories concurrently
+			const createPromises = Array.from({length: 10}, (_, i) =>
+				library.createStory({
+					url: `https://example.com/concurrent-${i}`,
+					title: `Concurrent Story ${i}`,
+				}),
+			);
+
+			const stories = await Promise.all(createPromises);
+
+			// All 10 stories should be created
+			expect(stories).toHaveLength(10);
+
+			// Each has a unique id
+			const ids = stories.map((s) => s.id);
+			const uniqueIds = new Set(ids);
+			expect(uniqueIds.size).toBe(10);
+
+			// All ids start with story_ prefix
+			for (const id of ids) {
+				expect(id).toMatch(/^story_/);
+			}
+
+			// Verify all stories are retrievable
+			const result = await library.listStories({first: 20});
+			expect(result.edges).toHaveLength(10);
+		});
+
+		it("concurrent updates to same story result in consistent state", async () => {
+			const library = getLibrary("story-user-concurrent-update");
+
+			const story = await library.createStory({
+				url: "https://example.com/concurrent-update",
+				title: "Original",
+				description: "Original desc",
+			});
+
+			// Update title and description concurrently
+			const [updated1, updated2] = await Promise.all([
+				library.updateStory(story.id, {title: "Title Update"}),
+				library.updateStory(story.id, {description: "Desc Update"}),
+			]);
+
+			// Both should return a valid story
+			expect(updated1).not.toBeNull();
+			expect(updated2).not.toBeNull();
+
+			// Final state: one update wins for each field
+			const final = await library.getStory(story.id);
+			expect(final).not.toBeNull();
+
+			// At least one of the updates should have been applied
+			const titleChanged = final!.title === "Title Update";
+			const descChanged = final!.description === "Desc Update";
+
+			// Due to DO single-threaded execution, both updates should apply
+			// (they don't conflict on same field in these requests)
+			expect(titleChanged || descChanged).toBe(true);
 		});
 	});
 });

@@ -2,10 +2,13 @@ import {DurableObject} from "cloudflare:workers";
 import {HttpServerRequest, HttpServerResponse} from "@effect/platform";
 import type {Rpc, RpcGroup} from "@effect/rpc";
 import {RpcSerialization, RpcServer} from "@effect/rpc";
+import type {SqlClient} from "@effect/sql";
+import {make as makeDrizzle, SqliteDrizzle} from "@effect/sql-drizzle/Sqlite";
 import {SqliteClient} from "@effect/sql-sqlite-do";
+import type {Table} from "drizzle-orm";
 import {drizzle} from "drizzle-orm/durable-sqlite";
 import {migrate} from "drizzle-orm/durable-sqlite/migrator";
-import {Effect, Layer, ManagedRuntime} from "effect";
+import {Effect, String as EffectString, Layer, ManagedRuntime} from "effect";
 import {DurableObjectCtx, DurableObjectEnv} from "../services";
 
 /** Drizzle migrations bundle type (from migrations.js) */
@@ -14,16 +17,21 @@ interface DrizzleMigrations {
 	migrations: Record<string, string>;
 }
 
+/** Schema type constraint - must be a record of Drizzle tables */
+type DrizzleSchema = Record<string, Table>;
+
 /**
  * Configuration for creating a Durable Object class with Spellbook.
  */
-export interface MakeConfig<R extends Rpc.Any> {
+export interface MakeConfig<R extends Rpc.Any, TSchema extends DrizzleSchema> {
 	/** RPC group definitions (from @kampus/library etc.) */
 	readonly rpcs: RpcGroup.RpcGroup<R>;
 	/** Handler implementations for each RPC method */
 	readonly handlers: RpcGroup.HandlersFrom<R>;
 	/** Drizzle migrations bundle (import from drizzle/migrations/migrations.js) */
 	readonly migrations: DrizzleMigrations;
+	/** Drizzle schema (tables exported from drizzle.schema.ts) */
+	readonly schema: TSchema;
 }
 
 /**
@@ -44,16 +52,33 @@ export interface MakeConfig<R extends Rpc.Any> {
  * });
  * ```
  */
-export const make = <R extends Rpc.Any, TEnv extends Env = Env>(config: MakeConfig<R>) => {
+export const make = <R extends Rpc.Any, TSchema extends DrizzleSchema, TEnv extends Env = Env>(
+	config: MakeConfig<R, TSchema>,
+) => {
 	return class extends DurableObject<TEnv> {
-		// biome-ignore lint/suspicious/noExplicitAny: Complex layer types inferred at runtime
 		private runtime: ManagedRuntime.ManagedRuntime<any, any>;
 
 		constructor(ctx: DurableObjectState, env: TEnv) {
 			super(ctx, env);
 
-			// SQLite client layer with Reactivity included
-			const sqliteLayer = SqliteClient.layer({db: ctx.storage.sql});
+			// SQLite client layer with column name transforms (camelCase <-> snake_case)
+			const sqliteLayer = SqliteClient.layer({
+				db: ctx.storage.sql,
+				transformQueryNames: EffectString.camelToSnake,
+				transformResultNames: EffectString.snakeToCamel,
+			});
+
+			// Drizzle layer - provides SqliteDrizzle service
+			// Note: schema is passed for runtime table mapping; handlers import schema directly for types
+			// Cast needed: SqliteDrizzle tag uses untyped SqliteRemoteDatabase
+			const drizzleLayer = Layer.effect(
+				SqliteDrizzle,
+				makeDrizzle({schema: config.schema}) as unknown as Effect.Effect<
+					typeof SqliteDrizzle.Service,
+					never,
+					SqlClient.SqlClient
+				>,
+			);
 
 			// Durable Object context services
 			const doLayer = Layer.mergeAll(
@@ -68,10 +93,15 @@ export const make = <R extends Rpc.Any, TEnv extends Env = Env>(config: MakeConf
 				Layer.scope,
 			);
 
-			// Compose all layers: handlers get sql + do services
-			const fullLayer = Layer.provideMerge(handlerLayer, Layer.mergeAll(doLayer, sqliteLayer));
+			// Drizzle needs SqlClient, so provide sqliteLayer to drizzleLayer
+			const drizzleWithSql = Layer.provideMerge(drizzleLayer, sqliteLayer);
 
-			// biome-ignore lint/suspicious/noExplicitAny: Layer composition types are complex
+			// Compose all layers: handlers get sql + drizzle + do services
+			const fullLayer = Layer.provideMerge(
+				handlerLayer,
+				Layer.mergeAll(doLayer, sqliteLayer, drizzleWithSql),
+			);
+
 			this.runtime = ManagedRuntime.make(fullLayer as Layer.Layer<any, any, never>);
 
 			// Run Drizzle migrations before any requests are processed

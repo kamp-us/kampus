@@ -19,6 +19,7 @@ export const story = sqliteTable(
 		createdAt: timestamp("created_at")
 			.notNull()
 			.$defaultFn(() => new Date()),
+		updatedAt: timestamp("updated_at"),
 	},
 	(table) => [
 		index("idx_story_normalized_url").on(table.normalizedUrl),

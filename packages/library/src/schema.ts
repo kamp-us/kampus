@@ -16,6 +16,7 @@ export const Story = Schema.Struct({
 	title: Schema.String,
 	description: Schema.NullOr(Schema.String),
 	createdAt: Schema.String,
+	updatedAt: Schema.NullOr(Schema.String),
 	tags: Schema.Array(TagRef),
 });
 export type Story = typeof Story.Type;

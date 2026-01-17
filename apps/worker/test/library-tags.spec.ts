@@ -1,4 +1,5 @@
 import {env} from "cloudflare:test";
+import {Exit} from "effect";
 import {afterEach, describe, expect, it} from "vitest";
 import {makeLibraryTestClient} from "./rpc-test-client";
 
@@ -21,8 +22,6 @@ describe("Library Tags", () => {
 	});
 
 	describe("Tag CRUD", () => {
-		// Note: Tag validation error cases tested in library-handlers.spec.ts unit tests
-		// (vitest-pool-workers has isolated storage issues when DOs throw exceptions)
 
 		it("creates a tag with valid name and color", async () => {
 			const library = getLibrary("test-user-1");
@@ -68,6 +67,37 @@ describe("Library Tags", () => {
 			expect(tags.map((t) => t.name).sort()).toEqual(["tag1", "tag2", "tag3"]);
 		});
 
+		it("returns empty array when no tags exist", async () => {
+			const library = getLibrary("test-user-no-tags");
+			const tags = await library.listTags();
+			expect(tags).toEqual([]);
+		});
+
+		it("creates tag with unicode name (emoji)", async () => {
+			const library = getLibrary("test-user-unicode-tag");
+			const unicodeName = "🔥 火 カタカナ";
+
+			const tag = await library.createTag(unicodeName, "ff5500");
+
+			expect(tag.name).toBe(unicodeName);
+
+			const fetched = await library.getTag(tag.id);
+			expect(fetched?.name).toBe(unicodeName);
+
+			const all = await library.listTags();
+			expect(all[0].name).toBe(unicodeName);
+		});
+
+		it("returns tags ordered by name alphabetically", async () => {
+			const library = getLibrary("test-user-order");
+			await library.createTag("zebra", "111111");
+			await library.createTag("apple", "222222");
+			await library.createTag("mango", "333333");
+
+			const tags = await library.listTags();
+			expect(tags.map((t) => t.name)).toEqual(["apple", "mango", "zebra"]);
+		});
+
 		it("updates a tag name", async () => {
 			const library = getLibrary("test-user-7");
 			const created = await library.createTag("oldname", "aaaaaa");
@@ -109,6 +139,101 @@ describe("Library Tags", () => {
 			// Should not throw, just return false
 			const result = await library.deleteTag("tag_nonexistent");
 			expect(result).toBe(false);
+		});
+	});
+
+	describe("Tag Validation Errors", () => {
+		it("create tag with duplicate name fails with TagNameExistsError", async () => {
+			const library = getLibrary("test-user-dup-name");
+			await library.createTag("work", "aaaaaa");
+
+			const exit = await library.createTagExit("work", "bbbbbb");
+			expect(Exit.isFailure(exit)).toBe(true);
+			if (Exit.isFailure(exit)) {
+				expect(exit.cause._tag).toBe("Fail");
+				if (exit.cause._tag === "Fail") {
+					expect(exit.cause.error._tag).toBe("TagNameExistsError");
+				}
+			}
+		});
+
+		it("create tag with empty name fails with InvalidTagNameError", async () => {
+			const library = getLibrary("test-user-empty-name");
+
+			const exit = await library.createTagExit("", "aaaaaa");
+			expect(Exit.isFailure(exit)).toBe(true);
+			if (Exit.isFailure(exit)) {
+				expect(exit.cause._tag).toBe("Fail");
+				if (exit.cause._tag === "Fail") {
+					expect(exit.cause.error._tag).toBe("InvalidTagNameError");
+				}
+			}
+		});
+
+		it("create tag with invalid color fails with InvalidTagColorError", async () => {
+			const library = getLibrary("test-user-bad-color");
+
+			const exit = await library.createTagExit("validname", "notacolor");
+			expect(Exit.isFailure(exit)).toBe(true);
+			if (Exit.isFailure(exit)) {
+				expect(exit.cause._tag).toBe("Fail");
+				if (exit.cause._tag === "Fail") {
+					expect(exit.cause.error._tag).toBe("InvalidTagColorError");
+				}
+			}
+		});
+
+		it("create tag with whitespace-only name fails with InvalidTagNameError", async () => {
+			const library = getLibrary("test-user-ws-name");
+
+			const exit = await library.createTagExit("   ", "aaaaaa");
+			expect(Exit.isFailure(exit)).toBe(true);
+			if (Exit.isFailure(exit)) {
+				expect(exit.cause._tag).toBe("Fail");
+				if (exit.cause._tag === "Fail") {
+					expect(exit.cause.error._tag).toBe("InvalidTagNameError");
+				}
+			}
+		});
+
+		it("update tag to duplicate name fails with TagNameExistsError", async () => {
+			const library = getLibrary("test-user-upd-dup");
+			const tagA = await library.createTag("existingA", "aaaaaa");
+			await library.createTag("existingB", "bbbbbb");
+
+			const exit = await library.updateTagExit(tagA.id, {name: "existingB"});
+			expect(Exit.isFailure(exit)).toBe(true);
+			if (Exit.isFailure(exit)) {
+				expect(exit.cause._tag).toBe("Fail");
+				if (exit.cause._tag === "Fail") {
+					expect(exit.cause.error._tag).toBe("TagNameExistsError");
+				}
+			}
+		});
+
+		it("update tag with invalid color fails with InvalidTagColorError", async () => {
+			const library = getLibrary("test-user-upd-color");
+			const tag = await library.createTag("colortest2", "aaaaaa");
+
+			const exit = await library.updateTagExit(tag.id, {color: "xyz"});
+			expect(Exit.isFailure(exit)).toBe(true);
+			if (Exit.isFailure(exit)) {
+				expect(exit.cause._tag).toBe("Fail");
+				if (exit.cause._tag === "Fail") {
+					expect(exit.cause.error._tag).toBe("InvalidTagColorError");
+				}
+			}
+		});
+
+		it("update tag to same name (own name) succeeds", async () => {
+			const library = getLibrary("test-user-upd-self");
+			const tag = await library.createTag("selfname", "aaaaaa");
+
+			const exit = await library.updateTagExit(tag.id, {name: "selfname"});
+			expect(Exit.isSuccess(exit)).toBe(true);
+			if (Exit.isSuccess(exit)) {
+				expect(exit.value?.name).toBe("selfname");
+			}
 		});
 	});
 
@@ -207,6 +332,42 @@ describe("Library Tags", () => {
 
 			await library.deleteTag(tag.id);
 
+			const tags = await library.getTagsForStory(story.id);
+			expect(tags).toEqual([]);
+		});
+
+		it("setStoryTags replaces all tags", async () => {
+			const library = getLibrary("test-user-replace-all");
+			const story = await library.createStory({
+				url: "https://example.com/replace",
+				title: "Replace All",
+			});
+			const tagA = await library.createTag("replaceA", "aaaaaa");
+			const tagB = await library.createTag("replaceB", "bbbbbb");
+			const tagC = await library.createTag("replaceC", "cccccc");
+			const tagD = await library.createTag("replaceD", "dddddd");
+
+			await library.tagStory(story.id, [tagA.id, tagB.id]);
+			expect(await library.getTagsForStory(story.id)).toHaveLength(2);
+
+			await library.tagStory(story.id, [tagC.id, tagD.id]);
+			const tags = await library.getTagsForStory(story.id);
+			expect(tags).toHaveLength(2);
+			expect(tags.map((t) => t.id).sort()).toEqual([tagC.id, tagD.id].sort());
+		});
+
+		it("setStoryTags with empty array clears all tags", async () => {
+			const library = getLibrary("test-user-clear-all");
+			const story = await library.createStory({
+				url: "https://example.com/clear",
+				title: "Clear All",
+			});
+			const tag = await library.createTag("clearme", "ffffff");
+
+			await library.tagStory(story.id, [tag.id]);
+			expect(await library.getTagsForStory(story.id)).toHaveLength(1);
+
+			await library.tagStory(story.id, []);
 			const tags = await library.getTagsForStory(story.id);
 			expect(tags).toEqual([]);
 		});

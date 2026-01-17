@@ -43,7 +43,6 @@ export const LibraryRpcs = RpcGroup.make(
 			tagIds: Schema.optional(Schema.Array(Schema.String)),
 		},
 		success: Schema.NullOr(Story),
-		error: Errors.StoryNotFoundError,
 	}),
 
 	Rpc.make("deleteStory", {
@@ -75,7 +74,6 @@ export const LibraryRpcs = RpcGroup.make(
 		},
 		success: Schema.NullOr(Tag),
 		error: Schema.Union(
-			Errors.TagNotFoundError,
 			Errors.TagNameExistsError,
 			Errors.InvalidTagNameError,
 			Errors.InvalidTagColorError,
