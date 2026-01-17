@@ -227,3 +227,20 @@ Key decisions:
 68 tests pass
 
 Next: migrate setStoryTags (ESD-111)
+## 2026-01-16: Migrate setStoryTags to Drizzle (ESD-111)
+
+Files changed:
+- apps/worker/src/features/library/handlers.ts
+  - Replaced SqlClient.SqlClient with SqliteDrizzle
+  - Uses db.select().from(schema.storyTag).where(eq(...)) for current tags
+  - Uses db.delete(schema.storyTag).where(and(eq(), inArray())) for bulk removal
+  - Uses db.insert(schema.storyTag).values(...).onConflictDoNothing() for bulk insert
+  - Uses inArray() for tag validation instead of sql.unsafe()
+
+Key decisions:
+- Pattern consistent with updateStory: get current, diff, remove/add
+- Bulk operations via inArray() instead of looping individual queries
+
+68 tests pass
+
+Next: migrate getTagsForStoriesSimple (ESD-112)

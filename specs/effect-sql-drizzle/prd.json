@@ -3,7 +3,7 @@
 	"description": "Replace @effect/sql Model.Class with @effect/sql-drizzle for single schema source",
 	"summary": {
 		"total": 45,
-		"passed": 14
+		"passed": 15
 	},
 	"items": [
 		{
@@ -221,7 +221,7 @@
 				"Uses db.insert for adding new tags",
 				"Uses inArray() for bulk operations"
 			],
-			"passes": false
+			"passes": true
 		},
 		{
 			"id": "ESD-112",
