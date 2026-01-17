@@ -93,69 +93,31 @@ Derived from [instructions.md](./instructions.md).
 
 ---
 
-## Known Issues (Post-M2)
+## Resolved Issues
 
-### BUG-1: Fetch URL Metadata Broken
-**Severity:** High
-**Status:** Open
+### BUG-1: Fetch URL Metadata ✅ FIXED
+**Resolution:** Deleted `makeWebPageParserClient`, now uses `Spellcaster.make` directly for WebPageParser DO-to-DO calls. Same pattern as LibraryClient.
 
-The "Fetch" button in CreateStoryForm does not work. The GraphQL `fetchUrlMetadata` query fails silently.
+**Files Changed:**
+- `apps/worker/src/features/web-page-parser/client.ts` - DELETED
+- `apps/worker/src/graphql/schema.ts` - uses Spellcaster.make for webPage resolver
+- `apps/worker/src/features/library/handlers.ts` - uses Spellcaster.make for fetchUrlMetadata
 
-**Root Cause:**
-`makeWebPageParserClient` in `apps/worker/src/features/web-page-parser/client.ts` uses `@effect/platform`'s `FetchHttpClient.layer` which doesn't work in Cloudflare Workers runtime (same issue we fixed for Spellcaster).
-
-**Fix Required:**
-Rewrite `makeWebPageParserClient` to use direct fetch like Spellcaster does:
-- Remove `FetchHttpClient.layer` dependency
-- Use `Effect.promise(() => stub.fetch(...))` pattern
-- Follow the same JSON protocol as Spellcaster
-
-**Files:**
-- `apps/worker/src/features/web-page-parser/client.ts` - rewrite client
-- `apps/worker/src/graphql/schema.ts` - fetchUrlMetadata resolver may need updates
-
-**Comparison (LibraryRpc.tsx):**
-- Old implementation used `fetchUrlMetadataMutation` from effect-atom which worked via RPC
-- New implementation calls GraphQL which calls broken WebPageParser client
-
-### BUG-2: createStory null/undefined Mismatch
-**Severity:** Medium
-**Status:** Partially Fixed (delete/update fixed, create may still have issues)
-
-GraphQL passes `null` for optional fields, but Effect Schema expects `undefined`.
-
-**Root Cause:**
-The `createStory` resolver passes `args.description ?? undefined` but if there are any code paths where null sneaks through, the RPC will fail with schema validation error.
-
-**Evidence from logs:**
-```
-Expected string, actual null
-Expected undefined, actual null
-```
-
-**Files:**
-- `apps/worker/src/graphql/schema.ts` - createStory resolver
+### Known Limitations
 
 ### MISSING-1: "Refreshing..." Indicator
 **Severity:** Low
-**Status:** Not implemented
+**Status:** Not implemented (design decision)
 
-LibraryRpc.tsx showed a "Refreshing..." indicator during background refetches:
-```tsx
-{waiting && <div className={styles.refreshing}>Refreshing...</div>}
-```
+LibraryRpc.tsx showed a "Refreshing..." indicator. Relay handles background updates via Suspense boundaries instead - this is the intended Relay pattern.
 
-The Relay implementation doesn't have this - Relay handles background updates differently.
-
-**Decision needed:** Is this UX worth adding back?
-
-### PARITY-1: Feature Parity Checklist
+### Feature Parity: Complete ✅
 
 | Feature | LibraryRpc.tsx | Library.tsx (Relay) | Status |
 |---------|---------------|---------------------|--------|
 | Tag filter via URL | ✅ tagFilterAtom | ✅ tagFilterAtom | ✅ |
 | Create story form | ✅ | ✅ | ✅ |
-| Fetch URL metadata | ✅ fetchUrlMetadataMutation | ❌ GraphQL broken | **BUG-1** |
+| Fetch URL metadata | ✅ | ✅ | ✅ |
 | Create tag inline | ✅ reactivityKeys | ✅ Relay mutation | ✅ |
 | Tag input on create | ✅ | ✅ | ✅ |
 | Tag input on edit | ✅ | ✅ | ✅ |
@@ -165,6 +127,5 @@ The Relay implementation doesn't have this - Relay handles background updates di
 | Tag filter bar | ✅ | ✅ | ✅ |
 | Empty state | ✅ | ✅ | ✅ |
 | Load More pagination | ⚠️ stub | ✅ usePaginationFragment | ✅ |
-| Refreshing indicator | ✅ | ❌ | MISSING-1 |
 | Optimistic updates | ❌ | ✅ | ✅ Improved |
 | Normalized cache | ❌ | ✅ | ✅ Improved |

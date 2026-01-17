@@ -97,42 +97,53 @@ apps/kamp-us/src/
 ```typescript
 // apps/worker/src/shared/Spellcaster.ts
 import {RpcClient, RpcSerialization} from "@effect/rpc"
-import {FetchHttpClient} from "@effect/platform"
 import type {Rpc, RpcGroup} from "@effect/rpc"
 import {Effect, Layer} from "effect"
 
+// Fetchable interface - compatible with DO stubs
+interface Fetchable {
+  fetch(request: Request): Promise<Response> | Response
+}
+
 export interface MakeConfig<R extends Rpc.Any> {
   readonly rpcs: RpcGroup.RpcGroup<R>
-  readonly stub: DurableObjectStub
+  readonly stub: Fetchable
 }
 
 export const make = <R extends Rpc.Any>(
   config: MakeConfig<R>
 ): Effect.Effect<RpcClient.RpcClient<R>> => {
-  const doFetch = (req: Request) => config.stub.fetch(req)
-
-  const protocol = RpcClient.layerProtocolHttp({
-    url: "http://do.internal/rpc"
-  }).pipe(
-    Layer.provideMerge(RpcSerialization.layerJson),
-    Layer.provideMerge(
-      FetchHttpClient.layer.pipe(
-        Layer.provideMerge(
-          Layer.succeed(
-            FetchHttpClient.Fetch,
-            (input, init) => doFetch(new Request(input, init))
-          )
+  // Custom HttpClient that routes to DO stub
+  // IMPORTANT: Does NOT use @effect/platform FetchHttpClient
+  // which doesn't work in Cloudflare Workers runtime
+  const HttpClientLive = Layer.succeed(
+    HttpClient.HttpClient,
+    HttpClient.makeDefault((request) =>
+      Effect.gen(function* () {
+        const body = yield* request.text
+        const req = new Request("http://do.internal/rpc", {
+          method: request.method,
+          headers: Object.fromEntries(request.headers),
+          body,
+        })
+        const response = yield* Effect.promise(() =>
+          Promise.resolve(config.stub.fetch(req))
         )
-      )
+        return HttpClientResponse.fromWeb(request, response)
+      })
     )
   )
 
-  return RpcClient.make(config.rpcs).pipe(
-    Effect.provide(protocol),
-    Effect.scoped
+  const protocol = RpcClient.layerProtocolHttp({url: "http://do.internal/rpc"}).pipe(
+    Layer.provideMerge(RpcSerialization.layerJson),
+    Layer.provideMerge(HttpClientLive)
   )
+
+  return RpcClient.make(config.rpcs).pipe(Effect.provide(protocol), Effect.scoped)
 }
 ```
+
+**Key design decision:** Spellcaster bypasses `@effect/platform`'s `FetchHttpClient.layer` because it doesn't work in Cloudflare Workers runtime. Instead, it creates a custom `HttpClient` that routes directly to the DO stub's fetch method.
 
 ### LibraryClient Service
 
@@ -324,9 +335,8 @@ const StoryType: GraphQLObjectType = new GraphQLObjectType({
     createdAt: {type: new GraphQLNonNull(GraphQLString)},
     tags: {
       type: new GraphQLNonNull(new GraphQLList(new GraphQLNonNull(TagType))),
-      resolve: resolver(function* (story: {tagIds: string[]}) {
-        return yield* Effect.forEach(story.tagIds, loadTag)
-      }),
+      // Tags are embedded in Story RPC response - no resolver needed
+      // This is more efficient than batched tag resolution (0 extra RPC calls)
     },
   }),
 })
@@ -704,35 +714,48 @@ function Library() {
 
 ## Data Flow Examples
 
-### List Query (no batching)
+### List Query (with embedded tags)
 ```
 LibraryQuery
-  → library.stories(first: 10)
+  → me.library.stories(first: 10)
+    → resolver yields Auth.required
     → resolver yields LibraryClient
     → client.listStories({first: 10})
       → Spellcaster.make → RPC to Library DO
+      → Stories returned with tags already embedded
+    → toConnection() transforms to Relay format
     → returns StoryConnection
 ```
 
-### Nested Field (batched)
+### Single Story (batched via node query)
 ```
-For 10 stories, each with Story.tags:
-  → 10x resolver yields loadTag(tagId)
-  → Effect.request batches within tick
-  → TagResolver receives 10 GetTag requests
-  → client.getBatchTag({ids: [...10 ids]})
-    → single RPC call
-  → results distributed to each request
+node(id: "story_xxx")
+  → resolver detects story_ prefix
+  → loadStory("story_xxx")
+    → Effect.request(GetStory)
+    → StoryResolver batches if multiple in same tick
+    → client.getBatchStory({ids: [...]})
+  → returns Story | null
 ```
 
 ### Mutation
 ```
 CreateStoryMutation
-  → createStory(input)
+  → createStory(url, title, description, tagIds)
     → resolver yields Auth.required
     → resolver yields LibraryClient
     → client.createStory(input)
-    → returns {story, storyEdge}
-  → Relay updates normalized store
-  → UI re-renders with new story
+    → returns {story}
+  → Relay updater prepends story to connection
+  → UI re-renders with new story (optimistic first, then confirmed)
+```
+
+### Tag Filter (URL state)
+```
+User clicks tag chip
+  → setTagFilter(tagId) updates effect-atom
+  → URL changes to ?tag=xxx
+  → React re-renders with new tagId
+  → Suspense boundary triggers LibraryByTagQuery
+  → storiesByTag(tagName, first) returns filtered connection
 ```

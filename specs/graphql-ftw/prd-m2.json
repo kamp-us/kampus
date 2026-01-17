@@ -353,6 +353,37 @@
         "Verify no imports of deleteTagMutation elsewhere"
       ],
       "passes": true
+    },
+    {
+      "id": "REFACTOR-1",
+      "category": "Refactor",
+      "description": "Use GraphQLID instead of GraphQLString for ID arguments in mutations",
+      "stepsToVerify": [
+        "updateStory id arg uses GraphQLID",
+        "deleteStory id arg uses GraphQLID",
+        "updateTag id arg uses GraphQLID",
+        "deleteTag id arg uses GraphQLID",
+        "Regenerate Relay types after schema change",
+        "Update frontend mutations if types changed"
+      ],
+      "passes": false
+    },
+    {
+      "id": "REFACTOR-2",
+      "category": "Refactor",
+      "description": "Use GraphQLInputObjectType for mutation arguments",
+      "stepsToVerify": [
+        "CreateStoryInput type with url, title, description, tagIds fields",
+        "UpdateStoryInput type with id, title, description, tagIds fields",
+        "DeleteStoryInput type with id field",
+        "CreateTagInput type with name, color fields",
+        "UpdateTagInput type with id, name, color fields",
+        "DeleteTagInput type with id field",
+        "Mutations use input: {type: InputType} pattern",
+        "Regenerate Relay types after schema change",
+        "Update frontend mutations to use input pattern"
+      ],
+      "passes": false
     }
   ]
 }
