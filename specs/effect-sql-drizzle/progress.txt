@@ -126,3 +126,19 @@ Key decisions:
 68 tests pass
 
 Next: migrate deleteStory (ESD-105)
+## 2026-01-16: Migrate deleteStory to Drizzle (ESD-105)
+
+Files changed:
+- apps/worker/src/features/library/handlers.ts
+  - Replaced StoryRepo.findById with db.select().from(schema.story).where(eq(...))
+  - Replaced StoryRepo.delete with db.delete(schema.story).where(eq(...))
+  - Removed raw SQL for tag association deletion (cascade handles it)
+
+Key decisions:
+- Check existence before delete to return correct { deleted: false } when not found
+- Rely on DB cascade for story_tag cleanup instead of explicit delete
+- No StoryRepo usage remains in deleteStory
+
+68 tests pass
+
+Next: migrate listTags (ESD-106)

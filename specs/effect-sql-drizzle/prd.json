@@ -3,7 +3,7 @@
 	"description": "Replace @effect/sql Model.Class with @effect/sql-drizzle for single schema source",
 	"summary": {
 		"total": 45,
-		"passed": 8
+		"passed": 9
 	},
 	"items": [
 		{
@@ -160,7 +160,7 @@
 				"No StoryRepo.delete usage",
 				"Returns { deleted: true/false }"
 			],
-			"passes": false
+			"passes": true
 		},
 		{
 			"id": "ESD-106",

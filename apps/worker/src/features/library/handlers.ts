@@ -403,15 +403,14 @@ export const handlers = {
 
 	deleteStory: ({id: storyId}: {id: string}) =>
 		Effect.gen(function* () {
-			const sql = yield* SqlClient.SqlClient;
-			const storyRepo = yield* StoryRepo;
+			const db = yield* SqliteDrizzle;
 
-			const storyOpt = yield* storyRepo.findById(storyId);
-			if (Option.isNone(storyOpt)) return {deleted: false};
+			// Check if story exists
+			const [existing] = yield* db.select().from(schema.story).where(eq(schema.story.id, storyId));
+			if (!existing) return {deleted: false};
 
-			// Delete tag associations (cascade should handle, but be explicit)
-			yield* sql`DELETE FROM story_tag WHERE story_id = ${storyId}`;
-			yield* storyRepo.delete(storyId);
+			// Delete the story (cascade will handle story_tag associations)
+			yield* db.delete(schema.story).where(eq(schema.story.id, storyId));
 
 			return {deleted: true};
 		}).pipe(Effect.orDie),
