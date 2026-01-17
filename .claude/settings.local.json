@@ -5,7 +5,28 @@
       "WebFetch(domain:developers.cloudflare.com)",
       "WebFetch(domain:raw.githubusercontent.com)",
       "WebFetch(domain:www.npmjs.com)",
-      "WebFetch(domain:gqloom.dev)"
+      "WebFetch(domain:gqloom.dev)",
+      "Skill(new-feature)",
+      "Bash(find:*)",
+      "Bash(ls:*)",
+      "Bash(turbo run:*)",
+      "Bash(pnpm --filter worker run test:*)",
+      "Bash(biome check:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "mcp__plugin_context7_context7__resolve-library-id",
+      "mcp__plugin_context7_context7__query-docs",
+      "Bash(pnpm exec biome:*)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:effect-ts.github.io)",
+      "Bash(gh issue create:*)",
+      "Bash(pnpm --filter worker add:*)",
+      "Bash(pnpm exec turbo run typecheck:*)",
+      "Bash(pnpm --filter worker run typecheck:*)",
+      "Bash(pnpm --filter worker exec tsc:*)",
+      "Bash(pnpm exec depcheck:*)",
+      "Bash(pnpm dlx depcheck:*)",
+      "Bash(gh pr view:*)"
     ]
   }
 }
