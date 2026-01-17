@@ -11,3 +11,21 @@ Verified:
 - import { SqliteDrizzle } from '@effect/sql-drizzle/Sqlite' compiles
 - typecheck passes
 - all 70 tests pass
+
+## 2026-01-16: Spellbook schema + SqliteDrizzle (ESD-002, ESD-003)
+
+Files changed:
+- apps/worker/src/shared/Spellbook.ts
+  - MakeConfig now requires schema: TSchema generic param
+  - drizzleLayer created via makeDrizzle({schema})
+  - Layer composition: drizzleWithSql = Layer.provideMerge(drizzleLayer, sqliteLayer)
+  - Kept layers optional (@deprecated) for backward compat during migration
+- apps/worker/src/features/library/Library.ts - passes schema, keeps RepoLayer temporarily
+- apps/worker/src/features/web-page-parser/WebPageParser.ts - passes schema
+
+Key decisions:
+- Cast needed for drizzleLayer: SqliteDrizzle tag uses untyped SqliteRemoteDatabase
+- Kept layers param with @deprecated - handlers still use StoryRepo/TagRepo
+- ESD-004 (remove layers) blocked until handlers migrated (ESD-100 to ESD-112)
+
+Next: migrate handlers to use SqliteDrizzle directly, then remove layers

@@ -3,8 +3,9 @@ import {HttpServerRequest, HttpServerResponse} from "@effect/platform";
 import type {Rpc, RpcGroup} from "@effect/rpc";
 import {RpcSerialization, RpcServer} from "@effect/rpc";
 import type {SqlClient} from "@effect/sql";
-import {SqliteDrizzle} from "@effect/sql-drizzle/Sqlite";
+import {make as makeDrizzle, SqliteDrizzle} from "@effect/sql-drizzle/Sqlite";
 import {SqliteClient} from "@effect/sql-sqlite-do";
+import type {Table} from "drizzle-orm";
 import {drizzle} from "drizzle-orm/durable-sqlite";
 import {migrate} from "drizzle-orm/durable-sqlite/migrator";
 import {Effect, String as EffectString, Layer, ManagedRuntime} from "effect";
@@ -16,17 +17,22 @@ interface DrizzleMigrations {
 	migrations: Record<string, string>;
 }
 
+/** Schema type constraint - must be a record of Drizzle tables */
+type DrizzleSchema = Record<string, Table>;
+
 /**
  * Configuration for creating a Durable Object class with Spellbook.
  */
-export interface MakeConfig<R extends Rpc.Any> {
+export interface MakeConfig<R extends Rpc.Any, TSchema extends DrizzleSchema> {
 	/** RPC group definitions (from @kampus/library etc.) */
 	readonly rpcs: RpcGroup.RpcGroup<R>;
 	/** Handler implementations for each RPC method */
 	readonly handlers: RpcGroup.HandlersFrom<R>;
 	/** Drizzle migrations bundle (import from drizzle/migrations/migrations.js) */
 	readonly migrations: DrizzleMigrations;
-	/** Optional additional layers (e.g., repositories) that depend on SqlClient */
+	/** Drizzle schema (tables exported from drizzle.schema.ts) */
+	readonly schema: TSchema;
+	/** @deprecated Optional layers for backward compatibility during migration */
 	readonly layers?: Layer.Layer<any, never, SqlClient.SqlClient>;
 }
 
@@ -48,7 +54,9 @@ export interface MakeConfig<R extends Rpc.Any> {
  * });
  * ```
  */
-export const make = <R extends Rpc.Any, TEnv extends Env = Env>(config: MakeConfig<R>) => {
+export const make = <R extends Rpc.Any, TSchema extends DrizzleSchema, TEnv extends Env = Env>(
+	config: MakeConfig<R, TSchema>,
+) => {
 	return class extends DurableObject<TEnv> {
 		private runtime: ManagedRuntime.ManagedRuntime<any, any>;
 
@@ -61,6 +69,18 @@ export const make = <R extends Rpc.Any, TEnv extends Env = Env>(config: MakeConf
 				transformQueryNames: EffectString.camelToSnake,
 				transformResultNames: EffectString.snakeToCamel,
 			});
+
+			// Drizzle layer - provides SqliteDrizzle service
+			// Note: schema is passed for runtime table mapping; handlers import schema directly for types
+			// Cast needed: SqliteDrizzle tag uses untyped SqliteRemoteDatabase
+			const drizzleLayer = Layer.effect(
+				SqliteDrizzle,
+				makeDrizzle({schema: config.schema}) as unknown as Effect.Effect<
+					typeof SqliteDrizzle.Service,
+					never,
+					SqlClient.SqlClient
+				>,
+			);
 
 			// Durable Object context services
 			const doLayer = Layer.mergeAll(
@@ -75,13 +95,18 @@ export const make = <R extends Rpc.Any, TEnv extends Env = Env>(config: MakeConf
 				Layer.scope,
 			);
 
-			// Optional repository/service layers
-			const repoLayer = config.layers ?? Layer.empty;
+			// Drizzle needs SqlClient, so provide sqliteLayer to drizzleLayer
+			const drizzleWithSql = Layer.provideMerge(drizzleLayer, sqliteLayer);
 
-			// Compose all layers: handlers get sql + do services + repos
+			// Optional legacy layers (e.g., RepoLayer) for backward compatibility
+			const legacyLayers = config.layers
+				? Layer.provideMerge(config.layers, sqliteLayer)
+				: Layer.empty;
+
+			// Compose all layers: handlers get sql + drizzle + do services + legacy layers
 			const fullLayer = Layer.provideMerge(
 				handlerLayer,
-				Layer.provideMerge(repoLayer, Layer.mergeAll(doLayer, sqliteLayer)),
+				Layer.mergeAll(doLayer, sqliteLayer, drizzleWithSql, legacyLayers),
 			);
 
 			this.runtime = ManagedRuntime.make(fullLayer as Layer.Layer<any, any, never>);
