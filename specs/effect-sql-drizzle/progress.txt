@@ -28,4 +28,18 @@ Key decisions:
 - Kept layers param with @deprecated - handlers still use StoryRepo/TagRepo
 - ESD-004 (remove layers) blocked until handlers migrated (ESD-100 to ESD-112)
 
-Next: migrate handlers to use SqliteDrizzle directly, then remove layers
+## 2026-01-16: Migrate getStory to Drizzle (ESD-100)
+
+Files changed:
+- apps/worker/src/features/library/handlers.ts
+  - Added SqliteDrizzle, eq imports from drizzle-orm
+  - Added schema import for Drizzle tables
+  - Replaced StoryRepo.findById with db.select().from(schema.story).where(eq(...))
+  - Drizzle returns Date objects, converted to timestamps for formatStory helper
+
+Key decisions:
+- Keep getTagsForStoriesSimple as raw SQL for now - migrate in ESD-112
+- formatStory helper expects numeric timestamps, convert Drizzle Date objects inline
+- StoryRepo still imported (used by other handlers) - will be removed after full migration
+
+Next: migrate listStories (ESD-101)

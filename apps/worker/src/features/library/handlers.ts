@@ -1,4 +1,5 @@
 import {SqlClient, type SqlError} from "@effect/sql";
+import {SqliteDrizzle} from "@effect/sql-drizzle/Sqlite";
 import {
 	InvalidTagColorError,
 	InvalidTagNameError,
@@ -6,9 +7,11 @@ import {
 	TagNameExistsError,
 } from "@kampus/library";
 import {id} from "@usirin/forge";
+import {eq} from "drizzle-orm";
 import {DateTime, Effect, Option} from "effect";
 import {DurableObjectEnv} from "../../services";
 import {makeWebPageParserClient} from "../web-page-parser/client";
+import * as schema from "./drizzle/drizzle.schema";
 import {getNormalizedUrl} from "./getNormalizedUrl";
 import {Story, StoryRepo, Tag, TagRepo} from "./models";
 import {isValidHexColor, validateTagName} from "./schema";
@@ -117,13 +120,22 @@ const getTagsForStoriesSimple = (storyIds: string[]) =>
 export const handlers = {
 	getStory: ({id: storyId}: {id: string}) =>
 		Effect.gen(function* () {
-			const storyRepo = yield* StoryRepo;
-			const storyOpt = yield* storyRepo.findById(storyId);
-			if (Option.isNone(storyOpt)) return null;
+			const db = yield* SqliteDrizzle;
+			const [story] = yield* db.select().from(schema.story).where(eq(schema.story.id, storyId));
+			if (!story) return null;
 
-			const story = storyOpt.value;
 			const tagsByStory = yield* getTagsForStoriesSimple([storyId]);
-			return formatStoryFromModel(story, tagsByStory.get(storyId) ?? []);
+			return formatStory(
+				{
+					id: story.id,
+					url: story.url,
+					title: story.title,
+					description: story.description,
+					createdAt: story.createdAt.getTime(),
+					updatedAt: story.updatedAt?.getTime() ?? null,
+				},
+				tagsByStory.get(storyId) ?? [],
+			);
 		}).pipe(Effect.orDie),
 
 	listStories: ({first, after}: {first?: number; after?: string}) =>
