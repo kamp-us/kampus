@@ -586,16 +586,39 @@ export const handlers = {
 
 	getTagsForStory: ({storyId}: {storyId: string}) =>
 		Effect.gen(function* () {
-			const sql = yield* SqlClient.SqlClient;
+			const db = yield* SqliteDrizzle;
 
-			const results = yield* sql<TagRow & {storyCount: number}>`
-				SELECT t.*, (SELECT COUNT(*) FROM story_tag st WHERE st.tag_id = t.id) as story_count
-				FROM story_tag st
-				INNER JOIN tag t ON st.tag_id = t.id
-				WHERE st.story_id = ${storyId}
-			`;
+			// Subquery for story count per tag
+			const storyCountSubquery = db
+				.select({
+					tagId: schema.storyTag.tagId,
+					count: count().as("count"),
+				})
+				.from(schema.storyTag)
+				.groupBy(schema.storyTag.tagId)
+				.as("story_counts");
 
-			return results.map((tag) => formatTag(tag, tag.storyCount));
+			// Get tags for this story with story counts via join
+			const results = yield* db
+				.select({
+					id: schema.tag.id,
+					name: schema.tag.name,
+					color: schema.tag.color,
+					createdAt: schema.tag.createdAt,
+					storyCount: drizzleSql<number>`COALESCE(${storyCountSubquery.count}, 0)`,
+				})
+				.from(schema.storyTag)
+				.innerJoin(schema.tag, eq(schema.storyTag.tagId, schema.tag.id))
+				.leftJoin(storyCountSubquery, eq(schema.tag.id, storyCountSubquery.tagId))
+				.where(eq(schema.storyTag.storyId, storyId));
+
+			return results.map((tag) => ({
+				id: tag.id,
+				name: tag.name,
+				color: tag.color,
+				createdAt: tag.createdAt.toISOString(),
+				storyCount: tag.storyCount,
+			}));
 		}).pipe(Effect.orDie),
 
 	setStoryTags: ({storyId, tagIds}: {storyId: string; tagIds: readonly string[]}) =>

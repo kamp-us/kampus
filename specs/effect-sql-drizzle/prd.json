@@ -3,7 +3,7 @@
 	"description": "Replace @effect/sql Model.Class with @effect/sql-drizzle for single schema source",
 	"summary": {
 		"total": 45,
-		"passed": 13
+		"passed": 14
 	},
 	"items": [
 		{
@@ -210,7 +210,7 @@
 				"Uses Drizzle join on story_tag and tag tables",
 				"Returns array with story count per tag"
 			],
-			"passes": false
+			"passes": true
 		},
 		{
 			"id": "ESD-111",
