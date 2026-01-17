@@ -356,5 +356,41 @@ Deleted `makeWebPageParserClient` entirely. Now uses `Spellcaster.make` directly
 - BUG-1: passes=true
 
 **Remaining:**
-- CLEANUP-3: tagsAtom kept (used by TagManagement.tsx)
-- TEST-6: Pagination test (needs >10 stories)
+- None
+
+## 2026-01-17: Fix Pagination + CLEANUP-3 Resolution (TEST-6, CLEANUP-3)
+
+**Files:**
+- apps/worker/src/graphql/schema.ts - changed node(id:) arg from GraphQLID to GraphQLString
+
+**Problem:**
+Relay pagination queries use `$id: String!` but schema had `node(id: ID!)`. GraphQL treats ID and String as different scalar types, causing validation error: "Variable $id of type String! used in position expecting ID!"
+
+**Fix:**
+Changed `node` query's id argument from `GraphQLID` to `GraphQLString` to match Relay-generated pagination queries.
+
+**CLEANUP-3 Update:**
+tagsAtom still blocked by TagManagement.tsx usage. Added new cleanup tasks (CLEANUP-6 to CLEANUP-10) to migrate TagManagement.tsx to GraphQL and then remove remaining RPC atoms.
+
+**Verified:**
+- Created 13 stories via UI
+- Initial load shows 10 stories + "Load More" button
+- Click Load More → 3 more stories appended
+- Load More disappears (no more pages)
+- `turbo run typecheck --filter=worker` passes
+- `pnpm --filter worker run test` passes (82 tests)
+
+**PRD Status:**
+- TEST-6: passes=true (pagination works)
+- CLEANUP-3: passes=false (blocked by TagManagement.tsx, new tasks added)
+
+**New PRD Items Added:**
+- CLEANUP-6: Migrate TagManagement.tsx to use GraphQL for tag listing
+- CLEANUP-7: Migrate TagManagement.tsx to use GraphQL updateTag mutation
+- CLEANUP-8: Migrate TagManagement.tsx to use GraphQL deleteTag mutation
+- CLEANUP-9: Remove updateTagMutation from atoms.ts
+- CLEANUP-10: Remove deleteTagMutation from atoms.ts
+
+**Remaining:**
+- CLEANUP-3: tagsAtom removal (blocked by CLEANUP-6)
+- CLEANUP-6 to CLEANUP-10: TagManagement migration

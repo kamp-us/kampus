@@ -427,7 +427,8 @@ const QueryType = new GraphQLObjectType({
 		node: {
 			type: NodeInterface,
 			args: {
-				id: {type: new GraphQLNonNull(GraphQLID)},
+				// Use GraphQLString instead of GraphQLID to match Relay's generated pagination queries
+				id: {type: new GraphQLNonNull(GraphQLString)},
 			},
 			resolve: resolver(function* (_source: unknown, args: {id: string}) {
 				// Determine type by ID prefix

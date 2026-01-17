@@ -177,14 +177,15 @@
     {
       "id": "CLEANUP-3",
       "category": "Cleanup",
-      "description": "Remove tagsAtom from atoms.ts",
+      "description": "Remove tagsAtom from atoms.ts (requires TagManagement migration first)",
       "stepsToVerify": [
         "Search for tagsAtom in atoms.ts",
         "Verify tagsAtom is removed",
         "Verify no imports of tagsAtom elsewhere"
       ],
       "passes": false,
-      "notes": "tagsAtom kept - still used by TagManagement.tsx"
+      "notes": "Blocked by TagManagement.tsx - see CLEANUP-6 to CLEANUP-8 for migration tasks",
+      "blockedBy": ["CLEANUP-6", "CLEANUP-7", "CLEANUP-8"]
     },
     {
       "id": "CLEANUP-4",
@@ -262,11 +263,12 @@
       "description": "Manual E2E: Pagination (Load More) works",
       "stepsToVerify": [
         "Create >10 stories",
-        "Verify initial load shows first page",
-        "Click Load More, verify more stories appended"
+        "Verify initial load shows first page (10 stories)",
+        "Click Load More, verify more stories appended",
+        "Verify Load More disappears when no more pages"
       ],
-      "passes": false,
-      "notes": "Not tested - requires >10 stories"
+      "passes": true,
+      "notes": "Fixed node(id:) type mismatch: changed GraphQLID to GraphQLString to match Relay's pagination query"
     },
     {
       "id": "TEST-7",
@@ -294,6 +296,63 @@
       "severity": "high",
       "rootCause": "makeWebPageParserClient in apps/worker/src/features/web-page-parser/client.ts uses FetchHttpClient.layer from @effect/platform which doesn't work in Cloudflare Workers runtime",
       "fix": "Deleted makeWebPageParserClient, now uses Spellcaster.make directly for consistent DO-to-DO RPC pattern"
+    },
+    {
+      "id": "CLEANUP-6",
+      "category": "Cleanup",
+      "description": "Migrate TagManagement.tsx to use GraphQL for tag listing",
+      "stepsToVerify": [
+        "Add TagManagementQuery using library.tags",
+        "Use useLazyLoadQuery instead of tagsAtom",
+        "Remove tagsAtom import from TagManagement.tsx"
+      ],
+      "passes": false
+    },
+    {
+      "id": "CLEANUP-7",
+      "category": "Cleanup",
+      "description": "Migrate TagManagement.tsx to use GraphQL updateTag mutation",
+      "stepsToVerify": [
+        "Add TagManagementUpdateTagMutation",
+        "Use useMutation instead of updateTagMutation atom",
+        "Remove updateTagMutation import from TagManagement.tsx",
+        "Remove reactivityKeys usage"
+      ],
+      "passes": false
+    },
+    {
+      "id": "CLEANUP-8",
+      "category": "Cleanup",
+      "description": "Migrate TagManagement.tsx to use GraphQL deleteTag mutation",
+      "stepsToVerify": [
+        "Add TagManagementDeleteTagMutation with @deleteRecord",
+        "Use useMutation instead of deleteTagMutation atom",
+        "Remove deleteTagMutation import from TagManagement.tsx",
+        "Remove reactivityKeys usage"
+      ],
+      "passes": false
+    },
+    {
+      "id": "CLEANUP-9",
+      "category": "Cleanup",
+      "description": "Remove updateTagMutation from atoms.ts",
+      "stepsToVerify": [
+        "Verify updateTagMutation is removed from atoms.ts",
+        "Verify no imports of updateTagMutation elsewhere"
+      ],
+      "passes": false,
+      "blockedBy": ["CLEANUP-7"]
+    },
+    {
+      "id": "CLEANUP-10",
+      "category": "Cleanup",
+      "description": "Remove deleteTagMutation from atoms.ts",
+      "stepsToVerify": [
+        "Verify deleteTagMutation is removed from atoms.ts",
+        "Verify no imports of deleteTagMutation elsewhere"
+      ],
+      "passes": false,
+      "blockedBy": ["CLEANUP-8"]
     }
   ]
 }
