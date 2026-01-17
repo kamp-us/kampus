@@ -1,5 +1,5 @@
 /**
- * @generated SignedSource<<b5e5135afc9c6bf8ad80099aab8248bf>>
+ * @generated SignedSource<<e04f7fd9b5fbbe63e697ab83ca5a1d06>>
  * @lightSyntaxTransform
  * @nogrep
  */
@@ -21,7 +21,7 @@ export type LoginSignInMutation$data = {
       readonly id: string;
       readonly name: string | null | undefined;
     };
-  };
+  } | null | undefined;
 };
 export type LoginSignInMutation = {
   response: LoginSignInMutation$data;

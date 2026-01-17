@@ -1,5 +1,5 @@
 /**
- * @generated SignedSource<<920a12b79a4a91bc11efdaf3dc0bb9a5>>
+ * @generated SignedSource<<ba568794c11d7f5819456cdc333f3a0e>>
  * @lightSyntaxTransform
  * @nogrep
  */
@@ -21,7 +21,7 @@ export type LibraryCreateStoryMutation$data = {
     readonly story: {
       readonly id: string;
       readonly " $fragmentSpreads": FragmentRefs<"Library_story">;
-    };
+    } | null | undefined;
   };
 };
 export type LibraryCreateStoryMutation = {

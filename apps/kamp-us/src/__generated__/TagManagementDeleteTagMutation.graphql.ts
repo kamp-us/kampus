@@ -1,5 +1,5 @@
 /**
- * @generated SignedSource<<88264aed0babb1bd80c35d1dd4448fc1>>
+ * @generated SignedSource<<67fb0cd10734c94602fcce7006f8a6d7>>
  * @lightSyntaxTransform
  * @nogrep
  */
@@ -138,16 +138,16 @@ return {
     ]
   },
   "params": {
-    "cacheID": "3e852c6d96f91bfae8fb5deef508820a",
+    "cacheID": "2fe77ccae7bd4b6f622314b3cf37d130",
     "id": null,
     "metadata": {},
     "name": "TagManagementDeleteTagMutation",
     "operationKind": "mutation",
-    "text": "mutation TagManagementDeleteTagMutation(\n  $id: String!\n) {\n  deleteTag(id: $id) {\n    deletedTagId\n    success\n    error {\n      code\n      message\n    }\n  }\n}\n"
+    "text": "mutation TagManagementDeleteTagMutation(\n  $id: ID!\n) {\n  deleteTag(id: $id) {\n    deletedTagId\n    success\n    error {\n      code\n      message\n    }\n  }\n}\n"
   }
 };
 })();
 
-(node as any).hash = "c5b9ceda8715a995bf96183190788e8a";
+(node as any).hash = "0329b46dc2e65c4d699ef4f4c9113b50";
 
 export default node;

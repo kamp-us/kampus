@@ -4,7 +4,8 @@ type ApiKey {
 }
 
 type CreateStoryPayload {
-  story: Story!
+  story: Story
+  storyEdge: StoryEdge
 }
 
 type CreateTagPayload {
@@ -34,22 +35,23 @@ type Library implements Node {
   id: ID!
   stories(after: String, first: Int): StoryConnection!
   storiesByTag(after: String, first: Int, tagName: String!): StoryConnection!
+  story(id: ID!): Story
   tags: [Tag!]!
+  webPage(url: String!): WebPage
 }
 
 type Mutation {
-  bootstrap(email: String!, name: String!, password: String!): User!
-  createApiKey(name: String!): ApiKey!
+  bootstrap(email: String!, name: String!, password: String!): User
+  createApiKey(name: String!): ApiKey
   createStory(description: String, tagIds: [String!], title: String!, url: String!): CreateStoryPayload!
   createTag(color: String!, name: String!): CreateTagPayload!
-  deleteStory(id: String!): DeleteStoryPayload!
-  deleteTag(id: String!): DeleteTagPayload!
-  signIn(email: String!, password: String!): SignInResponse!
-  updateStory(description: String, id: String!, tagIds: [String!], title: String): UpdateStoryPayload!
-  updateTag(color: String, id: String!, name: String): UpdateTagPayload!
+  deleteStory(id: ID!): DeleteStoryPayload!
+  deleteTag(id: ID!): DeleteTagPayload!
+  signIn(email: String!, password: String!): SignInResponse
+  updateStory(description: String, id: ID!, tagIds: [ID!], title: String): UpdateStoryPayload!
+  updateTag(color: String, id: ID!, name: String): UpdateTagPayload!
 }
 
-"""An object with a globally unique ID"""
 interface Node {
   id: ID!
 }
@@ -62,8 +64,8 @@ type PageInfo {
 }
 
 type Query {
-  fetchUrlMetadata(url: String!): UrlMetadata!
-  me: User!
+  fetchUrlMetadata(url: String!): UrlMetadata
+  me: User
   node(id: String!): Node
 }
 
@@ -84,7 +86,7 @@ type Story implements Node {
 type StoryConnection {
   edges: [StoryEdge!]!
   pageInfo: PageInfo!
-  totalCount: Float!
+  totalCount: Int!
 }
 
 type StoryEdge {
@@ -100,7 +102,6 @@ type StoryNotFoundError {
 
 type Tag implements Node {
   color: String!
-  createdAt: String!
   id: ID!
   name: String!
   stories(after: String, first: Int): StoryConnection!
@@ -143,4 +144,11 @@ type User {
   id: String!
   library: Library!
   name: String
+}
+
+type WebPage {
+  description: String
+  error: String
+  title: String
+  url: String!
 }

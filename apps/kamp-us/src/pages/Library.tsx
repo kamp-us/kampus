@@ -198,10 +198,10 @@ const CreateStoryMutation = graphql`
 
 const UpdateStoryMutation = graphql`
 	mutation LibraryUpdateStoryMutation(
-		$id: String!
+		$id: ID!
 		$title: String
 		$description: String
-		$tagIds: [String!]
+		$tagIds: [ID!]
 	) {
 		updateStory(id: $id, title: $title, description: $description, tagIds: $tagIds) {
 			story {
@@ -218,7 +218,7 @@ const UpdateStoryMutation = graphql`
 `;
 
 const DeleteStoryMutation = graphql`
-	mutation LibraryDeleteStoryMutation($id: String!) {
+	mutation LibraryDeleteStoryMutation($id: ID!) {
 		deleteStory(id: $id) {
 			deletedStoryId @deleteRecord
 			success

@@ -1,5 +1,5 @@
 /**
- * @generated SignedSource<<c795ef3afc64efa6da224f98eb9e7fda>>
+ * @generated SignedSource<<85b3b4596879ee25fe73c9d533e923c0>>
  * @lightSyntaxTransform
  * @nogrep
  */
@@ -237,16 +237,16 @@ return {
     ]
   },
   "params": {
-    "cacheID": "5aa680d9afd58f296e85384ee4b5ac3a",
+    "cacheID": "559e3ed66fbc137915a09a2442af15d2",
     "id": null,
     "metadata": {},
     "name": "LibraryUpdateStoryMutation",
     "operationKind": "mutation",
-    "text": "mutation LibraryUpdateStoryMutation(\n  $id: String!\n  $title: String\n  $description: String\n  $tagIds: [String!]\n) {\n  updateStory(id: $id, title: $title, description: $description, tagIds: $tagIds) {\n    story {\n      id\n      ...Library_story\n    }\n    error {\n      message\n    }\n  }\n}\n\nfragment Library_story on Story {\n  id\n  url\n  title\n  description\n  createdAt\n  tags {\n    id\n    name\n    color\n  }\n}\n"
+    "text": "mutation LibraryUpdateStoryMutation(\n  $id: ID!\n  $title: String\n  $description: String\n  $tagIds: [ID!]\n) {\n  updateStory(id: $id, title: $title, description: $description, tagIds: $tagIds) {\n    story {\n      id\n      ...Library_story\n    }\n    error {\n      message\n    }\n  }\n}\n\nfragment Library_story on Story {\n  id\n  url\n  title\n  description\n  createdAt\n  tags {\n    id\n    name\n    color\n  }\n}\n"
   }
 };
 })();
 
-(node as any).hash = "e80d7231ff72db8ab32c678041601011";
+(node as any).hash = "175a0739890af4d2d54e5ace31fc09ea";
 
 export default node;

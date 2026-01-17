@@ -572,10 +572,10 @@ const MutationType = new GraphQLObjectType({
 		updateStory: {
 			type: new GraphQLNonNull(UpdateStoryPayload),
 			args: {
-				id: {type: new GraphQLNonNull(GraphQLString)},
+				id: {type: new GraphQLNonNull(GraphQLID)},
 				title: {type: GraphQLString},
 				description: {type: GraphQLString},
-				tagIds: {type: new GraphQLList(new GraphQLNonNull(GraphQLString))},
+				tagIds: {type: new GraphQLList(new GraphQLNonNull(GraphQLID))},
 			},
 			resolve: resolver(function* (
 				_source: unknown,
@@ -610,7 +610,7 @@ const MutationType = new GraphQLObjectType({
 		deleteStory: {
 			type: new GraphQLNonNull(DeleteStoryPayload),
 			args: {
-				id: {type: new GraphQLNonNull(GraphQLString)},
+				id: {type: new GraphQLNonNull(GraphQLID)},
 			},
 			resolve: resolver(function* (_source: unknown, args: {id: string}) {
 				yield* Auth.required;
@@ -653,7 +653,7 @@ const MutationType = new GraphQLObjectType({
 		updateTag: {
 			type: new GraphQLNonNull(UpdateTagPayload),
 			args: {
-				id: {type: new GraphQLNonNull(GraphQLString)},
+				id: {type: new GraphQLNonNull(GraphQLID)},
 				name: {type: GraphQLString},
 				color: {type: GraphQLString},
 			},
@@ -680,7 +680,7 @@ const MutationType = new GraphQLObjectType({
 		deleteTag: {
 			type: new GraphQLNonNull(DeleteTagPayload),
 			args: {
-				id: {type: new GraphQLNonNull(GraphQLString)},
+				id: {type: new GraphQLNonNull(GraphQLID)},
 			},
 			resolve: resolver(function* (_source: unknown, args: {id: string}) {
 				yield* Auth.required;

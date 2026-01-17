@@ -363,10 +363,12 @@
         "deleteStory id arg uses GraphQLID",
         "updateTag id arg uses GraphQLID",
         "deleteTag id arg uses GraphQLID",
+        "updateStory tagIds arg uses GraphQLID",
         "Regenerate Relay types after schema change",
         "Update frontend mutations if types changed"
       ],
-      "passes": false
+      "passes": true,
+      "notes": "Updated schema.ts mutations to use GraphQLID for id and tagIds args. Updated frontend GraphQL queries. Regenerated Relay types. Verified with Playwright E2E: updateStory, deleteStory, updateTag, deleteTag all working."
     },
     {
       "id": "REFACTOR-2",

@@ -1,5 +1,5 @@
 /**
- * @generated SignedSource<<fe804894e60131a2a1dd4f47f34cce68>>
+ * @generated SignedSource<<55608c9f4271fb0952e3ae05d7be6bde>>
  * @lightSyntaxTransform
  * @nogrep
  */
@@ -23,7 +23,7 @@ export type LibraryQuery$data = {
       }>;
       readonly " $fragmentSpreads": FragmentRefs<"Library_stories">;
     };
-  };
+  } | null | undefined;
 };
 export type LibraryQuery = {
   response: LibraryQuery$data;

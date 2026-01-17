@@ -1,5 +1,5 @@
 /**
- * @generated SignedSource<<5d9a461dbb1452d2be1b56cd16e003df>>
+ * @generated SignedSource<<41adad99df322e85d830db22f2a78fde>>
  * @lightSyntaxTransform
  * @nogrep
  */
@@ -22,7 +22,7 @@ export type TagManagementQuery$data = {
         };
       }>;
     };
-  };
+  } | null | undefined;
 };
 export type TagManagementQuery = {
   response: TagManagementQuery$data;

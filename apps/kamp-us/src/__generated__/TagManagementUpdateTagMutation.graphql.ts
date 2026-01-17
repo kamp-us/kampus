@@ -1,5 +1,5 @@
 /**
- * @generated SignedSource<<24fd22f86ea57533eed03eb64f3d317e>>
+ * @generated SignedSource<<19a9c100a09648d53687d0388eafe479>>
  * @lightSyntaxTransform
  * @nogrep
  */
@@ -239,16 +239,16 @@ return {
     ]
   },
   "params": {
-    "cacheID": "bcd6922365847d83e46f53b267492daa",
+    "cacheID": "d33c33dda2af8d4b4eb3f2ef061a11be",
     "id": null,
     "metadata": {},
     "name": "TagManagementUpdateTagMutation",
     "operationKind": "mutation",
-    "text": "mutation TagManagementUpdateTagMutation(\n  $id: String!\n  $name: String\n  $color: String\n) {\n  updateTag(id: $id, name: $name, color: $color) {\n    tag {\n      id\n      name\n      color\n      stories {\n        totalCount\n      }\n    }\n    error {\n      __typename\n      ... on InvalidTagNameError {\n        code\n        message\n      }\n      ... on TagNameExistsError {\n        code\n        message\n      }\n      ... on TagNotFoundError {\n        code\n        message\n      }\n    }\n  }\n}\n"
+    "text": "mutation TagManagementUpdateTagMutation(\n  $id: ID!\n  $name: String\n  $color: String\n) {\n  updateTag(id: $id, name: $name, color: $color) {\n    tag {\n      id\n      name\n      color\n      stories {\n        totalCount\n      }\n    }\n    error {\n      __typename\n      ... on InvalidTagNameError {\n        code\n        message\n      }\n      ... on TagNameExistsError {\n        code\n        message\n      }\n      ... on TagNotFoundError {\n        code\n        message\n      }\n    }\n  }\n}\n"
   }
 };
 })();
 
-(node as any).hash = "bba1759ef1456deb15e57eb9905997d2";
+(node as any).hash = "a9045da266a80ffe6a96084b75d2425e";
 
 export default node;

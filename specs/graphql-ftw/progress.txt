@@ -423,4 +423,37 @@ TagManagement.tsx was already migrated to Relay in previous iteration:
 - CLEANUP-10: passes=true (deleteTagMutation removed)
 
 **Remaining:**
-- None - M2 complete
+- REFACTOR-1, REFACTOR-2
+
+## 2026-01-17: Use GraphQLID for mutation args (REFACTOR-1)
+
+**Files:**
+- apps/worker/src/graphql/schema.ts - changed id/tagIds args from GraphQLString to GraphQLID
+- apps/kamp-us/src/pages/Library.tsx - updated mutation GraphQL to use ID! type
+- apps/kamp-us/src/pages/library/TagManagement.tsx - updated mutation GraphQL to use ID! type
+- apps/kamp-us/schema.graphql - fetched updated schema
+- apps/kamp-us/src/__generated__/* - regenerated Relay types
+
+**Changes:**
+- updateStory: id → GraphQLID, tagIds → [GraphQLID!]
+- deleteStory: id → GraphQLID
+- updateTag: id → GraphQLID
+- deleteTag: id → GraphQLID
+- Frontend mutations updated: $id: String! → $id: ID!, $tagIds: [String!] → $tagIds: [ID!]
+
+**Verified:**
+- `pnpm --filter kamp-us run schema:fetch` - fetched updated schema
+- `pnpm --filter kamp-us relay` - regenerated Relay types (16 reader, 13 normalization)
+- `turbo run typecheck --filter=kamp-us --filter=worker` passes
+- `pnpm --filter worker run test` passes (82 tests)
+- Playwright E2E:
+  - updateStory: edited story title, saved successfully
+  - deleteStory: deleted story, removed from list
+  - updateTag: renamed tag, saved successfully
+  - deleteTag: deleted tag, removed from list
+
+**PRD Status:**
+- REFACTOR-1: passes=true
+
+**Remaining:**
+- REFACTOR-2

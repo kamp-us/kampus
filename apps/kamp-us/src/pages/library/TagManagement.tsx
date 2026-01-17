@@ -34,7 +34,7 @@ const TagManagementQueryDef = graphql`
 `;
 
 const UpdateTagMutation = graphql`
-	mutation TagManagementUpdateTagMutation($id: String!, $name: String, $color: String) {
+	mutation TagManagementUpdateTagMutation($id: ID!, $name: String, $color: String) {
 		updateTag(id: $id, name: $name, color: $color) {
 			tag {
 				id
@@ -63,7 +63,7 @@ const UpdateTagMutation = graphql`
 `;
 
 const DeleteTagMutation = graphql`
-	mutation TagManagementDeleteTagMutation($id: String!) {
+	mutation TagManagementDeleteTagMutation($id: ID!) {
 		deleteTag(id: $id) {
 			deletedTagId @deleteRecord
 			success

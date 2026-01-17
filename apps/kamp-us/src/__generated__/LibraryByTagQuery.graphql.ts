@@ -1,5 +1,5 @@
 /**
- * @generated SignedSource<<fb03e3fb82c07b968fd373a7547c5d7f>>
+ * @generated SignedSource<<445bf65bed3a7a23beff8eb067416d73>>
  * @lightSyntaxTransform
  * @nogrep
  */
@@ -24,7 +24,7 @@ export type LibraryByTagQuery$data = {
       }>;
       readonly " $fragmentSpreads": FragmentRefs<"Library_storiesByTag">;
     };
-  };
+  } | null | undefined;
 };
 export type LibraryByTagQuery = {
   response: LibraryByTagQuery$data;

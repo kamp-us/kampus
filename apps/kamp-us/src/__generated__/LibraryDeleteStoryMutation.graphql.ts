@@ -1,5 +1,5 @@
 /**
- * @generated SignedSource<<87af4278c8d0c86f95070b5ffce4bc11>>
+ * @generated SignedSource<<ff88efd40243f1467792c8fcfb3e822c>>
  * @lightSyntaxTransform
  * @nogrep
  */
@@ -130,16 +130,16 @@ return {
     ]
   },
   "params": {
-    "cacheID": "d3c06388279635c77d75fe4aab1ef9f4",
+    "cacheID": "e5fccba59af38abe02682f8eb21054b4",
     "id": null,
     "metadata": {},
     "name": "LibraryDeleteStoryMutation",
     "operationKind": "mutation",
-    "text": "mutation LibraryDeleteStoryMutation(\n  $id: String!\n) {\n  deleteStory(id: $id) {\n    deletedStoryId\n    success\n    error {\n      message\n    }\n  }\n}\n"
+    "text": "mutation LibraryDeleteStoryMutation(\n  $id: ID!\n) {\n  deleteStory(id: $id) {\n    deletedStoryId\n    success\n    error {\n      message\n    }\n  }\n}\n"
   }
 };
 })();
 
-(node as any).hash = "966451cd9ae061af4d54be0d61f4f990";
+(node as any).hash = "1fa3def2dc3ec50525e3d98dc75206ab";
 
 export default node;
