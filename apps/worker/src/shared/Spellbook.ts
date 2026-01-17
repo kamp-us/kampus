@@ -3,6 +3,7 @@ import {HttpServerRequest, HttpServerResponse} from "@effect/platform";
 import type {Rpc, RpcGroup} from "@effect/rpc";
 import {RpcSerialization, RpcServer} from "@effect/rpc";
 import type {SqlClient} from "@effect/sql";
+import {SqlError} from "@effect/sql";
 import {make as makeDrizzle, SqliteDrizzle} from "@effect/sql-drizzle/Sqlite";
 import {SqliteClient} from "@effect/sql-sqlite-do";
 import type {Table} from "drizzle-orm";
@@ -21,13 +22,45 @@ interface DrizzleMigrations {
 type DrizzleSchema = Record<string, Table>;
 
 /**
+ * Handler type that allows SqlError in the error channel.
+ * Spellbook's wrapHandlers will catch SqlError and die, making the final error channel match the RPC schema.
+ */
+type HandlersWithSqlError<R extends Rpc.Any> = {
+	readonly [Current in R as Current["_tag"]]: (
+		payload: Rpc.Payload<Current>,
+		options: {readonly clientId: number; readonly headers: Headers},
+	) => Effect.Effect<
+		Rpc.Success<Current>,
+		SqlError.SqlError | Rpc.Error<Current>,
+		any
+	>;
+};
+
+/**
+ * Wraps all handlers to automatically catch SqlError and die.
+ * This removes the need for `.pipe(Effect.orDie)` in every handler.
+ */
+const wrapHandlers = <R extends Rpc.Any>(
+	handlers: HandlersWithSqlError<R>,
+): RpcGroup.HandlersFrom<R> =>
+	Object.fromEntries(
+		Object.entries(handlers).map(([name, handler]) => [
+			name,
+			(...args: [any, any]) =>
+				(handler as (...args: [any, any]) => Effect.Effect<any, any, any>)(...args).pipe(
+					Effect.catchTag("SqlError", Effect.die),
+				),
+		]),
+	) as RpcGroup.HandlersFrom<R>;
+
+/**
  * Configuration for creating a Durable Object class with Spellbook.
  */
 export interface MakeConfig<R extends Rpc.Any, TSchema extends DrizzleSchema> {
 	/** RPC group definitions (from @kampus/library etc.) */
 	readonly rpcs: RpcGroup.RpcGroup<R>;
-	/** Handler implementations for each RPC method */
-	readonly handlers: RpcGroup.HandlersFrom<R>;
+	/** Handler implementations for each RPC method (may have SqlError in error channel - auto-caught) */
+	readonly handlers: HandlersWithSqlError<R>;
 	/** Drizzle migrations bundle (import from drizzle/migrations/migrations.js) */
 	readonly migrations: DrizzleMigrations;
 	/** Drizzle schema (tables exported from drizzle.schema.ts) */
@@ -86,9 +119,10 @@ export const make = <R extends Rpc.Any, TSchema extends DrizzleSchema, TEnv exte
 				Layer.succeed(DurableObjectCtx, ctx),
 			);
 
-			// RPC handler layer
+			// RPC handler layer (with SqlError auto-catching)
+			const wrappedHandlers = wrapHandlers(config.handlers);
 			const handlerLayer = Layer.mergeAll(
-				config.rpcs.toLayer(config.handlers),
+				config.rpcs.toLayer(wrappedHandlers),
 				RpcSerialization.layerJson,
 				Layer.scope,
 			);

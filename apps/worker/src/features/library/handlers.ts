@@ -72,7 +72,7 @@ export const getStory = ({id: storyId}: {id: string}) =>
 
 		const tagsByStory = yield* getTagsForStoriesSimple([storyId]);
 		return formatStory(story, tagsByStory.get(storyId) ?? []);
-	}).pipe(Effect.orDie);
+	});
 
 export const getBatchStory = ({ids}: {ids: readonly string[]}) =>
 	Effect.gen(function* () {
@@ -94,7 +94,7 @@ export const getBatchStory = ({ids}: {ids: readonly string[]}) =>
 			if (!story) return null;
 			return formatStory(story, tagsByStory.get(storyId) ?? []);
 		});
-	}).pipe(Effect.orDie);
+	});
 
 export const listStories = ({first, after}: {first?: number; after?: string}) =>
 	Effect.gen(function* () {
@@ -125,7 +125,7 @@ export const listStories = ({first, after}: {first?: number; after?: string}) =>
 			endCursor: edges.length > 0 ? edges[edges.length - 1].id : null,
 			totalCount,
 		};
-	}).pipe(Effect.orDie);
+	});
 
 export const listStoriesByTag = ({
 	tagId,
@@ -187,7 +187,7 @@ export const listStoriesByTag = ({
 			endCursor: orderedStories.length > 0 ? orderedStories[orderedStories.length - 1].id : null,
 			totalCount,
 		};
-	}).pipe(Effect.orDie);
+	});
 
 export const createStory = ({
 	url,
@@ -242,7 +242,7 @@ export const createStory = ({
 		const tagsByStory = yield* getTagsForStoriesSimple([storyId]);
 
 		return formatStory(story, tagsByStory.get(storyId) ?? []);
-	}).pipe(Effect.catchTag("SqlError", Effect.die));
+	});
 
 export const updateStory = ({
 	id: storyId,
@@ -317,7 +317,7 @@ export const updateStory = ({
 		const tagsByStory = yield* getTagsForStoriesSimple([storyId]);
 
 		return formatStory(updated!, tagsByStory.get(storyId) ?? []);
-	}).pipe(Effect.orDie);
+	});
 
 export const deleteStory = ({id: storyId}: {id: string}) =>
 	Effect.gen(function* () {
@@ -331,7 +331,7 @@ export const deleteStory = ({id: storyId}: {id: string}) =>
 		yield* db.delete(schema.story).where(eq(schema.story.id, storyId));
 
 		return {deleted: true};
-	}).pipe(Effect.orDie);
+	});
 
 export const getBatchTag = ({ids}: {ids: readonly string[]}) =>
 	Effect.gen(function* () {
@@ -378,7 +378,7 @@ export const getBatchTag = ({ids}: {ids: readonly string[]}) =>
 
 		// Return array preserving input order, null for missing tags
 		return ids.map((tagId) => tagMap.get(tagId) ?? null);
-	}).pipe(Effect.orDie);
+	});
 
 export const listTags = () =>
 	Effect.gen(function* () {
@@ -414,7 +414,7 @@ export const listTags = () =>
 			createdAt: tag.createdAt.toISOString(),
 			storyCount: tag.storyCount,
 		}));
-	}).pipe(Effect.orDie);
+	});
 
 export const createTag = ({name, color}: {name: string; color: string}) =>
 	Effect.gen(function* () {
@@ -460,7 +460,7 @@ export const createTag = ({name, color}: {name: string; color: string}) =>
 			createdAt: tag.createdAt.toISOString(),
 			storyCount: 0,
 		};
-	}).pipe(Effect.catchTag("SqlError", Effect.die));
+	});
 
 export const updateTag = ({id: tagId, name, color}: {id: string; name?: string; color?: string}) =>
 	Effect.gen(function* () {
@@ -533,7 +533,7 @@ export const updateTag = ({id: tagId, name, color}: {id: string; name?: string; 
 			createdAt: updated!.createdAt.toISOString(),
 			storyCount,
 		};
-	}).pipe(Effect.catchTag("SqlError", Effect.die));
+	});
 
 export const deleteTag = ({id: tagId}: {id: string}) =>
 	Effect.gen(function* () {
@@ -547,7 +547,7 @@ export const deleteTag = ({id: tagId}: {id: string}) =>
 		yield* db.delete(schema.tag).where(eq(schema.tag.id, tagId));
 
 		return {deleted: true};
-	}).pipe(Effect.orDie);
+	});
 
 export const getTagsForStory = ({storyId}: {storyId: string}) =>
 	Effect.gen(function* () {
@@ -584,7 +584,7 @@ export const getTagsForStory = ({storyId}: {storyId: string}) =>
 			createdAt: tag.createdAt.toISOString(),
 			storyCount: tag.storyCount,
 		}));
-	}).pipe(Effect.orDie);
+	});
 
 export const setStoryTags = ({storyId, tagIds}: {storyId: string; tagIds: readonly string[]}) =>
 	Effect.gen(function* () {
@@ -626,7 +626,7 @@ export const setStoryTags = ({storyId, tagIds}: {storyId: string; tagIds: readon
 		}
 
 		return {success: true};
-	}).pipe(Effect.orDie);
+	});
 
 export const fetchUrlMetadata = ({url}: {url: string}) =>
 	Effect.gen(function* () {
@@ -672,4 +672,4 @@ export const fetchUrlMetadata = ({url}: {url: string}) =>
 				return {title: null, description: null, error: message};
 			},
 		}).pipe(Effect.catchAll((result) => Effect.succeed(result)));
-	}).pipe(Effect.orDie);
+	});

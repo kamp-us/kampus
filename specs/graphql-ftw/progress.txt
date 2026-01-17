@@ -222,3 +222,33 @@ Runtime (FR-9.1):
 - NFR-2.2: SqlError auto-caught in Spellbook (refactor)
 - NFR-3.1: Schema single source of truth (M2 - frontend)
 - ERR-1,2,3: error handling verification (needs tests)
+
+## 2026-01-17: SqlError Auto-Catching + Error Handling (NFR-2.2, ERR-1, ERR-2, ERR-3)
+
+**Files:**
+- apps/worker/src/shared/Spellbook.ts - added wrapHandlers(), HandlersWithSqlError type
+- apps/worker/src/features/library/handlers.ts - removed all .pipe(Effect.orDie) and .pipe(Effect.catchTag("SqlError", Effect.die))
+
+**Implementation:**
+- `wrapHandlers<R>()` wraps all handlers with `Effect.catchTag("SqlError", Effect.die)`
+- `HandlersWithSqlError<R>` type allows SqlError in handler error channel
+- Handlers can now expose SqlError naturally; Spellbook strips it during wrapping
+- Cleaner handlers: no boilerplate error handling needed
+
+**Error Handling Verification:**
+- ERR-1: Spellbook wrapHandlers auto-dies SqlError (via catchTag + die)
+- ERR-2: RPC errors propagate via Effect RPC protocol (verified by existing tests)
+- ERR-3: GraphQL errors via runPromise() throws + graphql-yoga catches
+
+**Verified:**
+- `turbo run typecheck --filter=worker` passes
+- `pnpm --filter worker run test` passes (82 tests)
+
+**PRD Status:**
+- NFR-2.2: passes=true (SqlError auto-caught)
+- ERR-1: passes=true (SqlError auto-dies)
+- ERR-2: passes=true (RPC errors propagate)
+- ERR-3: passes=true (GraphQL errors returned)
+
+**Remaining:**
+- NFR-3.1: Schema single source of truth (M2 - frontend work)

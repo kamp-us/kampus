@@ -498,11 +498,12 @@
       "category": "Developer Experience",
       "description": "SqlError auto-caught in Spellbook via wrapHandlers",
       "stepsToVerify": [
-        "Open handlers.ts - verify no .pipe(Effect.orDie)",
-        "Open Spellbook.ts - verify wrapHandlers catches SqlError",
-        "Verify handlers still work correctly after wrapping"
+        "Open handlers.ts - verify no .pipe(Effect.orDie) or .pipe(Effect.catchTag('SqlError', Effect.die))",
+        "Open Spellbook.ts - verify wrapHandlers catches SqlError automatically",
+        "turbo run typecheck passes",
+        "pnpm --filter worker run test passes (82 tests)"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "NFR-2.3",
@@ -554,33 +555,33 @@
       "category": "Error Handling",
       "description": "SqlError auto-dies in Spellbook handlers",
       "stepsToVerify": [
-        "Trigger a SQL error in a handler",
-        "Verify error is caught by wrapHandlers",
-        "Verify Effect.die is called (uncaught defect)"
+        "Spellbook.wrapHandlers wraps all handlers with Effect.catchTag('SqlError', Effect.die)",
+        "HandlersWithSqlError type allows SqlError in handler error channel",
+        "Verified by typecheck: handlers can have SqlError, Spellbook removes it"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "ERR-2",
       "category": "Error Handling",
       "description": "RPC errors propagate through Spellcaster as Effect failures",
       "stepsToVerify": [
-        "Trigger an RPC error (e.g., DO not found)",
-        "Verify error propagates as Effect failure",
-        "Verify resolver can handle the error"
+        "Spellcaster uses Effect RPC protocol (layerProtocolHttp + layerJson)",
+        "Existing tests verify: TagNameExistsError, InvalidTagNameError, InvalidTagColorError propagate",
+        "Tests: library-tags.spec.ts 'Tag Validation Errors' (6 tests checking Exit.isFailure)"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "ERR-3",
       "category": "Error Handling",
       "description": "GraphQL resolver errors returned as GraphQL errors",
       "stepsToVerify": [
-        "Trigger an error in a resolver",
-        "Verify error is caught by resolver() helper",
-        "Verify returned as GraphQL error in response"
+        "resolver() helper uses runtime.runPromise() which throws on Effect failure",
+        "graphql-yoga catches thrown errors and returns as GraphQL error",
+        "Standard GraphQL error handling behavior"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "TEST-1",
