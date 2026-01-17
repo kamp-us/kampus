@@ -7,7 +7,7 @@ import {
 	TagNameExistsError,
 } from "@kampus/library";
 import {id} from "@usirin/forge";
-import {eq} from "drizzle-orm";
+import {count, desc, eq, lt} from "drizzle-orm";
 import {DateTime, Effect, Option} from "effect";
 import {DurableObjectEnv} from "../../services";
 import {makeWebPageParserClient} from "../web-page-parser/client";
@@ -140,17 +140,21 @@ export const handlers = {
 
 	listStories: ({first, after}: {first?: number; after?: string}) =>
 		Effect.gen(function* () {
-			const sql = yield* SqlClient.SqlClient;
+			const db = yield* SqliteDrizzle;
 			const limit = first ?? 20;
 
 			// Get total count
-			const countRows = yield* sql<{count: number}>`SELECT COUNT(*) as count FROM story`;
-			const totalCount = countRows[0]?.count ?? 0;
+			const [countResult] = yield* db.select({total: count()}).from(schema.story);
+			const totalCount = countResult?.total ?? 0;
 
 			// Get stories with pagination
-			const stories = after
-				? yield* sql<StoryRow>`SELECT * FROM story WHERE id < ${after} ORDER BY id DESC LIMIT ${limit + 1}`
-				: yield* sql<StoryRow>`SELECT * FROM story ORDER BY id DESC LIMIT ${limit + 1}`;
+			const baseQuery = db
+				.select()
+				.from(schema.story)
+				.orderBy(desc(schema.story.id))
+				.limit(limit + 1);
+
+			const stories = after ? yield* baseQuery.where(lt(schema.story.id, after)) : yield* baseQuery;
 
 			const hasNextPage = stories.length > limit;
 			const edges = stories.slice(0, limit);
@@ -158,7 +162,19 @@ export const handlers = {
 			const tagsByStory = yield* getTagsForStoriesSimple(edges.map((s) => s.id));
 
 			return {
-				stories: edges.map((s) => formatStory(s, tagsByStory.get(s.id) ?? [])),
+				stories: edges.map((s) =>
+					formatStory(
+						{
+							id: s.id,
+							url: s.url,
+							title: s.title,
+							description: s.description,
+							createdAt: s.createdAt.getTime(),
+							updatedAt: s.updatedAt?.getTime() ?? null,
+						},
+						tagsByStory.get(s.id) ?? [],
+					),
+				),
 				hasNextPage,
 				endCursor: edges.length > 0 ? edges[edges.length - 1].id : null,
 				totalCount,

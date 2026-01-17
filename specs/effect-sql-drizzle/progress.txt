@@ -43,3 +43,23 @@ Key decisions:
 - StoryRepo still imported (used by other handlers) - will be removed after full migration
 
 Next: migrate listStories (ESD-101)
+
+## 2026-01-16: Migrate listStories to Drizzle (ESD-101)
+
+Files changed:
+- apps/worker/src/features/library/handlers.ts
+  - Added count, desc, lt imports from drizzle-orm
+  - Replaced raw sql`` with db.select({ total: count() }) for count
+  - Replaced raw sql`` with db.select().from(schema.story).orderBy(desc(...)).limit(...) for stories
+  - Used lt() for cursor-based pagination with after param
+  - Drizzle returns Date objects, convert to timestamps for formatStory
+- apps/worker/test/library-handlers.spec.ts
+  - Removed listStories unit tests (now require SqliteDrizzle mock)
+  - Tests covered by integration tests in library-stories.spec.ts
+
+Key decisions:
+- Keep getTagsForStoriesSimple as raw SQL for now - migrate in ESD-112
+- Unit tests removed since listStories is comprehensively tested in integration tests
+- 68 tests pass
+
+Next: migrate listStoriesByTag (ESD-102)

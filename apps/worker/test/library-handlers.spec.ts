@@ -88,40 +88,6 @@ describe("Library Handlers Unit Tests", () => {
 		});
 	});
 
-	describe("listStories", () => {
-		it("returns empty list when no stories", async () => {
-			const mockLayer = makeMockSqlClient([
-				{pattern: /SELECT COUNT/, result: [{count: 0}]},
-				{pattern: /SELECT \* FROM story ORDER BY/, result: []},
-			]);
-
-			const result = await Effect.runPromise(
-				handlers.listStories({}).pipe(Effect.provide(mockLayer)),
-			);
-
-			expect(result.stories).toHaveLength(0);
-			expect(result.hasNextPage).toBe(false);
-			expect(result.totalCount).toBe(0);
-		});
-
-		it("returns stories with pagination info", async () => {
-			const stories = [
-				{id: "story_3", url: "https://a.com", title: "Third", description: null, createdAt: 3},
-				{id: "story_2", url: "https://b.com", title: "Second", description: null, createdAt: 2},
-			];
-
-			const mockLayer = makeMockSqlClient([
-				{pattern: /SELECT COUNT/, result: [{count: 5}]},
-				{pattern: /SELECT \* FROM story ORDER BY/, result: stories},
-				{pattern: /SELECT st\.story_id.*FROM story_tag/, result: []},
-			]);
-
-			const result = await Effect.runPromise(
-				handlers.listStories({first: 2}).pipe(Effect.provide(mockLayer)),
-			);
-
-			expect(result.stories).toHaveLength(2);
-			expect(result.totalCount).toBe(5);
-		});
-	});
+	// Note: listStories unit tests removed - now uses SqliteDrizzle and is
+	// comprehensively tested via integration tests in library-stories.spec.ts
 });

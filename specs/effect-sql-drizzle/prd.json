@@ -3,7 +3,7 @@
 	"description": "Replace @effect/sql Model.Class with @effect/sql-drizzle for single schema source",
 	"summary": {
 		"total": 45,
-		"passed": 4
+		"passed": 5
 	},
 	"items": [
 		{
@@ -112,9 +112,10 @@
 				"Uses db.select().from(schema.story)",
 				"Pagination via .orderBy(desc(...)).limit(...)",
 				"Count via db.select({ count: count() })",
-				"No raw sql`` template literals"
+				"No raw sql`` template literals",
+				"Tags still use getTagsForStoriesSimple (Drizzle migration in ESD-112)"
 			],
-			"passes": false
+			"passes": true
 		},
 		{
 			"id": "ESD-102",
