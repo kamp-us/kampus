@@ -193,3 +193,19 @@ Key decisions:
 68 tests pass
 
 Next: migrate deleteTag (ESD-109)
+## 2026-01-16: Migrate deleteTag to Drizzle (ESD-109)
+
+Files changed:
+- apps/worker/src/features/library/handlers.ts
+  - Replaced TagRepo with SqliteDrizzle
+  - Uses db.select().from(schema.tag).where(eq(...)) to check existence
+  - Uses db.delete(schema.tag).where(eq(...)) for deletion
+  - FK cascade handles story_tag cleanup
+
+Key decisions:
+- Pattern consistent with deleteStory: check existence then delete
+- Rely on DB cascade for story_tag associations
+
+68 tests pass
+
+Next: migrate getTagsForStory (ESD-110)

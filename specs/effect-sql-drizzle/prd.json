@@ -3,7 +3,7 @@
 	"description": "Replace @effect/sql Model.Class with @effect/sql-drizzle for single schema source",
 	"summary": {
 		"total": 45,
-		"passed": 12
+		"passed": 13
 	},
 	"items": [
 		{
@@ -200,7 +200,7 @@
 			"category": "library:handler",
 			"description": "Migrate deleteTag to Drizzle",
 			"steps_to_verify": ["Uses db.delete(schema.tag).where(...)", "No TagRepo.delete usage"],
-			"passes": false
+			"passes": true
 		},
 		{
 			"id": "ESD-110",

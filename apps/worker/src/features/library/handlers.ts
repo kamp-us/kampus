@@ -572,13 +572,14 @@ export const handlers = {
 
 	deleteTag: ({id: tagId}: {id: string}) =>
 		Effect.gen(function* () {
-			const tagRepo = yield* TagRepo;
+			const db = yield* SqliteDrizzle;
 
-			const tagOpt = yield* tagRepo.findById(tagId);
-			if (Option.isNone(tagOpt)) return {deleted: false};
+			// Check if tag exists
+			const [existing] = yield* db.select().from(schema.tag).where(eq(schema.tag.id, tagId));
+			if (!existing) return {deleted: false};
 
 			// FK cascade handles story_tag cleanup
-			yield* tagRepo.delete(tagId);
+			yield* db.delete(schema.tag).where(eq(schema.tag.id, tagId));
 
 			return {deleted: true};
 		}).pipe(Effect.orDie),
