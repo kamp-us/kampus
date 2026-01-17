@@ -1,0 +1,281 @@
+{
+  "name": "GraphQL + Relay Data Layer - M2: Frontend",
+  "rfc": "https://github.com/kamp-us/kampus/issues/23",
+  "milestone": "M2",
+  "description": "Frontend migration: Relay environment, Library.tsx, cleanup RPC atoms. Ship when E2E tests pass. Requires M1 complete.",
+  "dependsOn": "M1",
+  "rollbackPlan": "Keep LibraryRpc.tsx around until M2 is stable. If issues arise, revert route to LibraryRpc.tsx and re-enable atoms.",
+  "items": [
+    {
+      "id": "FR-7.1",
+      "category": "Relay Frontend",
+      "description": "RelayEnvironment configured with fetchQuery to /graphql",
+      "stepsToVerify": [
+        "Import environment from apps/kamp-us/src/relay/environment.ts",
+        "Verify Network.create uses fetch to /graphql",
+        "Verify credentials: 'include' for auth cookies"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FR-7.2",
+      "category": "Relay Frontend",
+      "description": "LibraryQuery fetches stories connection and tags",
+      "stepsToVerify": [
+        "Find LibraryQuery in Library.tsx",
+        "Verify queries library.stories with @connection(key: 'Library_stories')",
+        "Verify queries library.tags"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FR-7.3",
+      "category": "Relay Frontend",
+      "description": "StoryRow_story fragment colocates story data requirements",
+      "stepsToVerify": [
+        "Find StoryRow_story fragment in Library.tsx or StoryRow.tsx",
+        "Verify fragment is on Story type",
+        "Verify useFragment is used to read fragment data"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FR-7.4",
+      "category": "Relay Frontend",
+      "description": "CreateStoryMutation with optimistic update",
+      "stepsToVerify": [
+        "Find CreateStoryMutation in Library.tsx",
+        "Verify useMutation hook is used",
+        "Verify optimisticResponse is provided",
+        "Verify UI updates immediately before server response"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FR-7.5",
+      "category": "Relay Frontend",
+      "description": "UpdateStoryMutation with optimistic update",
+      "stepsToVerify": [
+        "Find UpdateStoryMutation in Library.tsx",
+        "Verify useMutation hook is used",
+        "Verify optimisticResponse is provided"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FR-7.6",
+      "category": "Relay Frontend",
+      "description": "DeleteStoryMutation with @deleteRecord",
+      "stepsToVerify": [
+        "Find DeleteStoryMutation in Library.tsx",
+        "Verify uses @deleteRecord directive or updater",
+        "Verify story removed from UI immediately"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FR-7.7",
+      "category": "Relay Frontend",
+      "description": "usePaginationFragment for Load More functionality",
+      "stepsToVerify": [
+        "Find usePaginationFragment or @refetchable in Library.tsx",
+        "Click Load More button",
+        "Verify loadNext is called and stories appended"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FR-7.8",
+      "category": "Relay Frontend",
+      "description": "relay-compiler configured and generates types",
+      "stepsToVerify": [
+        "Run pnpm --filter kamp-us relay-compiler",
+        "Verify __generated__ folder contains typed artifacts",
+        "Verify no TypeScript errors in generated files"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FR-7.9",
+      "category": "Relay Frontend",
+      "description": "Tag filter syncs with URL search params",
+      "stepsToVerify": [
+        "Select a tag filter",
+        "Verify URL updates with ?tag=tag_xxx",
+        "Refresh page, verify tag filter restored from URL",
+        "Clear filter, verify ?tag removed from URL"
+      ],
+      "passes": false
+    },
+    {
+      "id": "NFR-1.3",
+      "category": "Performance",
+      "description": "Frontend normalized cache reduces redundant fetches",
+      "stepsToVerify": [
+        "Load Library page, note network requests",
+        "Navigate away and back",
+        "Verify cached data shown, no redundant fetch"
+      ],
+      "passes": false
+    },
+    {
+      "id": "NFR-3.2",
+      "category": "Maintainability",
+      "description": "Frontend components own their data requirements via fragments",
+      "stepsToVerify": [
+        "Verify StoryRow has its own fragment",
+        "Verify fragment is colocated with component",
+        "Verify parent queries spread fragment, don't duplicate fields"
+      ],
+      "passes": false
+    },
+    {
+      "id": "NFR-3.3",
+      "category": "Maintainability",
+      "description": "No reactivityKeys manual cache invalidation in new code",
+      "stepsToVerify": [
+        "Search new Library.tsx for 'reactivityKeys'",
+        "Verify no reactivityKeys usage",
+        "Verify mutations use Relay updaters/directives instead"
+      ],
+      "passes": false
+    },
+    {
+      "id": "NFR-4.3",
+      "category": "Compatibility",
+      "description": "effect-atom retained for non-GraphQL data (local state, non-library RPC)",
+      "stepsToVerify": [
+        "Verify effect-atom still in package.json",
+        "Verify local state (form state, modals) can still use atoms",
+        "Verify non-library RPC atoms still work",
+        "Verify only library-specific atoms removed"
+      ],
+      "passes": false
+    },
+    {
+      "id": "CLEANUP-1",
+      "category": "Cleanup",
+      "description": "Remove storiesAtom from atoms.ts",
+      "stepsToVerify": [
+        "Search for storiesAtom in atoms.ts",
+        "Verify storiesAtom is removed",
+        "Verify no imports of storiesAtom elsewhere"
+      ],
+      "passes": false
+    },
+    {
+      "id": "CLEANUP-2",
+      "category": "Cleanup",
+      "description": "Remove storiesByTagAtom from atoms.ts",
+      "stepsToVerify": [
+        "Search for storiesByTagAtom in atoms.ts",
+        "Verify storiesByTagAtom is removed",
+        "Verify no imports of storiesByTagAtom elsewhere"
+      ],
+      "passes": false
+    },
+    {
+      "id": "CLEANUP-3",
+      "category": "Cleanup",
+      "description": "Remove tagsAtom from atoms.ts",
+      "stepsToVerify": [
+        "Search for tagsAtom in atoms.ts",
+        "Verify tagsAtom is removed",
+        "Verify no imports of tagsAtom elsewhere"
+      ],
+      "passes": false
+    },
+    {
+      "id": "CLEANUP-4",
+      "category": "Cleanup",
+      "description": "Remove library atoms (createStory, updateStory, deleteStory, createTag, fetchUrlMetadata)",
+      "stepsToVerify": [
+        "Verify createStoryMutation removed from atoms.ts",
+        "Verify updateStoryMutation removed",
+        "Verify deleteStoryMutation removed",
+        "Verify createTagMutation removed",
+        "Verify fetchUrlMetadataMutation removed (replaced by library.webPage query)",
+        "Verify non-library atoms untouched"
+      ],
+      "passes": false
+    },
+    {
+      "id": "CLEANUP-5",
+      "category": "Cleanup",
+      "description": "Delete LibraryRpc.tsx (replaced by Library.tsx)",
+      "stepsToVerify": [
+        "Verify LibraryRpc.tsx is deleted",
+        "Verify route updated to use new Library.tsx",
+        "Verify no broken imports"
+      ],
+      "passes": false
+    },
+    {
+      "id": "ERR-4",
+      "category": "Error Handling",
+      "description": "Relay handles GraphQL errors gracefully",
+      "stepsToVerify": [
+        "Trigger a GraphQL error from frontend",
+        "Verify error is available in useMutation onError",
+        "Verify UI can display error message"
+      ],
+      "passes": false
+    },
+    {
+      "id": "TEST-3",
+      "category": "Testing",
+      "description": "Manual E2E: Library page loads and displays stories",
+      "stepsToVerify": [
+        "Start dev servers (worker + kamp-us)",
+        "Navigate to /me/library",
+        "Verify stories load and display correctly"
+      ],
+      "passes": false
+    },
+    {
+      "id": "TEST-4",
+      "category": "Testing",
+      "description": "Manual E2E: Create story works with optimistic update",
+      "stepsToVerify": [
+        "Click Add Story, fill form, submit",
+        "Verify story appears immediately (optimistic)",
+        "Verify story persists after refresh"
+      ],
+      "passes": false
+    },
+    {
+      "id": "TEST-5",
+      "category": "Testing",
+      "description": "Manual E2E: Delete story works with immediate removal",
+      "stepsToVerify": [
+        "Click delete on a story",
+        "Verify story removed immediately from UI",
+        "Verify story gone after refresh"
+      ],
+      "passes": false
+    },
+    {
+      "id": "TEST-6",
+      "category": "Testing",
+      "description": "Manual E2E: Pagination (Load More) works",
+      "stepsToVerify": [
+        "Create >10 stories",
+        "Verify initial load shows first page",
+        "Click Load More, verify more stories appended"
+      ],
+      "passes": false
+    },
+    {
+      "id": "TEST-7",
+      "category": "Testing",
+      "description": "Manual E2E: Tag filter works and persists via URL",
+      "stepsToVerify": [
+        "Select tag filter, verify stories filtered",
+        "Copy URL with ?tag param",
+        "Open in new tab, verify filter applied",
+        "Clear filter, verify all stories shown"
+      ],
+      "passes": false
+    }
+  ]
+}

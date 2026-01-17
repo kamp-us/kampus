@@ -1,0 +1,568 @@
+{
+  "name": "GraphQL + Relay Data Layer - M1: Backend",
+  "rfc": "https://github.com/kamp-us/kampus/issues/23",
+  "milestone": "M1",
+  "description": "Backend-only: Spellcaster, RequestResolver, GraphQL schema, mutations. Ship when worker tests pass and GraphQL queries work via curl.",
+  "items": [
+    {
+      "id": "FR-1.1",
+      "category": "Batch RPC Endpoints",
+      "description": "getBatchStory({ids: string[]}) returns (Story | null)[] preserving input order",
+      "stepsToVerify": [
+        "Call getBatchStory with ids ['story_1', 'story_2', 'story_3']",
+        "Verify response is array of same length as input",
+        "Verify order matches input order",
+        "Verify missing stories return null at correct index"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FR-1.2",
+      "category": "Batch RPC Endpoints",
+      "description": "getBatchTag({ids: string[]}) returns (Tag | null)[] preserving input order",
+      "stepsToVerify": [
+        "Call getBatchTag with ids ['tag_1', 'tag_2', 'tag_3']",
+        "Verify response is array of same length as input",
+        "Verify order matches input order",
+        "Verify missing tags return null at correct index"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FR-1.3",
+      "category": "Batch RPC Endpoints",
+      "description": "Empty ids array returns empty array without DB call",
+      "stepsToVerify": [
+        "Call getBatchStory with empty array []",
+        "Verify response is []",
+        "Verify no SQL query was executed (check logs or mock)"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FR-2.1",
+      "category": "Spellcaster RPC Client Factory",
+      "description": "Spellcaster.make({rpcs, stub}) creates typed RPC client for DO stub",
+      "stepsToVerify": [
+        "Import Spellcaster from apps/worker/src/shared/Spellcaster.ts",
+        "Call Spellcaster.make({rpcs: LibraryRpcs, stub: doStub})",
+        "Verify returned client has all RPC methods typed correctly",
+        "Verify TypeScript shows correct parameter and return types"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FR-2.2",
+      "category": "Spellcaster RPC Client Factory",
+      "description": "Client methods return Effects, not Promises",
+      "stepsToVerify": [
+        "Get client from Spellcaster.make()",
+        "Call client.getStory({id: 'test'})",
+        "Verify return type is Effect.Effect<Story | null, ...>",
+        "Verify must use yield* or Effect.runPromise to execute"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FR-2.3",
+      "category": "Spellcaster RPC Client Factory",
+      "description": "Uses existing Effect RPC protocol (HTTP + JSON serialization)",
+      "stepsToVerify": [
+        "Inspect Spellcaster.make implementation",
+        "Verify uses RpcClient.layerProtocolHttp",
+        "Verify uses RpcSerialization.layerJson",
+        "Verify requests go to DO stub.fetch()"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FR-2.4",
+      "category": "Spellcaster RPC Client Factory",
+      "description": "LibraryClient Context.Tag provides typed client service",
+      "stepsToVerify": [
+        "Import LibraryClient from graphql/resolvers/LibraryClient.ts",
+        "Verify LibraryClient extends Context.Tag",
+        "Verify can yield* LibraryClient in Effect.gen"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FR-2.5",
+      "category": "Spellcaster RPC Client Factory",
+      "description": "makeLibraryClientLayer(env, userId) creates per-request layer",
+      "stepsToVerify": [
+        "Call makeLibraryClientLayer(env, 'user_123')",
+        "Verify returns Layer that provides LibraryClient",
+        "Verify layer routes to correct user's DO"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FR-3.1",
+      "category": "Effect RequestResolver",
+      "description": "GetStory request type for single story lookup",
+      "stepsToVerify": [
+        "Import GetStory from apps/worker/src/graphql/requests.ts",
+        "Verify GetStory has _tag: 'GetStory' and id: string",
+        "Verify extends Request.Request<Story | null, never>"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FR-3.2",
+      "category": "Effect RequestResolver",
+      "description": "GetTag request type for single tag lookup",
+      "stepsToVerify": [
+        "Import GetTag from apps/worker/src/graphql/requests.ts",
+        "Verify GetTag has _tag: 'GetTag' and id: string",
+        "Verify extends Request.Request<Tag | null, never>"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FR-3.3",
+      "category": "Effect RequestResolver",
+      "description": "StoryResolver batches GetStory requests and calls getBatchStory",
+      "stepsToVerify": [
+        "Execute multiple Effect.request(GetStory({id}), StoryResolver) in parallel",
+        "Verify only one getBatchStory RPC call is made",
+        "Verify all requests receive correct results"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FR-3.4",
+      "category": "Effect RequestResolver",
+      "description": "TagResolver batches GetTag requests and calls getBatchTag",
+      "stepsToVerify": [
+        "Execute multiple Effect.request(GetTag({id}), TagResolver) in parallel",
+        "Verify only one getBatchTag RPC call is made",
+        "Verify all requests receive correct results"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FR-3.5",
+      "category": "Effect RequestResolver",
+      "description": "Batching occurs within single Effect execution tick",
+      "stepsToVerify": [
+        "Run Effect.all([loadStory('1'), loadStory('2'), loadStory('3')])",
+        "Verify requests made in same tick are batched together",
+        "Verify requests in different ticks are separate batches"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FR-3.6",
+      "category": "Effect RequestResolver",
+      "description": "loadStory(id) helper wraps Effect.request for story lookup",
+      "stepsToVerify": [
+        "Import loadStory from resolvers",
+        "Call loadStory('story_123')",
+        "Verify returns Effect that resolves to Story | null"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FR-3.7",
+      "category": "Effect RequestResolver",
+      "description": "loadTag(id) helper wraps Effect.request for tag lookup",
+      "stepsToVerify": [
+        "Import loadTag from resolvers",
+        "Call loadTag('tag_123')",
+        "Verify returns Effect that resolves to Tag | null"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FR-4.1",
+      "category": "GraphQL Schema Types",
+      "description": "Story type with fields: id, url, title, description, createdAt, tags",
+      "stepsToVerify": [
+        "Query GraphQL introspection for Story type",
+        "Verify id: ID!, url: String!, title: String!, description: String, createdAt: String!",
+        "Verify tags: [Tag!]! field exists"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FR-4.2",
+      "category": "GraphQL Schema Types",
+      "description": "Tag type with fields: id, name, color",
+      "stepsToVerify": [
+        "Query GraphQL introspection for Tag type",
+        "Verify id: ID!, name: String!, color: String!"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FR-4.3",
+      "category": "GraphQL Schema Types",
+      "description": "WebPage type with fields: url, title, description, error",
+      "stepsToVerify": [
+        "Query GraphQL introspection for WebPage type",
+        "Verify url: String!, title: String, description: String, error: String"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FR-4.4",
+      "category": "GraphQL Schema Types",
+      "description": "Library namespace type for scoped queries",
+      "stepsToVerify": [
+        "Query { library { __typename } }",
+        "Verify returns { library: { __typename: 'Library' } }",
+        "Verify library field requires authentication"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FR-4.5",
+      "category": "GraphQL Schema Types",
+      "description": "PageInfo type with Relay spec fields",
+      "stepsToVerify": [
+        "Query GraphQL introspection for PageInfo type",
+        "Verify hasNextPage: Boolean!, hasPreviousPage: Boolean!",
+        "Verify startCursor: String, endCursor: String"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FR-4.6",
+      "category": "GraphQL Schema Types",
+      "description": "StoryEdge type with node and cursor",
+      "stepsToVerify": [
+        "Query GraphQL introspection for StoryEdge type",
+        "Verify node: Story!, cursor: String!"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FR-4.7",
+      "category": "GraphQL Schema Types",
+      "description": "StoryConnection type with edges, pageInfo, totalCount",
+      "stepsToVerify": [
+        "Query GraphQL introspection for StoryConnection type",
+        "Verify edges: [StoryEdge!]!, pageInfo: PageInfo!, totalCount: Int!"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FR-4.8",
+      "category": "GraphQL Schema Types",
+      "description": "Story implements Node interface for Relay refetching",
+      "stepsToVerify": [
+        "Query GraphQL introspection for Story type interfaces",
+        "Verify Story implements Node",
+        "Query { node(id: 'story_xxx') { ... on Story { title } } } works"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FR-4.9",
+      "category": "GraphQL Schema Types",
+      "description": "createConnectionTypes() factory for reusable connection pattern",
+      "stepsToVerify": [
+        "Import createConnectionTypes from connections.ts",
+        "Call createConnectionTypes('Story', StoryType)",
+        "Verify returns {EdgeType, ConnectionType} with correct names"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FR-4.10",
+      "category": "GraphQL Schema Types",
+      "description": "toConnection() transforms RPC response to Relay format",
+      "stepsToVerify": [
+        "Call toConnection({stories: [...], hasNextPage: true, endCursor: 'x', totalCount: 10})",
+        "Verify returns {edges: [{node, cursor}...], pageInfo: {...}, totalCount: 10}",
+        "Verify cursor equals node.id"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FR-5.1",
+      "category": "GraphQL Queries",
+      "description": "library.story(id: ID!) returns single story by ID",
+      "stepsToVerify": [
+        "Query { library { story(id: 'story_xxx') { id title } } }",
+        "Verify returns story with matching id",
+        "Verify returns null for non-existent id"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FR-5.2",
+      "category": "GraphQL Queries",
+      "description": "library.stories(first, after, tagId?) returns paginated connection",
+      "stepsToVerify": [
+        "Query { library { stories(first: 5) { edges { node { id } } pageInfo { hasNextPage endCursor } } } }",
+        "Verify returns at most 5 stories",
+        "Query with after cursor returns next page",
+        "Query with tagId filters by tag"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FR-5.3",
+      "category": "GraphQL Queries",
+      "description": "library.tags returns all user tags",
+      "stepsToVerify": [
+        "Query { library { tags { id name color } } }",
+        "Verify returns array of all tags for authenticated user"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FR-5.4",
+      "category": "GraphQL Queries",
+      "description": "library.webPage(url: String!) fetches metadata from WebPageParser DO",
+      "stepsToVerify": [
+        "Query { library { webPage(url: 'https://example.com') { title description } } }",
+        "Verify returns fetched metadata",
+        "Verify error field populated on fetch failure"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FR-6.1",
+      "category": "GraphQL Mutations",
+      "description": "createStory mutation returns CreateStoryPayload with story and storyEdge",
+      "stepsToVerify": [
+        "Mutate createStory(input: {url, title}) { story { id title } storyEdge { cursor } }",
+        "Verify story is created in database",
+        "Verify payload contains story and storyEdge for Relay"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FR-6.2",
+      "category": "GraphQL Mutations",
+      "description": "updateStory mutation returns UpdateStoryPayload with updated story",
+      "stepsToVerify": [
+        "Mutate updateStory(input: {id, title}) { story { id title } }",
+        "Verify story is updated in database",
+        "Verify payload contains updated story"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FR-6.3",
+      "category": "GraphQL Mutations",
+      "description": "deleteStory mutation returns DeleteStoryPayload with deletedStoryId",
+      "stepsToVerify": [
+        "Mutate deleteStory(input: {id}) { deletedStoryId }",
+        "Verify story is deleted from database",
+        "Verify payload contains deletedStoryId for @deleteRecord"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FR-6.4",
+      "category": "GraphQL Mutations",
+      "description": "createTag mutation returns CreateTagPayload with tag",
+      "stepsToVerify": [
+        "Mutate createTag(input: {name, color}) { tag { id name color } }",
+        "Verify tag is created in database",
+        "Verify payload contains tag"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FR-6.5",
+      "category": "GraphQL Mutations",
+      "description": "Mutation payloads designed for Relay store updates",
+      "stepsToVerify": [
+        "Verify CreateStoryPayload has storyEdge for @appendEdge",
+        "Verify DeleteStoryPayload has deletedStoryId for @deleteRecord",
+        "Verify Relay store updates correctly after mutations"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FR-8.1",
+      "category": "Nested Field Resolution",
+      "description": "Story.tags resolves via TagResolver (auto-batched)",
+      "stepsToVerify": [
+        "Query { library { stories(first: 10) { edges { node { tags { name } } } } } }",
+        "Verify tags are returned for each story",
+        "Check logs: only one getBatchTag call for all stories"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FR-8.2",
+      "category": "Nested Field Resolution",
+      "description": "All stories in a list share one batched getBatchTag call",
+      "stepsToVerify": [
+        "Add logging to getBatchTag handler",
+        "Query 10 stories with tags",
+        "Verify getBatchTag called once with all unique tag IDs"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FR-9.1",
+      "category": "GraphQL Runtime",
+      "description": "Per-request runtime includes LibraryClient layer",
+      "stepsToVerify": [
+        "Inspect GraphQLRuntime.make in runtime.ts",
+        "Verify makeLibraryClientLayer is included",
+        "Verify layer is created with session userId"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FR-9.2",
+      "category": "GraphQL Runtime",
+      "description": "RequestResolvers provided to per-request runtime",
+      "stepsToVerify": [
+        "Verify StoryResolver and TagResolver are available in runtime",
+        "Verify Effect.request calls work in resolvers"
+      ],
+      "passes": false
+    },
+    {
+      "id": "NFR-1.1",
+      "category": "Performance",
+      "description": "N+1 queries eliminated via RequestResolver batching",
+      "stepsToVerify": [
+        "Query stories with nested tags",
+        "Count DB/RPC calls in logs",
+        "Verify 1 listStories + 1 getBatchTag (not N getBatchTag calls)"
+      ],
+      "passes": false
+    },
+    {
+      "id": "NFR-1.2",
+      "category": "Performance",
+      "description": "List queries do not use DataLoader (direct RPC call)",
+      "stepsToVerify": [
+        "Inspect library.stories resolver",
+        "Verify calls client.listStories directly",
+        "Verify does not go through RequestResolver"
+      ],
+      "passes": false
+    },
+    {
+      "id": "NFR-2.1",
+      "category": "Developer Experience",
+      "description": "Handlers exported as named functions (not object literal)",
+      "stepsToVerify": [
+        "Open apps/worker/src/features/library/handlers.ts",
+        "Verify exports are: export const getStory = ...",
+        "Verify import * as handlers pattern works in Library.ts"
+      ],
+      "passes": false
+    },
+    {
+      "id": "NFR-2.2",
+      "category": "Developer Experience",
+      "description": "SqlError auto-caught in Spellbook via wrapHandlers",
+      "stepsToVerify": [
+        "Open handlers.ts - verify no .pipe(Effect.orDie)",
+        "Open Spellbook.ts - verify wrapHandlers catches SqlError",
+        "Verify handlers still work correctly after wrapping"
+      ],
+      "passes": false
+    },
+    {
+      "id": "NFR-2.3",
+      "category": "Developer Experience",
+      "description": "Type-safe GraphQL resolvers via resolver() helper",
+      "stepsToVerify": [
+        "Inspect resolver() function in graphql/resolver.ts",
+        "Verify resolvers use resolver(function* () { ... })",
+        "Verify TypeScript errors on incorrect Effect usage"
+      ],
+      "passes": false
+    },
+    {
+      "id": "NFR-3.1",
+      "category": "Maintainability",
+      "description": "GraphQL schema is single source of API truth",
+      "stepsToVerify": [
+        "Verify all frontend queries match schema types",
+        "Verify no duplicate type definitions outside schema.ts"
+      ],
+      "passes": false
+    },
+    {
+      "id": "NFR-4.1",
+      "category": "Compatibility",
+      "description": "Auth handled at GraphQL layer via Auth.required",
+      "stepsToVerify": [
+        "Query { library { stories } } without auth cookie",
+        "Verify returns authentication error",
+        "Verify library resolver checks Auth.required"
+      ],
+      "passes": false
+    },
+    {
+      "id": "NFR-4.2",
+      "category": "Compatibility",
+      "description": "Existing /graphql endpoint extended (not replaced)",
+      "stepsToVerify": [
+        "Verify existing queries (me, fetchUrlMetadata) still work",
+        "Verify new library queries work on same endpoint",
+        "Verify no breaking changes to existing schema"
+      ],
+      "passes": false
+    },
+    {
+      "id": "ERR-1",
+      "category": "Error Handling",
+      "description": "SqlError auto-dies in Spellbook handlers",
+      "stepsToVerify": [
+        "Trigger a SQL error in a handler",
+        "Verify error is caught by wrapHandlers",
+        "Verify Effect.die is called (uncaught defect)"
+      ],
+      "passes": false
+    },
+    {
+      "id": "ERR-2",
+      "category": "Error Handling",
+      "description": "RPC errors propagate through Spellcaster as Effect failures",
+      "stepsToVerify": [
+        "Trigger an RPC error (e.g., DO not found)",
+        "Verify error propagates as Effect failure",
+        "Verify resolver can handle the error"
+      ],
+      "passes": false
+    },
+    {
+      "id": "ERR-3",
+      "category": "Error Handling",
+      "description": "GraphQL resolver errors returned as GraphQL errors",
+      "stepsToVerify": [
+        "Trigger an error in a resolver",
+        "Verify error is caught by resolver() helper",
+        "Verify returned as GraphQL error in response"
+      ],
+      "passes": false
+    },
+    {
+      "id": "TEST-1",
+      "category": "Testing",
+      "description": "turbo run typecheck passes after all changes",
+      "stepsToVerify": [
+        "Run turbo run typecheck",
+        "Verify no TypeScript errors",
+        "Verify all packages type-check successfully"
+      ],
+      "passes": false
+    },
+    {
+      "id": "TEST-2",
+      "category": "Testing",
+      "description": "pnpm --filter worker run test passes",
+      "stepsToVerify": [
+        "Run pnpm --filter worker run test",
+        "Verify all tests pass",
+        "Verify no regressions in existing tests"
+      ],
+      "passes": false
+    }
+  ]
+}

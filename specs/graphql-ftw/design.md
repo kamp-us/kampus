@@ -531,16 +531,50 @@ export const environment = new Environment({
 })
 ```
 
+### URL State with effect-atom
+
+```typescript
+// apps/kamp-us/src/pages/Library.tsx
+import {Atom} from "effect-atom"
+
+// Sync tag filter with URL search params
+const tagFilterAtom = Atom.searchParam("tag")
+
+// Usage in component
+function Library() {
+  const tagId = useAtomValue(tagFilterAtom)
+  const setTagId = useSetAtom(tagFilterAtom)
+
+  // Pass to Relay query
+  const data = useLazyLoadQuery(LibraryQuery, {
+    first: 10,
+    tagId,  // null if no filter
+  })
+
+  // Update filter (automatically syncs to ?tag=xxx)
+  const handleTagClick = (id: string) => setTagId(id)
+  const handleClearFilter = () => setTagId(null)
+}
+```
+
+**Why effect-atom for URL state:**
+- `Atom.searchParam` handles URL sync automatically
+- Reactive updates when URL changes (back/forward nav)
+- Clean separation: effect-atom owns client state, Relay owns server data
+
 ### Library Page with Relay
 
 ```typescript
 // apps/kamp-us/src/pages/Library.tsx
 import {graphql, useLazyLoadQuery, useMutation, useFragment} from "react-relay"
+import {Atom} from "effect-atom"
+
+const tagFilterAtom = Atom.searchParam("tag")
 
 const LibraryQuery = graphql`
-  query LibraryQuery($first: Int!, $after: String) {
+  query LibraryQuery($first: Int!, $after: String, $tagId: ID) {
     library {
-      stories(first: $first, after: $after) @connection(key: "Library_stories") {
+      stories(first: $first, after: $after, tagId: $tagId) @connection(key: "Library_stories") {
         edges {
           node {
             id
@@ -613,6 +647,39 @@ function CreateStoryForm() {
       },
     })
   }
+}
+
+// Main Library component - integrates effect-atom URL state with Relay
+function Library() {
+  const tagId = useAtomValue(tagFilterAtom)  // reads from ?tag=xxx
+  const setTagId = useSetAtom(tagFilterAtom)
+
+  const data = useLazyLoadQuery(LibraryQuery, {
+    first: 10,
+    tagId,  // null when no filter
+  })
+
+  return (
+    <div>
+      {/* Tag filter chips */}
+      <div>
+        {data.library.tags.map(tag => (
+          <TagChip
+            key={tag.id}
+            tag={tag}
+            selected={tag.id === tagId}
+            onClick={() => setTagId(tag.id)}  // updates URL to ?tag=xxx
+          />
+        ))}
+        {tagId && <button onClick={() => setTagId(null)}>Clear</button>}
+      </div>
+
+      {/* Story list */}
+      {data.library.stories.edges.map(edge => (
+        <StoryRow key={edge.node.id} story={edge.node} />
+      ))}
+    </div>
+  )
 }
 ```
 

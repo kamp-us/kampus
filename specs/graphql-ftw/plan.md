@@ -142,7 +142,7 @@ Mutations:
 - [ ] `UpdateStoryMutation`
 - [ ] `DeleteStoryMutation` with `@deleteRecord`
 - [ ] `CreateTagMutation`
-- [ ] Tag filter state (local)
+- [ ] Tag filter via `Atom.searchParam("tag")` (URL sync)
 
 ### 4.3 Cleanup
 **File:** `apps/kamp-us/src/rpc/atoms.ts`
