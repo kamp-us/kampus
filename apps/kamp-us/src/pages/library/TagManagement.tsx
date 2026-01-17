@@ -1,7 +1,9 @@
-import {Result} from "@effect-atom/atom";
-import {useAtomSet, useAtomValue} from "@effect-atom/atom-react";
-import {Component, type ReactNode, useRef, useState} from "react";
+import {Component, type ReactNode, Suspense, useRef, useState} from "react";
+import {graphql, useLazyLoadQuery, useMutation} from "react-relay";
 import {Link, Navigate} from "react-router";
+import type {TagManagementDeleteTagMutation} from "../../__generated__/TagManagementDeleteTagMutation.graphql";
+import type {TagManagementQuery} from "../../__generated__/TagManagementQuery.graphql";
+import type {TagManagementUpdateTagMutation} from "../../__generated__/TagManagementUpdateTagMutation.graphql";
 import {useAuth} from "../../auth/AuthContext";
 import {AlertDialog} from "../../design/AlertDialog";
 import {Button} from "../../design/Button";
@@ -10,57 +12,70 @@ import {Input} from "../../design/Input";
 import {MoreHorizontalIcon} from "../../design/icons/MoreHorizontalIcon";
 import {Menu} from "../../design/Menu";
 import {TagChip} from "../../design/TagChip";
-import {deleteTagMutation, tagsAtom, updateTagMutation} from "../../rpc/atoms";
 import styles from "./TagManagement.module.css";
 
-class ErrorBoundary extends Component<
-	{children: ReactNode; fallback: ReactNode},
-	{hasError: boolean}
-> {
-	constructor(props: {children: ReactNode; fallback: ReactNode}) {
-		super(props);
-		this.state = {hasError: false};
-	}
+// ===== GraphQL Definitions =====
 
-	static getDerivedStateFromError() {
-		return {hasError: true};
-	}
-
-	render() {
-		if (this.state.hasError) {
-			return this.props.fallback;
+const TagManagementQueryDef = graphql`
+	query TagManagementQuery {
+		me {
+			library {
+				tags {
+					id
+					name
+					color
+					stories {
+						totalCount
+					}
+				}
+			}
 		}
-		return this.props.children;
 	}
-}
+`;
 
-function NotLoggedIn() {
-	const handleLogin = () => {
-		window.location.href = "/login";
-	};
+const UpdateTagMutation = graphql`
+	mutation TagManagementUpdateTagMutation($id: String!, $name: String, $color: String) {
+		updateTag(id: $id, name: $name, color: $color) {
+			tag {
+				id
+				name
+				color
+				stories {
+					totalCount
+				}
+			}
+			error {
+				... on InvalidTagNameError {
+					code
+					message
+				}
+				... on TagNameExistsError {
+					code
+					message
+				}
+				... on TagNotFoundError {
+					code
+					message
+				}
+			}
+		}
+	}
+`;
 
-	return (
-		<div className={styles.container}>
-			<div className={styles.card}>
-				<p>Please log in to manage your tags.</p>
-				<Button onClick={handleLogin}>Go to Login</Button>
-			</div>
-		</div>
-	);
-}
+const DeleteTagMutation = graphql`
+	mutation TagManagementDeleteTagMutation($id: String!) {
+		deleteTag(id: $id) {
+			deletedTagId @deleteRecord
+			success
+			error {
+				code
+				message
+			}
+		}
+	}
+`;
 
-function TagManagementSkeleton() {
-	return (
-		<div className={styles.container}>
-			<header className={styles.header}>
-				<h1 className={styles.title}>Manage Tags</h1>
-			</header>
-			<div className={styles.skeleton} />
-			<div className={styles.skeleton} />
-			<div className={styles.skeleton} />
-		</div>
-	);
-}
+// ===== Components =====
 
 type TagRowState =
 	| {mode: "view"}
@@ -78,14 +93,14 @@ type TagData = {
 function TagRow({tag}: {tag: TagData}) {
 	const [state, setState] = useState<TagRowState>({mode: "view"});
 	const [error, setError] = useState<string | null>(null);
-	const [isUpdating, setIsUpdating] = useState(false);
-	const [isDeleting, setIsDeleting] = useState(false);
 	const menuTriggerRef = useRef<HTMLButtonElement>(null);
 
-	const updateTag = useAtomSet(updateTagMutation);
-	const deleteTag = useAtomSet(deleteTagMutation);
+	const [commitUpdateTag, isUpdating] =
+		useMutation<TagManagementUpdateTagMutation>(UpdateTagMutation);
+	const [commitDeleteTag, isDeleting] =
+		useMutation<TagManagementDeleteTagMutation>(DeleteTagMutation);
 
-	const handleRename = async (newName: string) => {
+	const handleRename = (newName: string) => {
 		const trimmed = newName.trim();
 		if (!trimmed || trimmed === tag.name) {
 			setState({mode: "view"});
@@ -93,57 +108,87 @@ function TagRow({tag}: {tag: TagData}) {
 		}
 
 		setError(null);
-		setIsUpdating(true);
-		try {
-			await updateTag({
-				payload: {id: tag.id, name: trimmed},
-				reactivityKeys: ["tags"],
-			});
-			setState({mode: "view"});
-		} catch (err) {
-			setError(err instanceof Error ? err.message : "Failed to rename tag");
-		} finally {
-			setIsUpdating(false);
-		}
+		commitUpdateTag({
+			variables: {id: tag.id, name: trimmed},
+			optimisticResponse: {
+				updateTag: {
+					tag: {
+						id: tag.id,
+						name: trimmed,
+						color: tag.color,
+						stories: {totalCount: tag.storyCount},
+					},
+					error: null,
+				},
+			},
+			onCompleted: (response) => {
+				if (response.updateTag.error) {
+					setError(response.updateTag.error.message ?? "Failed to rename tag");
+				} else {
+					setState({mode: "view"});
+				}
+			},
+			onError: (err) => {
+				setError(err.message ?? "Failed to rename tag");
+			},
+		});
 	};
 
-	const handleColorChange = async (newColor: string) => {
+	const handleColorChange = (newColor: string) => {
 		if (newColor.toLowerCase() === tag.color.toLowerCase()) {
 			setState({mode: "view"});
 			return;
 		}
 
 		setError(null);
-		setIsUpdating(true);
-		try {
-			await updateTag({
-				payload: {id: tag.id, color: newColor},
-				reactivityKeys: ["tags"],
-			});
-			setState({mode: "view"});
-		} catch (err) {
-			setError(err instanceof Error ? err.message : "Failed to update color");
-			setState({mode: "view"});
-		} finally {
-			setIsUpdating(false);
-		}
+		commitUpdateTag({
+			variables: {id: tag.id, color: newColor},
+			optimisticResponse: {
+				updateTag: {
+					tag: {
+						id: tag.id,
+						name: tag.name,
+						color: newColor,
+						stories: {totalCount: tag.storyCount},
+					},
+					error: null,
+				},
+			},
+			onCompleted: (response) => {
+				if (response.updateTag.error) {
+					setError(response.updateTag.error.message ?? "Failed to update color");
+				}
+				setState({mode: "view"});
+			},
+			onError: (err) => {
+				setError(err.message ?? "Failed to update color");
+				setState({mode: "view"});
+			},
+		});
 	};
 
-	const handleDelete = async () => {
+	const handleDelete = () => {
 		setError(null);
-		setIsDeleting(true);
-		try {
-			await deleteTag({
-				payload: {id: tag.id},
-				reactivityKeys: ["tags"],
-			});
-			setState({mode: "view"});
-		} catch (err) {
-			setError(err instanceof Error ? err.message : "Failed to delete tag");
-			setState({mode: "view"});
-		} finally {
-			setIsDeleting(false);
-		}
+		commitDeleteTag({
+			variables: {id: tag.id},
+			optimisticResponse: {
+				deleteTag: {
+					deletedTagId: tag.id,
+					success: true,
+					error: null,
+				},
+			},
+			onCompleted: (response) => {
+				if (response.deleteTag.error) {
+					setError(response.deleteTag.error.message ?? "Failed to delete tag");
+				}
+				setState({mode: "view"});
+			},
+			onError: (err) => {
+				setError(err.message ?? "Failed to delete tag");
+				setState({mode: "view"});
+			},
+		});
 	};
 
 	const storyLabel = tag.storyCount === 1 ? "story" : "stories";
@@ -283,48 +328,55 @@ function EmptyState() {
 	);
 }
 
+function TagManagementSkeleton() {
+	return (
+		<div className={styles.container}>
+			<header className={styles.header}>
+				<h1 className={styles.title}>Manage Tags</h1>
+			</header>
+			<div className={styles.skeleton} />
+			<div className={styles.skeleton} />
+			<div className={styles.skeleton} />
+		</div>
+	);
+}
+
 function AuthenticatedTagManagement() {
-	const tagsResult = useAtomValue(tagsAtom);
+	const data = useLazyLoadQuery<TagManagementQuery>(TagManagementQueryDef, {});
 
-	return Result.builder(tagsResult)
-		.onDefect((defect) => (
-			<div className={styles.container}>
-				<div className={styles.card}>
-					<p>Failed to load tags: {String(defect)}</p>
+	const tags = data.me.library.tags.map((tag) => ({
+		id: tag.id,
+		name: tag.name,
+		color: tag.color,
+		storyCount: tag.stories.totalCount,
+	}));
+
+	const sortedTags = [...tags].sort((a, b) => a.name.localeCompare(b.name));
+	const hasTags = sortedTags.length > 0;
+
+	return (
+		<div className={styles.container}>
+			<header className={styles.header}>
+				<div className={styles.headerLeft}>
+					<Link to="/me/library" className={styles.backLink}>
+						← Library
+					</Link>
+					<h1 className={styles.title}>Manage Tags</h1>
 				</div>
-			</div>
-		))
-		.onSuccess((tags, {waiting}) => {
-			const sortedTags = [...tags].sort((a, b) => a.name.localeCompare(b.name));
-			const hasTags = sortedTags.length > 0;
+				<span className={styles.tagCount}>{sortedTags.length} tags</span>
+			</header>
 
-			return (
-				<div className={styles.container}>
-					<header className={styles.header}>
-						<div className={styles.headerLeft}>
-							<Link to="/me/library" className={styles.backLink}>
-								← Library
-							</Link>
-							<h1 className={styles.title}>Manage Tags</h1>
-						</div>
-						<span className={styles.tagCount}>
-							{waiting ? "Refreshing..." : `${sortedTags.length} tags`}
-						</span>
-					</header>
-
-					{hasTags ? (
-						<div className={styles.tagList}>
-							{sortedTags.map((tag) => (
-								<TagRow key={tag.id} tag={tag} />
-							))}
-						</div>
-					) : (
-						<EmptyState />
-					)}
+			{hasTags ? (
+				<div className={styles.tagList}>
+					{sortedTags.map((tag) => (
+						<TagRow key={tag.id} tag={tag} />
+					))}
 				</div>
-			);
-		})
-		.render();
+			) : (
+				<EmptyState />
+			)}
+		</div>
+	);
 }
 
 function TagManagementContent() {
@@ -334,7 +386,47 @@ function TagManagementContent() {
 		return <Navigate to="/login" replace />;
 	}
 
-	return <AuthenticatedTagManagement />;
+	return (
+		<Suspense fallback={<TagManagementSkeleton />}>
+			<AuthenticatedTagManagement />
+		</Suspense>
+	);
+}
+
+class ErrorBoundary extends Component<
+	{children: ReactNode; fallback: ReactNode},
+	{hasError: boolean}
+> {
+	constructor(props: {children: ReactNode; fallback: ReactNode}) {
+		super(props);
+		this.state = {hasError: false};
+	}
+
+	static getDerivedStateFromError() {
+		return {hasError: true};
+	}
+
+	render() {
+		if (this.state.hasError) {
+			return this.props.fallback;
+		}
+		return this.props.children;
+	}
+}
+
+function NotLoggedIn() {
+	const handleLogin = () => {
+		window.location.href = "/login";
+	};
+
+	return (
+		<div className={styles.container}>
+			<div className={styles.card}>
+				<p>Please log in to manage your tags.</p>
+				<Button onClick={handleLogin}>Go to Login</Button>
+			</div>
+		</div>
+	);
 }
 
 export function TagManagement() {

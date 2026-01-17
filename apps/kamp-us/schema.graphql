@@ -19,7 +19,7 @@ type DeleteStoryPayload {
 }
 
 type DeleteTagPayload {
-  deletedTagId: String
+  deletedTagId: ID
   error: TagNotFoundError
   success: Boolean!
 }
