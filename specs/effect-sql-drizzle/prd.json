@@ -3,7 +3,7 @@
 	"description": "Replace @effect/sql Model.Class with @effect/sql-drizzle for single schema source",
 	"summary": {
 		"total": 45,
-		"passed": 9
+		"passed": 10
 	},
 	"items": [
 		{
@@ -171,7 +171,7 @@
 				"Subquery or join for count aggregation",
 				"Ordered by name"
 			],
-			"passes": false
+			"passes": true
 		},
 		{
 			"id": "ESD-107",

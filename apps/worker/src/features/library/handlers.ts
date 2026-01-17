@@ -7,7 +7,7 @@ import {
 	TagNameExistsError,
 } from "@kampus/library";
 import {id} from "@usirin/forge";
-import {and, count, desc, eq, inArray, lt} from "drizzle-orm";
+import {and, asc, count, desc, eq, inArray, lt, sql as drizzleSql} from "drizzle-orm";
 import {DateTime, Effect, Option} from "effect";
 import {DurableObjectEnv} from "../../services";
 import {makeWebPageParserClient} from "../web-page-parser/client";
@@ -417,15 +417,38 @@ export const handlers = {
 
 	listTags: () =>
 		Effect.gen(function* () {
-			const sql = yield* SqlClient.SqlClient;
+			const db = yield* SqliteDrizzle;
 
-			const tags = yield* sql<TagRow & {storyCount: number}>`
-				SELECT t.*, (SELECT COUNT(*) FROM story_tag WHERE tag_id = t.id) as story_count
-				FROM tag t
-				ORDER BY t.name
-			`;
+			// Subquery for story count
+			const storyCountSubquery = db
+				.select({
+					tagId: schema.storyTag.tagId,
+					count: count().as("count"),
+				})
+				.from(schema.storyTag)
+				.groupBy(schema.storyTag.tagId)
+				.as("story_counts");
 
-			return tags.map((tag) => formatTag(tag, tag.storyCount));
+			// Join tags with story counts
+			const tags = yield* db
+				.select({
+					id: schema.tag.id,
+					name: schema.tag.name,
+					color: schema.tag.color,
+					createdAt: schema.tag.createdAt,
+					storyCount: drizzleSql<number>`COALESCE(${storyCountSubquery.count}, 0)`,
+				})
+				.from(schema.tag)
+				.leftJoin(storyCountSubquery, eq(schema.tag.id, storyCountSubquery.tagId))
+				.orderBy(asc(schema.tag.name));
+
+			return tags.map((tag) => ({
+				id: tag.id,
+				name: tag.name,
+				color: tag.color,
+				createdAt: tag.createdAt.toISOString(),
+				storyCount: tag.storyCount,
+			}));
 		}).pipe(Effect.orDie),
 
 	createTag: ({name, color}: {name: string; color: string}) =>

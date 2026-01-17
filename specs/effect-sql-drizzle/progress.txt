@@ -142,3 +142,21 @@ Key decisions:
 68 tests pass
 
 Next: migrate listTags (ESD-106)
+## 2026-01-16: Migrate listTags to Drizzle (ESD-106)
+
+Files changed:
+- apps/worker/src/features/library/handlers.ts
+  - Added asc, drizzleSql imports from drizzle-orm
+  - Replaced raw sql`` with Drizzle subquery pattern for story count
+  - Uses db.select().from(schema.storyTag).groupBy() as subquery
+  - Left join subquery to tags table with COALESCE for null counts
+  - Ordered by asc(schema.tag.name)
+
+Key decisions:
+- Subquery pattern: SELECT count grouped by tagId, then left join to tag table
+- COALESCE handles tags with no stories (returns 0 instead of null)
+- Inline formatting instead of formatTag helper (prep for helper removal in ESD-012)
+
+68 tests pass
+
+Next: migrate createTag (ESD-107)
