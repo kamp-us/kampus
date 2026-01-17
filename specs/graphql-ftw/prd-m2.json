@@ -183,9 +183,8 @@
         "Verify tagsAtom is removed",
         "Verify no imports of tagsAtom elsewhere"
       ],
-      "passes": false,
-      "notes": "Blocked by TagManagement.tsx - see CLEANUP-6 to CLEANUP-8 for migration tasks",
-      "blockedBy": ["CLEANUP-6", "CLEANUP-7", "CLEANUP-8"]
+      "passes": true,
+      "notes": "TagManagement.tsx already migrated to Relay in previous iteration"
     },
     {
       "id": "CLEANUP-4",
@@ -306,7 +305,8 @@
         "Use useLazyLoadQuery instead of tagsAtom",
         "Remove tagsAtom import from TagManagement.tsx"
       ],
-      "passes": false
+      "passes": true,
+      "notes": "TagManagement.tsx uses useLazyLoadQuery<TagManagementQuery> with library.tags"
     },
     {
       "id": "CLEANUP-7",
@@ -318,7 +318,8 @@
         "Remove updateTagMutation import from TagManagement.tsx",
         "Remove reactivityKeys usage"
       ],
-      "passes": false
+      "passes": true,
+      "notes": "TagManagement.tsx uses useMutation<TagManagementUpdateTagMutation> with optimistic updates"
     },
     {
       "id": "CLEANUP-8",
@@ -330,7 +331,8 @@
         "Remove deleteTagMutation import from TagManagement.tsx",
         "Remove reactivityKeys usage"
       ],
-      "passes": false
+      "passes": true,
+      "notes": "TagManagement.tsx uses useMutation<TagManagementDeleteTagMutation> with @deleteRecord"
     },
     {
       "id": "CLEANUP-9",
@@ -340,8 +342,7 @@
         "Verify updateTagMutation is removed from atoms.ts",
         "Verify no imports of updateTagMutation elsewhere"
       ],
-      "passes": false,
-      "blockedBy": ["CLEANUP-7"]
+      "passes": true
     },
     {
       "id": "CLEANUP-10",
@@ -351,8 +352,7 @@
         "Verify deleteTagMutation is removed from atoms.ts",
         "Verify no imports of deleteTagMutation elsewhere"
       ],
-      "passes": false,
-      "blockedBy": ["CLEANUP-8"]
+      "passes": true
     }
   ]
 }

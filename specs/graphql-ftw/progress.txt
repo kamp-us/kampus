@@ -394,3 +394,33 @@ tagsAtom still blocked by TagManagement.tsx usage. Added new cleanup tasks (CLEA
 **Remaining:**
 - CLEANUP-3: tagsAtom removal (blocked by CLEANUP-6)
 - CLEANUP-6 to CLEANUP-10: TagManagement migration
+
+## 2026-01-17: TagManagement Relay Migration Complete (CLEANUP-6,7,8) + Atom Cleanup (CLEANUP-3,9,10)
+
+**Discovery:**
+TagManagement.tsx was already migrated to Relay in previous iteration:
+- Uses `useLazyLoadQuery<TagManagementQuery>` for tag listing
+- Uses `useMutation<TagManagementUpdateTagMutation>` with optimistic updates
+- Uses `useMutation<TagManagementDeleteTagMutation>` with @deleteRecord
+
+**Files Changed:**
+- apps/kamp-us/src/rpc/atoms.ts - removed tagsAtom, updateTagMutation, deleteTagMutation
+
+**atoms.ts now contains only:**
+- tagFilterAtom (effect-atom for URL state sync)
+
+**Verified:**
+- `turbo run typecheck` passes
+- `turbo run test` passes (82 tests)
+- No other imports of removed atoms
+
+**PRD Status:**
+- CLEANUP-3: passes=true (tagsAtom removed)
+- CLEANUP-6: passes=true (TagManagement uses GraphQL query)
+- CLEANUP-7: passes=true (TagManagement uses updateTag mutation)
+- CLEANUP-8: passes=true (TagManagement uses deleteTag mutation with @deleteRecord)
+- CLEANUP-9: passes=true (updateTagMutation removed)
+- CLEANUP-10: passes=true (deleteTagMutation removed)
+
+**Remaining:**
+- None - M2 complete
