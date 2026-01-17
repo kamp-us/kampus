@@ -1,0 +1,482 @@
+{
+	"feature": "effect-sql-drizzle",
+	"description": "Replace @effect/sql Model.Class with @effect/sql-drizzle for single schema source",
+	"summary": {
+		"total": 45,
+		"passed": 1
+	},
+	"items": [
+		{
+			"id": "ESD-001",
+			"category": "setup",
+			"description": "Add @effect/sql-drizzle dependency",
+			"steps_to_verify": [
+				"@effect/sql-drizzle in worker package.json dependencies",
+				"pnpm install succeeds",
+				"import { SqliteDrizzle } from '@effect/sql-drizzle/Sqlite' works"
+			],
+			"passes": true
+		},
+		{
+			"id": "ESD-002",
+			"category": "spellbook",
+			"description": "MakeConfig accepts schema parameter",
+			"steps_to_verify": [
+				"MakeConfig interface has schema: TSchema generic parameter",
+				"schema is required in MakeConfig",
+				"TypeScript infers schema type from passed object"
+			],
+			"passes": false
+		},
+		{
+			"id": "ESD-003",
+			"category": "spellbook",
+			"description": "Spellbook provides SqliteDrizzle service",
+			"steps_to_verify": [
+				"drizzleLayer created with makeDrizzle({ schema: config.schema })",
+				"drizzleLayer merged into fullLayer",
+				"SqliteDrizzle is yieldable in handlers"
+			],
+			"passes": false
+		},
+		{
+			"id": "ESD-004",
+			"category": "spellbook",
+			"description": "Remove layers config from MakeConfig",
+			"steps_to_verify": [
+				"layers property removed from MakeConfig",
+				"Library.ts no longer passes RepoLayer",
+				"No references to RepoLayer remain"
+			],
+			"passes": false
+		},
+		{
+			"id": "ESD-010",
+			"category": "library:cleanup",
+			"description": "Delete models.ts",
+			"steps_to_verify": [
+				"models.ts file deleted",
+				"No imports from ./models in handlers.ts",
+				"No Model.Class usage anywhere in library feature"
+			],
+			"passes": false
+		},
+		{
+			"id": "ESD-011",
+			"category": "library:cleanup",
+			"description": "Remove StoryRow, TagRow, StoryTagRow interfaces",
+			"steps_to_verify": [
+				"No manual row interfaces in handlers.ts",
+				"Types inferred from Drizzle schema"
+			],
+			"passes": false
+		},
+		{
+			"id": "ESD-012",
+			"category": "library:cleanup",
+			"description": "Remove format helpers",
+			"steps_to_verify": [
+				"formatStory, formatStoryFromModel removed",
+				"formatTag, formatTagFromModel removed",
+				"Response formatting done inline or with simpler helpers"
+			],
+			"passes": false
+		},
+		{
+			"id": "ESD-013",
+			"category": "library:cleanup",
+			"description": "Remove orDieSql helper",
+			"steps_to_verify": [
+				"orDieSql helper removed",
+				"SqlError handling done via Effect.orDie or catchTag"
+			],
+			"passes": false
+		},
+		{
+			"id": "ESD-100",
+			"category": "library:handler",
+			"description": "Migrate getStory to Drizzle",
+			"steps_to_verify": [
+				"Uses db.select().from(schema.story).where(eq(...))",
+				"No StoryRepo usage",
+				"Returns null when story not found",
+				"Tags fetched with Drizzle join or subquery"
+			],
+			"passes": false
+		},
+		{
+			"id": "ESD-101",
+			"category": "library:handler",
+			"description": "Migrate listStories to Drizzle",
+			"steps_to_verify": [
+				"Uses db.select().from(schema.story)",
+				"Pagination via .orderBy(desc(...)).limit(...)",
+				"Count via db.select({ count: count() })",
+				"No raw sql`` template literals"
+			],
+			"passes": false
+		},
+		{
+			"id": "ESD-102",
+			"category": "library:handler",
+			"description": "Migrate listStoriesByTag to Drizzle",
+			"steps_to_verify": [
+				"Uses Drizzle joins for story_tag relation",
+				"Pagination works correctly",
+				"No sql.unsafe() calls"
+			],
+			"passes": false
+		},
+		{
+			"id": "ESD-103",
+			"category": "library:handler",
+			"description": "Migrate createStory to Drizzle",
+			"steps_to_verify": [
+				"Uses db.insert(schema.story).values(...).returning()",
+				"Tag association via db.insert(schema.storyTag)",
+				"No StoryRepo.insert usage"
+			],
+			"passes": false
+		},
+		{
+			"id": "ESD-104",
+			"category": "library:handler",
+			"description": "Migrate updateStory to Drizzle",
+			"steps_to_verify": [
+				"Uses db.update(schema.story).set(...).where(...)",
+				"Tag updates via db.delete + db.insert",
+				"No raw sql`` for updates"
+			],
+			"passes": false
+		},
+		{
+			"id": "ESD-105",
+			"category": "library:handler",
+			"description": "Migrate deleteStory to Drizzle",
+			"steps_to_verify": [
+				"Uses db.delete(schema.story).where(...)",
+				"No StoryRepo.delete usage",
+				"Returns { deleted: true/false }"
+			],
+			"passes": false
+		},
+		{
+			"id": "ESD-106",
+			"category": "library:handler",
+			"description": "Migrate listTags to Drizzle",
+			"steps_to_verify": [
+				"Uses Drizzle for tag query with story count",
+				"Subquery or join for count aggregation",
+				"Ordered by name"
+			],
+			"passes": false
+		},
+		{
+			"id": "ESD-107",
+			"category": "library:handler",
+			"description": "Migrate createTag to Drizzle",
+			"steps_to_verify": [
+				"Uses db.insert(schema.tag).values(...).returning()",
+				"Uniqueness check via db.select().where()",
+				"No TagRepo usage"
+			],
+			"passes": false
+		},
+		{
+			"id": "ESD-108",
+			"category": "library:handler",
+			"description": "Migrate updateTag to Drizzle",
+			"steps_to_verify": [
+				"Uses db.update(schema.tag).set(...).where(...)",
+				"Case-insensitive uniqueness via sql.lower() or similar",
+				"Returns null when not found"
+			],
+			"passes": false
+		},
+		{
+			"id": "ESD-109",
+			"category": "library:handler",
+			"description": "Migrate deleteTag to Drizzle",
+			"steps_to_verify": [
+				"Uses db.delete(schema.tag).where(...)",
+				"No TagRepo.delete usage"
+			],
+			"passes": false
+		},
+		{
+			"id": "ESD-110",
+			"category": "library:handler",
+			"description": "Migrate getTagsForStory to Drizzle",
+			"steps_to_verify": [
+				"Uses Drizzle join on story_tag and tag tables",
+				"Returns array with story count per tag"
+			],
+			"passes": false
+		},
+		{
+			"id": "ESD-111",
+			"category": "library:handler",
+			"description": "Migrate setStoryTags to Drizzle",
+			"steps_to_verify": [
+				"Uses db.delete for removing old tags",
+				"Uses db.insert for adding new tags",
+				"Uses inArray() for bulk operations"
+			],
+			"passes": false
+		},
+		{
+			"id": "ESD-112",
+			"category": "library:handler",
+			"description": "Migrate getTagsForStoriesSimple helper to Drizzle",
+			"steps_to_verify": [
+				"Uses Drizzle join instead of sql.unsafe()",
+				"Uses inArray() for story IDs",
+				"Returns Map<storyId, tags[]>"
+			],
+			"passes": false
+		},
+		{
+			"id": "ESD-120",
+			"category": "library:entrypoint",
+			"description": "Update Library.ts to pass schema",
+			"steps_to_verify": [
+				"Imports schema from ./drizzle/drizzle.schema",
+				"Spellbook.make({ ..., schema })",
+				"No RepoLayer import or usage"
+			],
+			"passes": false
+		},
+		{
+			"id": "ESD-200",
+			"category": "web-page-parser",
+			"description": "Migrate web-page-parser handlers to Drizzle",
+			"steps_to_verify": [
+				"All handlers use SqliteDrizzle service",
+				"No raw sql`` templates",
+				"Schema passed to Spellbook.make"
+			],
+			"passes": false
+		},
+		{
+			"id": "ESD-300",
+			"category": "test:story:create",
+			"description": "Create story with minimal fields",
+			"steps_to_verify": [
+				"createStory with url, title succeeds",
+				"Returns story with id, createdAt",
+				"description is null, tags is empty"
+			],
+			"passes": false
+		},
+		{
+			"id": "ESD-301",
+			"category": "test:story:create",
+			"description": "Create story with description",
+			"steps_to_verify": [
+				"createStory with url, title, description succeeds",
+				"description persisted and returned"
+			],
+			"passes": false
+		},
+		{
+			"id": "ESD-302",
+			"category": "test:story:create",
+			"description": "Create story with tags",
+			"steps_to_verify": [
+				"Create tags first",
+				"createStory with tagIds associates tags",
+				"Returned story has correct tags"
+			],
+			"passes": false
+		},
+		{
+			"id": "ESD-303",
+			"category": "test:story:create",
+			"description": "Create story with invalid URL fails",
+			"steps_to_verify": [
+				"createStory with invalid URL returns InvalidUrlError"
+			],
+			"passes": false
+		},
+		{
+			"id": "ESD-310",
+			"category": "test:story:read",
+			"description": "Get story by ID",
+			"steps_to_verify": [
+				"getStory returns story with all fields",
+				"Tags included in response"
+			],
+			"passes": false
+		},
+		{
+			"id": "ESD-311",
+			"category": "test:story:read",
+			"description": "Get nonexistent story returns null",
+			"steps_to_verify": [
+				"getStory with unknown ID returns null"
+			],
+			"passes": false
+		},
+		{
+			"id": "ESD-312",
+			"category": "test:story:read",
+			"description": "List stories with pagination",
+			"steps_to_verify": [
+				"listStories returns paginated results",
+				"hasNextPage correct",
+				"endCursor correct",
+				"totalCount correct"
+			],
+			"passes": false
+		},
+		{
+			"id": "ESD-313",
+			"category": "test:story:read",
+			"description": "List stories by tag",
+			"steps_to_verify": [
+				"listStoriesByTag filters correctly",
+				"Only stories with that tag returned"
+			],
+			"passes": false
+		},
+		{
+			"id": "ESD-320",
+			"category": "test:story:update",
+			"description": "Update story title",
+			"steps_to_verify": [
+				"updateStory changes title",
+				"updatedAt timestamp set"
+			],
+			"passes": false
+		},
+		{
+			"id": "ESD-321",
+			"category": "test:story:update",
+			"description": "Update story tags",
+			"steps_to_verify": [
+				"updateStory with tagIds replaces tags",
+				"Old tags removed, new tags added"
+			],
+			"passes": false
+		},
+		{
+			"id": "ESD-322",
+			"category": "test:story:update",
+			"description": "Update nonexistent story returns null",
+			"steps_to_verify": [
+				"updateStory with unknown ID returns null"
+			],
+			"passes": false
+		},
+		{
+			"id": "ESD-330",
+			"category": "test:story:delete",
+			"description": "Delete story",
+			"steps_to_verify": [
+				"deleteStory returns { deleted: true }",
+				"Story no longer retrievable",
+				"Tag associations cleaned up"
+			],
+			"passes": false
+		},
+		{
+			"id": "ESD-331",
+			"category": "test:story:delete",
+			"description": "Delete nonexistent story",
+			"steps_to_verify": [
+				"deleteStory with unknown ID returns { deleted: false }"
+			],
+			"passes": false
+		},
+		{
+			"id": "ESD-340",
+			"category": "test:tag:create",
+			"description": "Create tag",
+			"steps_to_verify": [
+				"createTag with name, color succeeds",
+				"Returns tag with id, createdAt, storyCount: 0"
+			],
+			"passes": false
+		},
+		{
+			"id": "ESD-341",
+			"category": "test:tag:create",
+			"description": "Create duplicate tag fails",
+			"steps_to_verify": [
+				"createTag with existing name (case-insensitive) fails",
+				"Returns TagNameExistsError"
+			],
+			"passes": false
+		},
+		{
+			"id": "ESD-342",
+			"category": "test:tag:create",
+			"description": "Create tag with invalid name fails",
+			"steps_to_verify": [
+				"Empty name, too long name, invalid chars fail",
+				"Returns InvalidTagNameError"
+			],
+			"passes": false
+		},
+		{
+			"id": "ESD-343",
+			"category": "test:tag:create",
+			"description": "Create tag with invalid color fails",
+			"steps_to_verify": [
+				"Invalid hex color fails",
+				"Returns InvalidTagColorError"
+			],
+			"passes": false
+		},
+		{
+			"id": "ESD-350",
+			"category": "test:tag:update",
+			"description": "Update tag name and color",
+			"steps_to_verify": [
+				"updateTag changes name and/or color",
+				"storyCount preserved"
+			],
+			"passes": false
+		},
+		{
+			"id": "ESD-351",
+			"category": "test:tag:delete",
+			"description": "Delete tag",
+			"steps_to_verify": [
+				"deleteTag returns { deleted: true }",
+				"Story-tag associations cleaned up"
+			],
+			"passes": false
+		},
+		{
+			"id": "ESD-360",
+			"category": "test:tag:relation",
+			"description": "Get tags for story",
+			"steps_to_verify": [
+				"getTagsForStory returns all associated tags",
+				"Each tag has storyCount"
+			],
+			"passes": false
+		},
+		{
+			"id": "ESD-361",
+			"category": "test:tag:relation",
+			"description": "Set story tags",
+			"steps_to_verify": [
+				"setStoryTags replaces all tags",
+				"Old associations removed"
+			],
+			"passes": false
+		},
+		{
+			"id": "ESD-400",
+			"category": "verification",
+			"description": "All tests pass",
+			"steps_to_verify": [
+				"pnpm --filter worker run test passes",
+				"No test failures or skips"
+			],
+			"passes": false
+		}
+	]
+}

@@ -1,0 +1,13 @@
+# Progress Log
+
+## 2026-01-16: Add @effect/sql-drizzle dependency (ESD-001)
+
+Files changed:
+- apps/worker/package.json - added @effect/sql-drizzle
+- apps/worker/src/shared/Spellbook.ts - added SqliteDrizzle import
+
+Verified:
+- pnpm install succeeds
+- import { SqliteDrizzle } from '@effect/sql-drizzle/Sqlite' compiles
+- typecheck passes
+- all 70 tests pass

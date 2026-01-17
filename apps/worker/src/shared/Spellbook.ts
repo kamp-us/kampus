@@ -3,6 +3,7 @@ import {HttpServerRequest, HttpServerResponse} from "@effect/platform";
 import type {Rpc, RpcGroup} from "@effect/rpc";
 import {RpcSerialization, RpcServer} from "@effect/rpc";
 import type {SqlClient} from "@effect/sql";
+import {SqliteDrizzle} from "@effect/sql-drizzle/Sqlite";
 import {SqliteClient} from "@effect/sql-sqlite-do";
 import {drizzle} from "drizzle-orm/durable-sqlite";
 import {migrate} from "drizzle-orm/durable-sqlite/migrator";
