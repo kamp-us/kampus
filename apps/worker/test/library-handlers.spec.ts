@@ -3,7 +3,7 @@ import {SqliteDrizzle} from "@effect/sql-drizzle/Sqlite";
 import {InvalidUrlError} from "@kampus/library";
 import {Cause, Effect, Exit, Layer} from "effect";
 import {describe, expect, it} from "vitest";
-import {handlers} from "../src/features/library/handlers";
+import * as handlers from "../src/features/library/handlers";
 
 /**
  * Unit tests for Library handlers using mock SqlClient.

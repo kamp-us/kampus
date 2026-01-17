@@ -488,9 +488,10 @@
       "stepsToVerify": [
         "Open apps/worker/src/features/library/handlers.ts",
         "Verify exports are: export const getStory = ...",
-        "Verify import * as handlers pattern works in Library.ts"
+        "Verify import * as handlers pattern works in Library.ts",
+        "Tests: turbo run typecheck + pnpm --filter worker run test (82 tests)"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "NFR-2.2",

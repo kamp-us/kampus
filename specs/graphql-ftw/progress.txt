@@ -198,3 +198,27 @@ Runtime (FR-9.1):
 - NFR-2.2: SqlError auto-caught in Spellbook (refactor)
 - NFR-3.1: Schema single source of truth (M2 - frontend)
 - ERR-1,2,3: error handling verification (needs tests)
+
+## 2026-01-17: Handlers as Named Exports (NFR-2.1)
+
+**Files:**
+- apps/worker/src/features/library/handlers.ts - refactored from object literal to named exports
+- apps/worker/src/features/library/Library.ts - updated import to `import * as handlers`
+- apps/worker/test/library-handlers.spec.ts - updated import to `import * as handlers`
+
+**Implementation:**
+- Changed `export const handlers = { getStory: ... }` to individual `export const getStory = ...`
+- Library.ts now uses `import * as handlers` pattern
+- Cleaner separation, enables tree-shaking potential
+
+**Verified:**
+- `turbo run typecheck --filter=worker` passes
+- `pnpm --filter worker run test` passes (82 tests)
+
+**PRD Status:**
+- NFR-2.1: passes=true
+
+**Remaining:**
+- NFR-2.2: SqlError auto-caught in Spellbook (refactor)
+- NFR-3.1: Schema single source of truth (M2 - frontend)
+- ERR-1,2,3: error handling verification (needs tests)
