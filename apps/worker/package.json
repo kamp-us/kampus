@@ -22,6 +22,7 @@
 		"@effect/platform": "catalog:",
 		"@effect/rpc": "catalog:",
 		"@effect/sql": "catalog:",
+		"@effect/sql-drizzle": "catalog:",
 		"@effect/sql-sqlite-do": "catalog:",
 		"@kampus/library": "workspace:*",
 		"@kampus/web-page-parser": "workspace:*",
