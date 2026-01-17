@@ -75,6 +75,28 @@ export const handlers = {
 			return formatStory(story, tagsByStory.get(storyId) ?? []);
 		}).pipe(Effect.orDie),
 
+	getBatchStory: ({ids}: {ids: readonly string[]}) =>
+		Effect.gen(function* () {
+			if (ids.length === 0) return [];
+
+			const db = yield* SqliteDrizzle;
+			const stories = yield* db
+				.select()
+				.from(schema.story)
+				.where(inArray(schema.story.id, [...ids]));
+
+			const storyMap = new Map(stories.map((s) => [s.id, s]));
+			const storyIds = stories.map((s) => s.id);
+			const tagsByStory = yield* getTagsForStoriesSimple(storyIds);
+
+			// Return array preserving input order, null for missing stories
+			return ids.map((storyId) => {
+				const story = storyMap.get(storyId);
+				if (!story) return null;
+				return formatStory(story, tagsByStory.get(storyId) ?? []);
+			});
+		}).pipe(Effect.orDie),
+
 	listStories: ({first, after}: {first?: number; after?: string}) =>
 		Effect.gen(function* () {
 			const db = yield* SqliteDrizzle;

@@ -1,0 +1,17 @@
+# GraphQL + Relay M1 Progress
+
+## 2026-01-16: getBatchStory RPC (FR-1.1)
+
+**Files:**
+- packages/library/src/rpc.ts - added getBatchStory RPC definition
+- apps/worker/src/features/library/handlers.ts - added getBatchStory handler
+
+**Implementation:**
+- RPC: `getBatchStory({ids: string[]})` returns `(Story | null)[]`
+- Handler uses `inArray` query, builds Map for O(1) lookup
+- Returns nulls for missing stories, preserves input order
+- Early return for empty array (no DB call)
+
+**Verified:**
+- `pnpm --filter worker run typecheck` passes
+- `pnpm --filter worker run test` passes (68 tests)

@@ -10,6 +10,11 @@ export const LibraryRpcs = RpcGroup.make(
 		success: Schema.NullOr(Story),
 	}),
 
+	Rpc.make("getBatchStory", {
+		payload: {ids: Schema.Array(Schema.String)},
+		success: Schema.Array(Schema.NullOr(Story)),
+	}),
+
 	Rpc.make("listStories", {
 		payload: PaginationInput,
 		success: StoriesPage,

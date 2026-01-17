@@ -14,7 +14,7 @@
         "Verify order matches input order",
         "Verify missing stories return null at correct index"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FR-1.2",
