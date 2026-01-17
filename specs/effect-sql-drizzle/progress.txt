@@ -261,3 +261,30 @@ Key decisions:
 68 tests pass
 
 Next: cleanup phase (ESD-004, ESD-010-013, ESD-120)
+
+## 2026-01-16: Cleanup phase (ESD-004, ESD-010-013, ESD-120)
+
+Files changed:
+- apps/worker/src/features/library/models.ts - DELETED
+- apps/worker/src/features/library/handlers.ts
+  - Removed import of Story, StoryRepo, Tag, TagRepo from ./models
+  - Removed SqlClient import (no longer needed)
+  - Removed StoryRow, TagRow, StoryTagRow interfaces
+  - Removed formatStoryFromModel, formatTag, formatTagFromModel helpers
+  - Simplified formatStory to take Drizzle Date objects directly
+  - Removed orDieSql helper, replaced with inline Effect.catchTag("SqlError", Effect.die)
+- apps/worker/src/features/library/Library.ts
+  - Removed RepoLayer import from ./models
+  - Removed layers property from Spellbook.make call
+- apps/worker/src/shared/Spellbook.ts
+  - Removed layers optional property from MakeConfig interface
+  - Removed legacyLayers handling from make function
+
+Key decisions:
+- formatStory kept but simplified - takes Drizzle Date objects directly instead of timestamps
+- SqlError handling inlined as Effect.catchTag("SqlError", Effect.die)
+- No Model.Class, StoryRepo, or TagRepo usage remains
+
+68 tests pass
+
+Next: web-page-parser migration (ESD-200) or test item verification (ESD-300+)

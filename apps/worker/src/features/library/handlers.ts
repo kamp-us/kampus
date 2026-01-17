@@ -1,4 +1,3 @@
-import {SqlClient, type SqlError} from "@effect/sql";
 import {SqliteDrizzle} from "@effect/sql-drizzle/Sqlite";
 import {
 	InvalidTagColorError,
@@ -7,89 +6,33 @@ import {
 	TagNameExistsError,
 } from "@kampus/library";
 import {id} from "@usirin/forge";
-import {and, asc, count, desc, eq, inArray, lt, sql as drizzleSql} from "drizzle-orm";
-import {DateTime, Effect, Option} from "effect";
+import {and, asc, count, desc, sql as drizzleSql, eq, inArray, lt} from "drizzle-orm";
+import {Effect} from "effect";
 import {DurableObjectEnv} from "../../services";
 import {makeWebPageParserClient} from "../web-page-parser/client";
 import * as schema from "./drizzle/drizzle.schema";
 import {getNormalizedUrl} from "./getNormalizedUrl";
-import {Story, StoryRepo, Tag, TagRepo} from "./models";
 import {isValidHexColor, validateTagName} from "./schema";
 
-// Helper to convert SqlError to defects while preserving typed errors
-const orDieSql = <A, E, R>(
-	effect: Effect.Effect<A, E | SqlError.SqlError, R>,
-): Effect.Effect<A, E, R> =>
-	effect.pipe(Effect.catchTag("SqlError", (e) => Effect.die(e))) as Effect.Effect<A, E, R>;
-
-// Row types (camelCase - SqlClient transforms handle snake_case columns)
-interface StoryRow {
-	id: string;
-	url: string;
-	title: string;
-	description: string | null;
-	createdAt: number;
-	updatedAt: number | null;
-}
-
-interface TagRow {
-	id: string;
-	name: string;
-	color: string;
-	createdAt: number;
-}
-
-interface StoryTagRow {
-	storyId: string;
-	tagId: string;
-	tagName: string;
-	tagColor: string;
-}
-
-// Helper to format story with tags (from raw row)
-const formatStory = (story: StoryRow, tags: Array<{id: string; name: string; color: string}>) => ({
-	id: story.id,
-	url: story.url,
-	title: story.title,
-	description: story.description,
-	createdAt: new Date(story.createdAt).toISOString(),
-	updatedAt: story.updatedAt ? new Date(story.updatedAt).toISOString() : null,
-	tags,
-});
-
-// Helper to format story from Model instance
-const formatStoryFromModel = (
-	story: Story,
+// Helper to format story response
+const formatStory = (
+	story: {
+		id: string;
+		url: string;
+		title: string;
+		description: string | null;
+		createdAt: Date;
+		updatedAt: Date | null;
+	},
 	tags: Array<{id: string; name: string; color: string}>,
 ) => ({
 	id: story.id,
 	url: story.url,
 	title: story.title,
-	description: Option.getOrNull(story.description),
-	createdAt: DateTime.formatIso(story.createdAt),
-	updatedAt: Option.match(story.updatedAt, {
-		onNone: () => null,
-		onSome: (ms) => new Date(ms).toISOString(),
-	}),
+	description: story.description,
+	createdAt: story.createdAt.toISOString(),
+	updatedAt: story.updatedAt?.toISOString() ?? null,
 	tags,
-});
-
-// Helper to format tag (from raw row)
-const formatTag = (tag: TagRow, storyCount: number) => ({
-	id: tag.id,
-	name: tag.name,
-	color: tag.color,
-	createdAt: new Date(tag.createdAt).toISOString(),
-	storyCount,
-});
-
-// Helper to format tag from Model instance
-const formatTagFromModel = (tag: Tag, storyCount: number) => ({
-	id: tag.id,
-	name: tag.name,
-	color: tag.color,
-	createdAt: DateTime.formatIso(tag.createdAt),
-	storyCount,
 });
 
 // Fetch tags for multiple stories in one query
@@ -129,17 +72,7 @@ export const handlers = {
 			if (!story) return null;
 
 			const tagsByStory = yield* getTagsForStoriesSimple([storyId]);
-			return formatStory(
-				{
-					id: story.id,
-					url: story.url,
-					title: story.title,
-					description: story.description,
-					createdAt: story.createdAt.getTime(),
-					updatedAt: story.updatedAt?.getTime() ?? null,
-				},
-				tagsByStory.get(storyId) ?? [],
-			);
+			return formatStory(story, tagsByStory.get(storyId) ?? []);
 		}).pipe(Effect.orDie),
 
 	listStories: ({first, after}: {first?: number; after?: string}) =>
@@ -166,19 +99,7 @@ export const handlers = {
 			const tagsByStory = yield* getTagsForStoriesSimple(edges.map((s) => s.id));
 
 			return {
-				stories: edges.map((s) =>
-					formatStory(
-						{
-							id: s.id,
-							url: s.url,
-							title: s.title,
-							description: s.description,
-							createdAt: s.createdAt.getTime(),
-							updatedAt: s.updatedAt?.getTime() ?? null,
-						},
-						tagsByStory.get(s.id) ?? [],
-					),
-				),
+				stories: edges.map((s) => formatStory(s, tagsByStory.get(s.id) ?? [])),
 				hasNextPage,
 				endCursor: edges.length > 0 ? edges[edges.length - 1].id : null,
 				totalCount,
@@ -231,24 +152,12 @@ export const handlers = {
 			const storyMap = new Map(stories.map((s) => [s.id, s]));
 			const orderedStories = paginatedIds
 				.map((pid) => storyMap.get(pid))
-				.filter((s): s is typeof stories[number] => s !== undefined);
+				.filter((s): s is (typeof stories)[number] => s !== undefined);
 
 			const tagsByStory = yield* getTagsForStoriesSimple(paginatedIds);
 
 			return {
-				stories: orderedStories.map((s) =>
-					formatStory(
-						{
-							id: s.id,
-							url: s.url,
-							title: s.title,
-							description: s.description,
-							createdAt: s.createdAt.getTime(),
-							updatedAt: s.updatedAt?.getTime() ?? null,
-						},
-						tagsByStory.get(s.id) ?? [],
-					),
-				),
+				stories: orderedStories.map((s) => formatStory(s, tagsByStory.get(s.id) ?? [])),
 				hasNextPage,
 				endCursor: orderedStories.length > 0 ? orderedStories[orderedStories.length - 1].id : null,
 				totalCount,
@@ -307,18 +216,8 @@ export const handlers = {
 
 			const tagsByStory = yield* getTagsForStoriesSimple([storyId]);
 
-			return formatStory(
-				{
-					id: story.id,
-					url: story.url,
-					title: story.title,
-					description: story.description,
-					createdAt: story.createdAt.getTime(),
-					updatedAt: story.updatedAt?.getTime() ?? null,
-				},
-				tagsByStory.get(storyId) ?? [],
-			);
-		}).pipe(orDieSql),
+			return formatStory(story, tagsByStory.get(storyId) ?? []);
+		}).pipe(Effect.catchTag("SqlError", Effect.die)),
 
 	updateStory: ({
 		id: storyId,
@@ -392,17 +291,7 @@ export const handlers = {
 			const [updated] = yield* db.select().from(schema.story).where(eq(schema.story.id, storyId));
 			const tagsByStory = yield* getTagsForStoriesSimple([storyId]);
 
-			return formatStory(
-				{
-					id: updated!.id,
-					url: updated!.url,
-					title: updated!.title,
-					description: updated!.description,
-					createdAt: updated!.createdAt.getTime(),
-					updatedAt: updated!.updatedAt?.getTime() ?? null,
-				},
-				tagsByStory.get(storyId) ?? [],
-			);
+			return formatStory(updated!, tagsByStory.get(storyId) ?? []);
 		}).pipe(Effect.orDie),
 
 	deleteStory: ({id: storyId}: {id: string}) =>
@@ -499,7 +388,7 @@ export const handlers = {
 				createdAt: tag.createdAt.toISOString(),
 				storyCount: 0,
 			};
-		}).pipe(orDieSql),
+		}).pipe(Effect.catchTag("SqlError", Effect.die)),
 
 	updateTag: ({id: tagId, name, color}: {id: string; name?: string; color?: string}) =>
 		Effect.gen(function* () {
@@ -572,7 +461,7 @@ export const handlers = {
 				createdAt: updated!.createdAt.toISOString(),
 				storyCount,
 			};
-		}).pipe(orDieSql),
+		}).pipe(Effect.catchTag("SqlError", Effect.die)),
 
 	deleteTag: ({id: tagId}: {id: string}) =>
 		Effect.gen(function* () {
@@ -642,7 +531,9 @@ export const handlers = {
 			if (toRemove.length > 0) {
 				yield* db
 					.delete(schema.storyTag)
-					.where(and(eq(schema.storyTag.storyId, storyId), inArray(schema.storyTag.tagId, toRemove)));
+					.where(
+						and(eq(schema.storyTag.storyId, storyId), inArray(schema.storyTag.tagId, toRemove)),
+					);
 			}
 
 			// Add new tags

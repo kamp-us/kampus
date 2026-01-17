@@ -32,8 +32,6 @@ export interface MakeConfig<R extends Rpc.Any, TSchema extends DrizzleSchema> {
 	readonly migrations: DrizzleMigrations;
 	/** Drizzle schema (tables exported from drizzle.schema.ts) */
 	readonly schema: TSchema;
-	/** @deprecated Optional layers for backward compatibility during migration */
-	readonly layers?: Layer.Layer<any, never, SqlClient.SqlClient>;
 }
 
 /**
@@ -98,15 +96,10 @@ export const make = <R extends Rpc.Any, TSchema extends DrizzleSchema, TEnv exte
 			// Drizzle needs SqlClient, so provide sqliteLayer to drizzleLayer
 			const drizzleWithSql = Layer.provideMerge(drizzleLayer, sqliteLayer);
 
-			// Optional legacy layers (e.g., RepoLayer) for backward compatibility
-			const legacyLayers = config.layers
-				? Layer.provideMerge(config.layers, sqliteLayer)
-				: Layer.empty;
-
-			// Compose all layers: handlers get sql + drizzle + do services + legacy layers
+			// Compose all layers: handlers get sql + drizzle + do services
 			const fullLayer = Layer.provideMerge(
 				handlerLayer,
-				Layer.mergeAll(doLayer, sqliteLayer, drizzleWithSql, legacyLayers),
+				Layer.mergeAll(doLayer, sqliteLayer, drizzleWithSql),
 			);
 
 			this.runtime = ManagedRuntime.make(fullLayer as Layer.Layer<any, any, never>);

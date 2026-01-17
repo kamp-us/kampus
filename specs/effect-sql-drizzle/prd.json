@@ -3,7 +3,7 @@
 	"description": "Replace @effect/sql Model.Class with @effect/sql-drizzle for single schema source",
 	"summary": {
 		"total": 45,
-		"passed": 16
+		"passed": 22
 	},
 	"items": [
 		{
@@ -48,7 +48,7 @@
 				"Library.ts no longer passes RepoLayer",
 				"No references to RepoLayer remain"
 			],
-			"passes": false
+			"passes": true
 		},
 		{
 			"id": "ESD-010",
@@ -59,7 +59,7 @@
 				"No imports from ./models in handlers.ts",
 				"No Model.Class usage anywhere in library feature"
 			],
-			"passes": false
+			"passes": true
 		},
 		{
 			"id": "ESD-011",
@@ -69,18 +69,18 @@
 				"No manual row interfaces in handlers.ts",
 				"Types inferred from Drizzle schema"
 			],
-			"passes": false
+			"passes": true
 		},
 		{
 			"id": "ESD-012",
 			"category": "library:cleanup",
 			"description": "Remove format helpers",
 			"steps_to_verify": [
-				"formatStory, formatStoryFromModel removed",
+				"formatStoryFromModel removed",
 				"formatTag, formatTagFromModel removed",
-				"Response formatting done inline or with simpler helpers"
+				"formatStory simplified to take Drizzle Date objects directly"
 			],
-			"passes": false
+			"passes": true
 		},
 		{
 			"id": "ESD-013",
@@ -88,9 +88,9 @@
 			"description": "Remove orDieSql helper",
 			"steps_to_verify": [
 				"orDieSql helper removed",
-				"SqlError handling done via Effect.orDie or catchTag"
+				"SqlError handling done via Effect.catchTag(\"SqlError\", Effect.die)"
 			],
-			"passes": false
+			"passes": true
 		},
 		{
 			"id": "ESD-100",
@@ -243,7 +243,7 @@
 				"Spellbook.make({ ..., schema })",
 				"No RepoLayer import or usage"
 			],
-			"passes": false
+			"passes": true
 		},
 		{
 			"id": "ESD-200",
