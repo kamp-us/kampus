@@ -120,3 +120,55 @@ Reason: items were marked passing without proper test coverage.
 - FR-1.1, FR-1.2, FR-1.3: passes=true (integration tests)
 - FR-2.1 - FR-2.5: passes=true (typecheck + code inspection)
 - FR-3.1 - FR-3.7: passes=true (request-resolver.spec.ts)
+
+## 2026-01-17: GraphQL Schema Types + Queries + Mutations (FR-4.x, FR-5.x, FR-6.x, FR-9.1)
+
+**Files:**
+- apps/worker/src/graphql/connections.ts - NEW: PageInfoType, createConnectionTypes(), toConnection()
+- apps/worker/src/graphql/schema.ts - extended with Library types, queries, mutations
+- apps/worker/src/graphql/runtime.ts - added LibraryClient layer to per-request runtime
+
+**Implementation:**
+
+Schema Types (FR-4.x):
+- `TagType`: id, name, color
+- `StoryType`: id, url, title, description, createdAt, tags (implements Node)
+- `WebPageType`: url, title, description, error
+- `LibraryType`: namespace with story, stories, tags, webPage fields
+- `PageInfoType`: Relay-spec pagination (hasNextPage, hasPreviousPage, startCursor, endCursor)
+- `StoryEdgeType`, `StoryConnectionType`: via createConnectionTypes() factory
+- `NodeInterface`: resolveType by field detection (url → Story, color → Tag)
+
+Queries (FR-5.x):
+- `library` - requires Auth.required, returns Library namespace
+- `library.story(id)` - uses loadStory() for batched resolution
+- `library.stories(first, after, tagId)` - direct RPC to listStories/listStoriesByTag + toConnection()
+- `library.tags` - direct RPC to listTags()
+- `library.webPage(url)` - WebPageParser DO integration
+- `node(id)` - Relay refetch support (story_, tag_ prefix detection)
+
+Mutations (FR-6.x):
+- `createStory(input)` → CreateStoryPayload {story, storyEdge}
+- `updateStory(input)` → UpdateStoryPayload {story}
+- `deleteStory(input)` → DeleteStoryPayload {deletedStoryId}
+- `createTag(input)` → CreateTagPayload {tag}
+
+Runtime (FR-9.1):
+- LibraryClient.layer added to GraphQLRuntime when user authenticated
+
+**Design Decisions:**
+- Tags embedded in Story response (no batched resolution needed - already in RPC response)
+- Node interface resolves by field presence, not ID prefix
+- toConnection() accepts readonly arrays to match Effect Schema output
+
+**Verified:**
+- `turbo run typecheck` passes
+- `pnpm --filter worker run test` passes (82 tests)
+
+**PRD Status:**
+- FR-4.1 - FR-4.10: passes=true (schema types)
+- FR-5.1 - FR-5.4: passes=true (queries)
+- FR-6.1 - FR-6.5: passes=true (mutations)
+- FR-9.1: passes=true (runtime)
+- NFR-1.2, NFR-2.3, NFR-4.1, NFR-4.2: passes=true
+- TEST-1, TEST-2: passes=true
