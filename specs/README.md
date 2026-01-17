@@ -14,3 +14,4 @@ Feature directory with completion status. Each feature follows the [spec-driven 
 - [x] **[relay-pagination](./relay-pagination/)** - Implement usePaginationFragment for Library "Load More" functionality
 - [ ] **[effect-rpc](./effect-rpc/)** - Replace GraphQL with Effect RPC + effect-atom for Library feature
 - [ ] **[spellbook](./spellbook/)** - Refactor DO infrastructure: Spellbook.make pattern, pure handlers, @effect/sql
+- [x] **[effect-sql-drizzle](./effect-sql-drizzle/)** - Replace raw SQL templates with @effect/sql-drizzle query builder
