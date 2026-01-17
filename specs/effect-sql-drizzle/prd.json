@@ -3,7 +3,7 @@
 	"description": "Replace @effect/sql Model.Class with @effect/sql-drizzle for single schema source",
 	"summary": {
 		"total": 45,
-		"passed": 23
+		"passed": 45
 	},
 	"items": [
 		{
@@ -265,7 +265,7 @@
 				"Returns story with id, createdAt",
 				"description is null, tags is empty"
 			],
-			"passes": false
+			"passes": true
 		},
 		{
 			"id": "ESD-301",
@@ -275,7 +275,7 @@
 				"createStory with url, title, description succeeds",
 				"description persisted and returned"
 			],
-			"passes": false
+			"passes": true
 		},
 		{
 			"id": "ESD-302",
@@ -286,28 +286,28 @@
 				"createStory with tagIds associates tags",
 				"Returned story has correct tags"
 			],
-			"passes": false
+			"passes": true
 		},
 		{
 			"id": "ESD-303",
 			"category": "test:story:create",
 			"description": "Create story with invalid URL fails",
 			"steps_to_verify": ["createStory with invalid URL returns InvalidUrlError"],
-			"passes": false
+			"passes": true
 		},
 		{
 			"id": "ESD-310",
 			"category": "test:story:read",
 			"description": "Get story by ID",
 			"steps_to_verify": ["getStory returns story with all fields", "Tags included in response"],
-			"passes": false
+			"passes": true
 		},
 		{
 			"id": "ESD-311",
 			"category": "test:story:read",
 			"description": "Get nonexistent story returns null",
 			"steps_to_verify": ["getStory with unknown ID returns null"],
-			"passes": false
+			"passes": true
 		},
 		{
 			"id": "ESD-312",
@@ -319,7 +319,7 @@
 				"endCursor correct",
 				"totalCount correct"
 			],
-			"passes": false
+			"passes": true
 		},
 		{
 			"id": "ESD-313",
@@ -329,14 +329,14 @@
 				"listStoriesByTag filters correctly",
 				"Only stories with that tag returned"
 			],
-			"passes": false
+			"passes": true
 		},
 		{
 			"id": "ESD-320",
 			"category": "test:story:update",
 			"description": "Update story title",
 			"steps_to_verify": ["updateStory changes title", "updatedAt timestamp set"],
-			"passes": false
+			"passes": true
 		},
 		{
 			"id": "ESD-321",
@@ -346,14 +346,14 @@
 				"updateStory with tagIds replaces tags",
 				"Old tags removed, new tags added"
 			],
-			"passes": false
+			"passes": true
 		},
 		{
 			"id": "ESD-322",
 			"category": "test:story:update",
 			"description": "Update nonexistent story returns null",
 			"steps_to_verify": ["updateStory with unknown ID returns null"],
-			"passes": false
+			"passes": true
 		},
 		{
 			"id": "ESD-330",
@@ -364,14 +364,14 @@
 				"Story no longer retrievable",
 				"Tag associations cleaned up"
 			],
-			"passes": false
+			"passes": true
 		},
 		{
 			"id": "ESD-331",
 			"category": "test:story:delete",
 			"description": "Delete nonexistent story",
 			"steps_to_verify": ["deleteStory with unknown ID returns { deleted: false }"],
-			"passes": false
+			"passes": true
 		},
 		{
 			"id": "ESD-340",
@@ -381,7 +381,7 @@
 				"createTag with name, color succeeds",
 				"Returns tag with id, createdAt, storyCount: 0"
 			],
-			"passes": false
+			"passes": true
 		},
 		{
 			"id": "ESD-341",
@@ -391,7 +391,7 @@
 				"createTag with existing name (case-insensitive) fails",
 				"Returns TagNameExistsError"
 			],
-			"passes": false
+			"passes": true
 		},
 		{
 			"id": "ESD-342",
@@ -401,21 +401,21 @@
 				"Empty name, too long name, invalid chars fail",
 				"Returns InvalidTagNameError"
 			],
-			"passes": false
+			"passes": true
 		},
 		{
 			"id": "ESD-343",
 			"category": "test:tag:create",
 			"description": "Create tag with invalid color fails",
 			"steps_to_verify": ["Invalid hex color fails", "Returns InvalidTagColorError"],
-			"passes": false
+			"passes": true
 		},
 		{
 			"id": "ESD-350",
 			"category": "test:tag:update",
 			"description": "Update tag name and color",
 			"steps_to_verify": ["updateTag changes name and/or color", "storyCount preserved"],
-			"passes": false
+			"passes": true
 		},
 		{
 			"id": "ESD-351",
@@ -425,28 +425,28 @@
 				"deleteTag returns { deleted: true }",
 				"Story-tag associations cleaned up"
 			],
-			"passes": false
+			"passes": true
 		},
 		{
 			"id": "ESD-360",
 			"category": "test:tag:relation",
 			"description": "Get tags for story",
 			"steps_to_verify": ["getTagsForStory returns all associated tags", "Each tag has storyCount"],
-			"passes": false
+			"passes": true
 		},
 		{
 			"id": "ESD-361",
 			"category": "test:tag:relation",
 			"description": "Set story tags",
 			"steps_to_verify": ["setStoryTags replaces all tags", "Old associations removed"],
-			"passes": false
+			"passes": true
 		},
 		{
 			"id": "ESD-400",
 			"category": "verification",
 			"description": "All tests pass",
 			"steps_to_verify": ["pnpm --filter worker run test passes", "No test failures or skips"],
-			"passes": false
+			"passes": true
 		}
 	]
 }

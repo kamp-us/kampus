@@ -310,3 +310,40 @@ Key decisions:
 68 tests pass
 
 Next: test verification items (ESD-300+)
+
+## 2026-01-16: Test verification complete (ESD-300 to ESD-400)
+
+All test items verified against existing test suites:
+
+**Story tests** (library-stories.spec.ts):
+- ESD-300: Create story minimal - line 24-35 ✓
+- ESD-301: Create story w/ description - line 37-46 ✓
+- ESD-302: Create story w/ tags - line 48-61 ✓
+- ESD-310: Get story by ID - line 79-90 ✓
+- ESD-311: Get nonexistent story - line 92-97 ✓
+- ESD-312: List stories pagination - line 335-405 ✓
+- ESD-320: Update story title - line 120-130, 218-235 ✓
+- ESD-321: Update story tags - line 174-216 ✓
+- ESD-322: Update nonexistent story - line 143-148 ✓
+- ESD-330: Delete story - line 237-249, 258-277 ✓
+- ESD-331: Delete nonexistent story - line 251-256 ✓
+
+**Tag tests** (library-tags.spec.ts):
+- ESD-313: List stories by tag - line 302-315 ✓
+- ESD-340: Create tag - line 26-34 ✓
+- ESD-341: Duplicate tag fails - line 146-158 ✓
+- ESD-342: Invalid tag name fails - line 160-170, 186-197 ✓
+- ESD-343: Invalid tag color fails - line 173-185 ✓
+- ESD-350: Update tag - line 101-117 ✓
+- ESD-351: Delete tag - line 126-134, 325-337 ✓
+- ESD-360: Get tags for story - line 241-251 ✓
+- ESD-361: Set story tags - line 339-373 ✓
+
+**URL validation** (library-handlers.spec.ts):
+- ESD-303: Invalid URL fails - line 83-101 ✓
+
+**Final verification** (ESD-400):
+- 68 tests pass, 0 failures, 0 skips ✓
+- typecheck passes ✓
+
+PRD COMPLETE: 45/45 items passed
