@@ -82,3 +82,25 @@ Key decisions:
 68 tests pass
 
 Next: migrate createStory (ESD-103)
+
+## 2026-01-16: Migrate createStory to Drizzle (ESD-103)
+
+Files changed:
+- apps/worker/src/features/library/handlers.ts
+  - Replaced StoryRepo.insert with db.insert(schema.story).values(...).returning()
+  - Replaced sql.unsafe() for tag validation with db.select().from(schema.tag).where(inArray(...))
+  - Replaced raw INSERT for story_tag with db.insert(schema.storyTag).values(...).onConflictDoNothing()
+  - Changed from formatStoryFromModel to formatStory (Drizzle returns raw objects, not Model instances)
+  - Keep orDieSql to preserve InvalidUrlError in error channel while converting SqlError to defect
+- apps/worker/test/library-handlers.spec.ts
+  - Added SqliteDrizzle mock for unit tests (createStory now requires SqliteDrizzle service)
+  - Updated test layers to include both SqlClient and SqliteDrizzle mocks
+
+Key decisions:
+- Use inArray() for bulk tag ID validation instead of sql.unsafe() with interpolated IDs
+- Use onConflictDoNothing() instead of INSERT OR IGNORE
+- formatStory handles timestamp conversion from Drizzle Date objects
+
+68 tests pass
+
+Next: migrate updateStory (ESD-104)

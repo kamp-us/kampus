@@ -270,38 +270,50 @@ export const handlers = {
 				return yield* Effect.fail(new InvalidUrlError({url}));
 			}
 
-			const sql = yield* SqlClient.SqlClient;
-			const storyRepo = yield* StoryRepo;
+			const db = yield* SqliteDrizzle;
 			const storyId = id("story");
 			const normalizedUrl = getNormalizedUrl(url);
 
-			const story = yield* storyRepo.insert(
-				Story.insert.make({
+			const [story] = yield* db
+				.insert(schema.story)
+				.values({
 					id: storyId,
 					url,
 					normalizedUrl,
 					title,
-					description: Option.fromNullable(description),
-					updatedAt: Option.none(),
-				}),
-			);
+					description: description ?? null,
+				})
+				.returning();
 
 			// Tag the story if tagIds provided
 			if (tagIds && tagIds.length > 0) {
-				const idList = tagIds.map((id) => `'${id}'`).join(", ");
-				const existingTags = yield* sql.unsafe<{id: string}>(
-					`SELECT id FROM tag WHERE id IN (${idList})`,
-				);
-				const validTagIds = tagIds.filter((id) => existingTags.some((t) => t.id === id));
+				const existingTags = yield* db
+					.select({id: schema.tag.id})
+					.from(schema.tag)
+					.where(inArray(schema.tag.id, [...tagIds]));
+				const validTagIds = tagIds.filter((tid) => existingTags.some((t) => t.id === tid));
 
-				for (const tagId of validTagIds) {
-					yield* sql`INSERT OR IGNORE INTO story_tag (story_id, tag_id) VALUES (${storyId}, ${tagId})`;
+				if (validTagIds.length > 0) {
+					yield* db
+						.insert(schema.storyTag)
+						.values(validTagIds.map((tagId) => ({storyId, tagId})))
+						.onConflictDoNothing();
 				}
 			}
 
 			const tagsByStory = yield* getTagsForStoriesSimple([storyId]);
 
-			return formatStoryFromModel(story, tagsByStory.get(storyId) ?? []);
+			return formatStory(
+				{
+					id: story.id,
+					url: story.url,
+					title: story.title,
+					description: story.description,
+					createdAt: story.createdAt.getTime(),
+					updatedAt: story.updatedAt?.getTime() ?? null,
+				},
+				tagsByStory.get(storyId) ?? [],
+			);
 		}).pipe(orDieSql),
 
 	updateStory: ({

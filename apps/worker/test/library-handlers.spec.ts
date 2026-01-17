@@ -1,4 +1,5 @@
 import {SqlClient} from "@effect/sql";
+import {SqliteDrizzle} from "@effect/sql-drizzle/Sqlite";
 import {InvalidUrlError} from "@kampus/library";
 import {Cause, Effect, Exit, Layer} from "effect";
 import {describe, expect, it} from "vitest";
@@ -46,10 +47,41 @@ const makeMockSqlClient = (querySetups: MockQuerySetup[]) => {
 	return Layer.succeed(SqlClient.SqlClient, sql as unknown as SqlClient.SqlClient);
 };
 
+// Mock SqliteDrizzle that returns empty results
+const makeMockSqliteDrizzle = () => {
+	const mockDb = {
+		select: () => ({
+			from: () => ({
+				where: () => Effect.succeed([]),
+				orderBy: () => ({
+					limit: () => ({
+						where: () => Effect.succeed([]),
+					}),
+				}),
+			}),
+		}),
+		insert: () => ({
+			values: () => ({
+				returning: () => Effect.succeed([]),
+				onConflictDoNothing: () => Effect.succeed([]),
+			}),
+		}),
+		delete: () => ({
+			where: () => Effect.succeed([]),
+		}),
+		update: () => ({
+			set: () => ({
+				where: () => Effect.succeed([]),
+			}),
+		}),
+	};
+	return Layer.succeed(SqliteDrizzle, mockDb as unknown as typeof SqliteDrizzle.Service);
+};
+
 describe("Library Handlers Unit Tests", () => {
 	describe("createStory - URL validation", () => {
 		it("fails with InvalidUrlError for invalid URL format", async () => {
-			const mockLayer = makeMockSqlClient([]);
+			const mockLayer = Layer.merge(makeMockSqlClient([]), makeMockSqliteDrizzle());
 
 			const exit = await Effect.runPromiseExit(
 				handlers
@@ -69,7 +101,7 @@ describe("Library Handlers Unit Tests", () => {
 		});
 
 		it("fails with InvalidUrlError for URL without protocol", async () => {
-			const mockLayer = makeMockSqlClient([]);
+			const mockLayer = Layer.merge(makeMockSqlClient([]), makeMockSqliteDrizzle());
 
 			const exit = await Effect.runPromiseExit(
 				handlers

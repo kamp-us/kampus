@@ -3,7 +3,7 @@
 	"description": "Replace @effect/sql Model.Class with @effect/sql-drizzle for single schema source",
 	"summary": {
 		"total": 45,
-		"passed": 6
+		"passed": 7
 	},
 	"items": [
 		{
@@ -134,10 +134,11 @@
 			"description": "Migrate createStory to Drizzle",
 			"steps_to_verify": [
 				"Uses db.insert(schema.story).values(...).returning()",
-				"Tag association via db.insert(schema.storyTag)",
+				"Tag association via db.insert(schema.storyTag).values(...).onConflictDoNothing()",
+				"Tag validation via db.select().from(schema.tag).where(inArray(...))",
 				"No StoryRepo.insert usage"
 			],
-			"passes": false
+			"passes": true
 		},
 		{
 			"id": "ESD-104",
