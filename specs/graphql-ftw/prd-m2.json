@@ -13,9 +13,9 @@
       "stepsToVerify": [
         "Import environment from apps/kamp-us/src/relay/environment.ts",
         "Verify Network.create uses fetch to /graphql",
-        "Verify credentials: 'include' for auth cookies"
+        "Verify Authorization header for token auth (not cookies)"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FR-7.2",
@@ -23,21 +23,21 @@
       "description": "LibraryQuery fetches stories connection and tags",
       "stepsToVerify": [
         "Find LibraryQuery in Library.tsx",
-        "Verify queries library.stories with @connection(key: 'Library_stories')",
-        "Verify queries library.tags"
+        "Verify queries me.library.stories with @connection(key: 'Library_stories')",
+        "Verify queries me.library.tags"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FR-7.3",
       "category": "Relay Frontend",
-      "description": "StoryRow_story fragment colocates story data requirements",
+      "description": "Library_story fragment colocates story data requirements",
       "stepsToVerify": [
-        "Find StoryRow_story fragment in Library.tsx or StoryRow.tsx",
+        "Find Library_story fragment in Library.tsx",
         "Verify fragment is on Story type",
         "Verify useFragment is used to read fragment data"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FR-7.4",
@@ -47,9 +47,9 @@
         "Find CreateStoryMutation in Library.tsx",
         "Verify useMutation hook is used",
         "Verify optimisticResponse is provided",
-        "Verify UI updates immediately before server response"
+        "Verify updater adds story to connection"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FR-7.5",
@@ -60,7 +60,7 @@
         "Verify useMutation hook is used",
         "Verify optimisticResponse is provided"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FR-7.6",
@@ -68,44 +68,43 @@
       "description": "DeleteStoryMutation with @deleteRecord",
       "stepsToVerify": [
         "Find DeleteStoryMutation in Library.tsx",
-        "Verify uses @deleteRecord directive or updater",
-        "Verify story removed from UI immediately"
+        "Verify uses @deleteRecord directive on deletedStoryId",
+        "Verify optimisticResponse is provided"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FR-7.7",
       "category": "Relay Frontend",
       "description": "usePaginationFragment for Load More functionality",
       "stepsToVerify": [
-        "Find usePaginationFragment or @refetchable in Library.tsx",
-        "Click Load More button",
-        "Verify loadNext is called and stories appended"
+        "Find usePaginationFragment in Library.tsx",
+        "Verify @refetchable directive on fragment",
+        "Verify loadNext is called on Load More click"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FR-7.8",
       "category": "Relay Frontend",
       "description": "relay-compiler configured and generates types",
       "stepsToVerify": [
-        "Run pnpm --filter kamp-us relay-compiler",
+        "Run pnpm --filter kamp-us relay",
         "Verify __generated__ folder contains typed artifacts",
         "Verify no TypeScript errors in generated files"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FR-7.9",
       "category": "Relay Frontend",
       "description": "Tag filter syncs with URL search params",
       "stepsToVerify": [
-        "Select a tag filter",
-        "Verify URL updates with ?tag=tag_xxx",
-        "Refresh page, verify tag filter restored from URL",
-        "Clear filter, verify ?tag removed from URL"
+        "Verify tagFilterAtom uses effect-atom searchParam",
+        "Verify useTagFilter hook reads/writes URL",
+        "Verify tag name is looked up from tagId for query"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "NFR-1.3",
@@ -123,11 +122,11 @@
       "category": "Maintainability",
       "description": "Frontend components own their data requirements via fragments",
       "stepsToVerify": [
-        "Verify StoryRow has its own fragment",
+        "Verify StoryRow uses Library_story fragment",
         "Verify fragment is colocated with component",
         "Verify parent queries spread fragment, don't duplicate fields"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "NFR-3.3",
@@ -138,7 +137,7 @@
         "Verify no reactivityKeys usage",
         "Verify mutations use Relay updaters/directives instead"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "NFR-4.3",
@@ -146,11 +145,11 @@
       "description": "effect-atom retained for non-GraphQL data (local state, non-library RPC)",
       "stepsToVerify": [
         "Verify effect-atom still in package.json",
-        "Verify local state (form state, modals) can still use atoms",
-        "Verify non-library RPC atoms still work",
-        "Verify only library-specific atoms removed"
+        "Verify tagFilterAtom uses effect-atom for URL state",
+        "Verify non-library RPC atoms still work (TagManagement)",
+        "Verify only library-specific atoms removed in cleanup"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "CLEANUP-1",

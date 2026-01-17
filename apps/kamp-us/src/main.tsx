@@ -9,7 +9,7 @@ import "./index.css";
 import App from "./App.tsx";
 import {AuthProvider} from "./auth/AuthContext";
 import {Me} from "./components/Me";
-import {LibraryRpc} from "./pages/LibraryRpc";
+import {Library} from "./pages/Library";
 import {Login} from "./pages/Login";
 import {TagManagement} from "./pages/library/TagManagement";
 import {environment} from "./relay/environment";
@@ -30,11 +30,7 @@ const router = createBrowserRouter([
 	},
 	{
 		path: "/me/library",
-		element: (
-			<RpcProvider>
-				<LibraryRpc />
-			</RpcProvider>
-		),
+		element: <Library />,
 	},
 	{
 		path: "/me/library/tags",
