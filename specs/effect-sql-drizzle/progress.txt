@@ -244,3 +244,20 @@ Key decisions:
 68 tests pass
 
 Next: migrate getTagsForStoriesSimple (ESD-112)
+## 2026-01-16: Migrate getTagsForStoriesSimple to Drizzle (ESD-112)
+
+Files changed:
+- apps/worker/src/features/library/handlers.ts
+  - Replaced SqlClient.SqlClient with SqliteDrizzle
+  - Uses db.select().from(schema.storyTag).innerJoin(schema.tag) pattern
+  - Uses inArray(schema.storyTag.storyId, storyIds) for filtering
+  - Removed sql.unsafe() and manual string interpolation
+
+Key decisions:
+- Pattern consistent with other Drizzle handlers
+- StoryTagRow interface now unused (cleanup in ESD-011)
+- SqlClient import still needed for SqlError type in orDieSql helper
+
+68 tests pass
+
+Next: cleanup phase (ESD-004, ESD-010-013, ESD-120)

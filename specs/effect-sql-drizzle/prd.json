@@ -3,7 +3,7 @@
 	"description": "Replace @effect/sql Model.Class with @effect/sql-drizzle for single schema source",
 	"summary": {
 		"total": 45,
-		"passed": 15
+		"passed": 16
 	},
 	"items": [
 		{
@@ -232,7 +232,7 @@
 				"Uses inArray() for story IDs",
 				"Returns Map<storyId, tags[]>"
 			],
-			"passes": false
+			"passes": true
 		},
 		{
 			"id": "ESD-120",

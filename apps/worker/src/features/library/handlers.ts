@@ -98,15 +98,19 @@ const getTagsForStoriesSimple = (storyIds: string[]) =>
 		if (storyIds.length === 0) {
 			return new Map<string, Array<{id: string; name: string; color: string}>>();
 		}
-		const sql = yield* SqlClient.SqlClient;
-		// Build a simple query with interpolated IDs (safe since we control them)
-		const idList = storyIds.map((id) => `'${id}'`).join(", ");
-		const rows = yield* sql.unsafe<StoryTagRow>(`
-			SELECT st.story_id, t.id as tag_id, t.name as tag_name, t.color as tag_color
-			FROM story_tag st
-			INNER JOIN tag t ON st.tag_id = t.id
-			WHERE st.story_id IN (${idList})
-		`);
+		const db = yield* SqliteDrizzle;
+
+		// Join story_tag with tag, filter by story IDs
+		const rows = yield* db
+			.select({
+				storyId: schema.storyTag.storyId,
+				tagId: schema.tag.id,
+				tagName: schema.tag.name,
+				tagColor: schema.tag.color,
+			})
+			.from(schema.storyTag)
+			.innerJoin(schema.tag, eq(schema.storyTag.tagId, schema.tag.id))
+			.where(inArray(schema.storyTag.storyId, storyIds));
 
 		const tagsByStory = new Map<string, Array<{id: string; name: string; color: string}>>();
 		for (const row of rows) {
