@@ -96,11 +96,11 @@
   {
     "id": "task-8",
     "category": "frontend",
-    "description": "Install shiki dependency",
+    "description": "Install highlight.js dependency",
     "files": ["apps/kamp-us/package.json"],
     "steps_to_verify": [
-      "pnpm --filter kamp-us add shiki",
-      "shiki listed in dependencies",
+      "pnpm --filter kamp-us add highlight.js",
+      "highlight.js listed in dependencies",
       "pnpm install completes"
     ],
     "passes": true
@@ -108,13 +108,13 @@
   {
     "id": "task-9",
     "category": "frontend",
-    "description": "Create highlightCode utility",
+    "description": "Create highlightCode utility with auto-detection",
     "files": ["apps/kamp-us/src/utils/highlightCode.ts"],
     "steps_to_verify": [
       "highlightCodeBlocks function exported",
       "Uses DOMParser to find pre>code elements",
-      "Extracts language from class='language-*'",
-      "Calls codeToHtml with github-dark theme",
+      "Uses hljs.highlightAuto() when no language specified",
+      "Uses hljs.highlight() when language class present",
       "Returns modified HTML string",
       "turbo run typecheck passes"
     ],
@@ -123,12 +123,12 @@
   {
     "id": "task-10",
     "category": "frontend",
-    "description": "Integrate Shiki highlighting in ReaderPage",
+    "description": "Integrate highlight.js in ReaderPage",
     "files": ["apps/kamp-us/src/pages/library/ReaderPage.tsx"],
     "steps_to_verify": [
       "Import highlightCodeBlocks utility",
-      "useState for highlightedContent",
-      "useEffect calls highlightCodeBlocks when content changes",
+      "Import github-dark.css theme",
+      "useMemo for highlightedContent (synchronous)",
       "Render highlightedContent ?? original content",
       "turbo run typecheck passes",
       "biome check passes"

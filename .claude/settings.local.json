@@ -62,7 +62,17 @@
       "Bash(pnpm list:*)",
       "Bash(pnpm --filter cli add:*)",
       "Bash(bun -e \"\nimport {deriveNaming} from ''./apps/cli/generators/spellbook/naming.ts'';\nimport {drizzleSchemaTs} from ''./apps/cli/generators/spellbook/templates/worker.ts'';\n\nconst naming = deriveNaming\\(''book-shelf'', ''custom_books''\\);\nconsole.log\\(''Table name:'', naming.tableName\\);\nconsole.log\\(''''\\);\nconsole.log\\(drizzleSchemaTs\\(naming, []\\)\\);\n\")",
-      "Bash(pnpm install)"
+      "Bash(pnpm install)",
+      "Bash(pnpm exec drizzle-kit generate:*)",
+      "Bash(xargs cat:*)",
+      "Bash(xargs:*)",
+      "Bash(pnpm run test:*)",
+      "Bash(gh pr create:*)",
+      "Bash(pnpm --filter kamp-us run relay:*)",
+      "Bash(tmux list-sessions:*)",
+      "mcp__plugin_playwright_playwright__browser_navigate_back",
+      "Bash(pnpm --filter kamp-us run fetch-schema)",
+      "Bash(pnpm --filter kamp-us exec relay-compiler:*)"
     ]
   }
 }

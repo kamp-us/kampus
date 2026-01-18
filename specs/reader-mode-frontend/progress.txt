@@ -80,11 +80,12 @@ Changes:
 - Renders highlightedContent when ready, falls back to original content
 
 Decisions:
-- No default language: skip highlighting if no language class/attr detected (wrong colors worse than no colors)
+- Switched from Shiki to highlight.js for auto language detection
+- Uses hljs.highlightAuto() when no language class specified
 - Theme: github-dark for contrast with light reader background
-- Check both class="language-*" and data-lang attribute
+- Synchronous highlighting via useMemo (no async needed)
 
 Verified:
 - turbo run typecheck passes
 - biome check passes
-- Playwright: code blocks render with syntax highlighting (colors visible for keywords, functions, JSX tags)
+- Playwright: code blocks auto-detected as JS and highlighted correctly
