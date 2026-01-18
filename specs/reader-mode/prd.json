@@ -139,7 +139,7 @@
         "pnpm --filter worker run test passes",
         "proxyImage tests cover all error types"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "8",

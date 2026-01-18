@@ -128,3 +128,36 @@
 **Verification:**
 - `turbo run typecheck` ✓
 - `pnpm --filter worker run test fetchReaderContent` ✓ (13 tests passing)
+
+## 2026-01-18: Task 7 - proxyImage Implementation
+
+**Files created:**
+- `apps/worker/src/features/web-page-parser/proxyImage.ts`
+- `apps/worker/test/proxyImage.spec.ts`
+
+**Implementation:**
+- Use HttpClient from @effect/platform with filterStatusOk
+- HttpClientRequest.get with User-Agent header
+- Effect.timeout(Duration.seconds(10)) for timeout
+- Map HttpClient errors to domain TaggedErrors
+- Use response.arrayBuffer to get body (not stream - Effect Stream incompatible with web Response)
+- Return Response with Cache-Control: public, max-age=86400 (24h)
+- Preserve Content-Type from upstream, default to image/png
+
+**Tests (11 total):**
+- URL validation: InvalidProtocolError for file://, data://
+- URL validation: accepts http://, https://
+- HTTP errors: FetchHttpError for 404/500
+- HTTP errors: FetchNetworkError for network failures
+- Success: returns Cache-Control header
+- Success: preserves Content-Type from upstream
+- Success: defaults to image/png when Content-Type missing
+- Success: streams response body correctly
+
+**Key decisions:**
+- Used response.arrayBuffer instead of response.stream (Effect Stream not BodyInit-compatible)
+- 10s timeout (shorter than 15s for content - images should be faster)
+
+**Verification:**
+- `turbo run typecheck` ✓
+- `pnpm --filter worker run test` ✓ (106 tests passing)
