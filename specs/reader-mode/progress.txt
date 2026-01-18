@@ -161,3 +161,29 @@
 **Verification:**
 - `turbo run typecheck` ✓
 - `pnpm --filter worker run test` ✓ (106 tests passing)
+
+## 2026-01-18: Task 8 - getReaderContent Handler
+
+**Files changed:**
+- `apps/worker/src/features/web-page-parser/handlers.ts` - implemented getReaderContent
+- `apps/worker/test/web-page-parser-handlers.spec.ts` - added 5 tests
+
+**Implementation:**
+- Uses Effect.gen with DurableObjectCtx and SqliteDrizzle services
+- Checks cache for recent (24h) results before fetching
+- Respects forceFetch param to bypass cache
+- Converts TaggedErrors to ReaderResult using Match.value + Match.tag
+- Provides FetchHttpClient.layer for the HTTP calls
+- Stores results (including error state) in reader_content table
+- Helper functions: mapDbRowToReaderResult, mapReaderResultToDbRow
+
+**Tests (5 new, 10 total):**
+- returns cached reader content when recent result exists
+- returns cached error result when stored
+- returns cached content with null optional fields
+- skips cache when forceFetch is true (stub - needs fetch mock)
+- detects stale cache correctly (stub - needs fetch mock)
+
+**Verification:**
+- `turbo run typecheck` ✓
+- `pnpm --filter worker run test` ✓ (111 tests passing)
