@@ -7,6 +7,7 @@ import {
 	findMonorepoRoot,
 	validateFeatureName,
 } from "../../../generators/spellbook/validation";
+import {renderApp} from "./renderApp.js";
 
 export const spellbook = Command.make(
 	"spellbook",
@@ -22,6 +23,7 @@ export const spellbook = Command.make(
 		withRoute: Options.boolean("with-route").pipe(Options.withDefault(false)),
 		withAll: Options.boolean("with-all").pipe(Options.withDefault(false)),
 		dryRun: Options.boolean("dry-run").pipe(Options.withDefault(false)),
+		noTui: Options.boolean("no-tui").pipe(Options.withDefault(false)),
 	},
 	(args) =>
 		Effect.gen(function* () {
@@ -44,10 +46,8 @@ export const spellbook = Command.make(
 				dryRun: args.dryRun,
 			};
 
-			// For now, use empty columns - TUI will be added later
-			const columns: {name: string; type: "text" | "integer" | "boolean" | "timestamp"; nullable: boolean}[] = [];
-
-			yield* Console.log(`Creating spellbook for feature: ${args.featureName}...`);
+			// Get columns from TUI or use empty array if --no-tui is passed
+			const columns = args.noTui ? [] : yield* renderApp(options);
 
 			const result = yield* generate(rootDir, options, columns);
 
@@ -70,9 +70,7 @@ export const spellbook = Command.make(
 						Console.error(`Error: ${e.reason}\nReceived: "${e.featureName}"`),
 					),
 					Match.tag("FeatureExistsError", (e) =>
-						Console.error(
-							`Error: Feature "${e.featureName}" already exists at ${e.existingPath}/`,
-						),
+						Console.error(`Error: Feature "${e.featureName}" already exists at ${e.existingPath}/`),
 					),
 					Match.orElse(() => Effect.fail(error)),
 				),

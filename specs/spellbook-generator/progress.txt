@@ -5,7 +5,15 @@
 - [x] FR-1.1: CLI accepts `kampus generate spellbook <feature-name>` command
 - [x] FR-1.2: Feature name validated as kebab-case
 - [x] FR-1.3: Duplicate feature detection (package/worker folder exists)
+- [x] FR-3.1: Display styled header with feature name
+- [x] FR-3.2: Column definition loop: prompt name, type, nullable
+- [x] FR-3.3: Support column types: text, integer, boolean, timestamp
+- [x] FR-3.4: Tab/Enter/Arrow keys for navigation
+- [x] FR-3.5: Display summary of columns before proceeding
+- [x] FR-3.6: Confirm prompt before file generation
+- [x] FR-3.9: TUI uses only @opentui/react primitives
 - [x] FR-6.4: Use jsonc-parser to preserve comments when updating wrangler.jsonc
+- [x] NFR-1.2: Use @opentui/react for TUI rendering
 - [x] NFR-1.5: Use jsonc-parser for JSONC file manipulation
 - [x] NFR-2.1: Generated code passes biome check
 - [x] NFR-2.2: Generated code passes turbo run typecheck
@@ -165,3 +173,30 @@
 **Verified:**
 - `pnpm exec biome check packages/<feature>/ apps/worker/src/features/<feature>/` passes
 - `turbo run typecheck` passes with generated code
+
+---
+
+## 2026-01-17: Interactive TUI (FR-3.1-3.6, FR-3.9, NFR-1.2)
+
+**Files changed:**
+- `apps/cli/commands/generate/spellbook/SpellbookApp.tsx` (new)
+- `apps/cli/commands/generate/spellbook/renderApp.tsx` (new)
+- `apps/cli/commands/generate/spellbook/spellbook.ts` (modified - wired TUI)
+
+**Key decisions:**
+- Used @opentui/react with `createCliRenderer` and `createRoot`
+- Component: `SpellbookApp` manages state machine (input → confirm → generate)
+- Header component displays styled "Creating {ClassName} Spellbook..." with package name
+- ColumnInputPhase: <input> for name, arrow keys for type, space for nullable
+- ConfirmPhase: Shows column summary, Y/Enter to confirm, N/Escape to go back
+- All components use only box, text, input primitives (no select/checkbox)
+- Added `--no-tui` flag to skip TUI for scripted/CI usage
+- TUI returns columns array via Effect.async, integrates with existing generator
+- Uses useKeyboard hook for all keyboard navigation
+
+**Remaining:**
+- FR-3.7: Progress display during file generation (needs integration)
+- FR-3.8: Success/error messages with colors (needs integration)
+- Drizzle-kit execution (FR-7.x)
+- Optional extras (FR-8.x)
+- Dry-run content preview (FR-9.2)
