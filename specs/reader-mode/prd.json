@@ -61,13 +61,14 @@
         "Add getReaderContent RPC with payload { forceFetch?: boolean }",
         "Set success type to ReaderResult",
         "Edit packages/web-page-parser/src/index.ts",
-        "Export ReaderContent, ReaderResult types and all errors"
+        "Export ReaderContent, ReaderResult types and all errors",
+        "Add stub handler in handlers.ts for typecheck to pass"
       ],
       "verification": [
         "turbo run typecheck passes",
         "types and errors importable from @kampus/web-page-parser"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "5",

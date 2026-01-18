@@ -60,3 +60,17 @@
 
 **Verification:**
 - `turbo run typecheck` ✓
+
+## 2026-01-18: Task 4 - RPC Definition
+
+**Files changed:**
+- `packages/web-page-parser/src/rpc.ts` - added getReaderContent RPC
+- `apps/worker/src/features/web-page-parser/handlers.ts` - added stub handler
+
+**Key decisions:**
+- Added stub handler returning `{readable: false, content: null, error: "Not implemented"}` for typecheck to pass
+- Spellbook.make requires all RPC handlers to be present
+
+**Verification:**
+- `turbo run typecheck` ✓
+- `pnpm --filter worker run test` ✓

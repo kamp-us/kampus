@@ -1,5 +1,9 @@
 import {SqliteDrizzle} from "@effect/sql-drizzle/Sqlite";
-import {type PageMetadata, PageMetadata as PageMetadataSchema} from "@kampus/web-page-parser";
+import {
+	type PageMetadata,
+	PageMetadata as PageMetadataSchema,
+	type ReaderResult,
+} from "@kampus/web-page-parser";
 import {desc} from "drizzle-orm";
 import {Effect, Schema} from "effect";
 import {DurableObjectCtx} from "../../services";
@@ -8,7 +12,8 @@ import {fetchPageMetadata} from "./fetchPageMetadata";
 
 const ONE_DAY_MS = 1000 * 60 * 60 * 24;
 
-const isRecent = (createdAt: Date | null) => createdAt && createdAt.getTime() > Date.now() - ONE_DAY_MS;
+const isRecent = (createdAt: Date | null) =>
+	createdAt && createdAt.getTime() > Date.now() - ONE_DAY_MS;
 
 export const handlers = {
 	init: ({url}: {url: string}) =>
@@ -17,7 +22,11 @@ export const handlers = {
 			yield* Effect.promise(() => ctx.storage.put("url", url));
 		}),
 
-	getMetadata: ({forceFetch}: {forceFetch?: boolean}): Effect.Effect<PageMetadata, never, SqliteDrizzle | DurableObjectCtx> =>
+	getMetadata: ({
+		forceFetch,
+	}: {
+		forceFetch?: boolean;
+	}): Effect.Effect<PageMetadata, never, SqliteDrizzle | DurableObjectCtx> =>
 		Effect.gen(function* () {
 			const ctx = yield* DurableObjectCtx;
 			const db = yield* SqliteDrizzle;
@@ -54,4 +63,12 @@ export const handlers = {
 
 			return metadata;
 		}).pipe(Effect.orDie),
+
+	getReaderContent: (_: {forceFetch?: boolean}): Effect.Effect<ReaderResult> =>
+		// TODO: Implement in task 8 - requires database schema (task 5) and fetchReaderContent (task 6)
+		Effect.succeed({
+			readable: false,
+			content: null,
+			error: "Not implemented",
+		}),
 };
