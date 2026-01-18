@@ -298,9 +298,6 @@ importers:
       '@kampus/library':
         specifier: workspace:*
         version: link:../../packages/library
-      '@kampus/test-book':
-        specifier: workspace:*
-        version: link:../../packages/test-book
       '@kampus/web-page-parser':
         specifier: workspace:*
         version: link:../../packages/web-page-parser
@@ -349,15 +346,6 @@ importers:
         version: 4.56.0
 
   packages/library:
-    dependencies:
-      '@effect/rpc':
-        specifier: 'catalog:'
-        version: 0.73.0(@effect/platform@0.94.0(effect@3.19.13))(effect@3.19.13)
-      effect:
-        specifier: 'catalog:'
-        version: 3.19.13
-
-  packages/test-book:
     dependencies:
       '@effect/rpc':
         specifier: 'catalog:'
