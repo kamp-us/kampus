@@ -16,4 +16,5 @@ Feature directory with completion status. Each feature follows the [spec-driven 
 - [x] **[spellbook](./spellbook/)** - Refactor DO infrastructure: Spellbook.make pattern, pure handlers, @effect/sql
 - [x] **[effect-sql-model](./effect-sql-model/)** - Adopt @effect/sql Model abstraction for cleaner handlers
 - [x] **[effect-sql-drizzle](./effect-sql-drizzle/)** - Replace Model.Class with @effect/sql-drizzle for single schema source
-- [ ] **[graphql-ftw](./graphql-ftw/)** - GraphQL + Relay data layer replacing effect-atom RPC
+- [x] **[graphql-ftw](./graphql-ftw/)** - GraphQL + Relay data layer replacing effect-atom RPC
+- [x] **[spellbook-generator](./spellbook-generator/)** - Rails-style CLI generator for Spellbook scaffolding

@@ -1,0 +1,984 @@
+{
+  "feature": "spellbook-generator",
+  "version": "1.1.0",
+  "items": [
+    {
+      "id": "FR-0.1",
+      "category": "testing-infrastructure",
+      "description": "Set up bun test with initial test files for existing modules",
+      "stepsToVerify": [
+        "Add test script to apps/cli/package.json",
+        "Create naming.test.ts with deriveNaming tests (PascalCase, snake_case, SCREAMING_SNAKE, idPrefix, overrides)",
+        "Create validation.test.ts with validateFeatureName tests (kebab-case, PascalCase, snake_case, numbers)",
+        "Create validation.test.ts with checkFeatureExists tests using FileSystem.layerNoop",
+        "Run `pnpm --filter cli exec bun test` - all tests pass",
+        "All new functionality is covered by tests"
+      ],
+      "passes": true
+    },
+    {
+      "id": "FR-1.1",
+      "category": "command-interface",
+      "description": "CLI accepts `kampus generate spellbook <feature-name>` command",
+      "stepsToVerify": [
+        "Run `pnpm --filter cli exec bun bin/kampus-effect.tsx generate spellbook test-feature`",
+        "Command should be recognized and start execution",
+        "No 'unknown command' errors",
+        "All new functionality is covered by tests"
+      ],
+      "passes": true
+    },
+    {
+      "id": "FR-1.2",
+      "category": "command-interface",
+      "description": "Feature name validated as kebab-case",
+      "stepsToVerify": [
+        "Run `kampus generate spellbook TestFeature` (PascalCase)",
+        "Should show validation error: 'Must be kebab-case'",
+        "Run `kampus generate spellbook test_feature` (snake_case)",
+        "Should show validation error",
+        "Run `kampus generate spellbook test-feature` (kebab-case)",
+        "Should proceed without validation error",
+        "All new functionality is covered by tests"
+      ],
+      "passes": true
+    },
+    {
+      "id": "FR-1.3",
+      "category": "command-interface",
+      "description": "Duplicate feature detection (package/worker folder exists)",
+      "stepsToVerify": [
+        "Run `kampus generate spellbook library`",
+        "Should detect that packages/library/ already exists",
+        "Should show error: 'Feature library already exists at packages/library/'",
+        "All new functionality is covered by tests"
+      ],
+      "passes": true
+    },
+    {
+      "id": "FR-2.1",
+      "category": "naming-conventions",
+      "description": "kebab-case input converts to PascalCase for class names",
+      "stepsToVerify": [
+        "Generate feature named `book-shelf`",
+        "Generated DO class should be named `BookShelf`",
+        "Check `apps/worker/src/features/book-shelf/BookShelf.ts`",
+        "All new functionality is covered by tests"
+      ],
+      "passes": true
+    },
+    {
+      "id": "FR-2.2",
+      "category": "naming-conventions",
+      "description": "kebab-case input converts to snake_case for table names",
+      "stepsToVerify": [
+        "Generate feature named `book-shelf`",
+        "Check `drizzle.schema.ts`",
+        "Table name should be `book_shelf`",
+        "All new functionality is covered by tests"
+      ],
+      "passes": true
+    },
+    {
+      "id": "FR-2.3",
+      "category": "naming-conventions",
+      "description": "kebab-case input converts to SCREAMING_SNAKE for bindings",
+      "stepsToVerify": [
+        "Generate feature named `book-shelf`",
+        "Check `wrangler.jsonc`",
+        "Binding name should be `BOOK_SHELF`",
+        "All new functionality is covered by tests"
+      ],
+      "passes": true
+    },
+    {
+      "id": "FR-2.4",
+      "category": "naming-conventions",
+      "description": "Auto-derive 3-4 char ID prefix from feature name",
+      "stepsToVerify": [
+        "Generate feature named `book-shelf`",
+        "Check `drizzle.schema.ts`",
+        "ID prefix should be `bs` (first char of each word)",
+        "Verify `id('bs')` is used in schema",
+        "All new functionality is covered by tests"
+      ],
+      "passes": true
+    },
+    {
+      "id": "FR-2.5",
+      "category": "naming-conventions",
+      "description": "`--table` overrides default table name",
+      "stepsToVerify": [
+        "Run `kampus generate spellbook book-shelf --table custom_books`",
+        "Check `drizzle.schema.ts`",
+        "Table name should be `custom_books` not `book_shelf`",
+        "All new functionality is covered by tests"
+      ],
+      "passes": true
+    },
+    {
+      "id": "FR-2.6",
+      "category": "naming-conventions",
+      "description": "`--id-prefix` overrides default ID prefix",
+      "stepsToVerify": [
+        "Run `kampus generate spellbook book-shelf --id-prefix bk`",
+        "Check `drizzle.schema.ts`",
+        "ID prefix should be `bk` not auto-derived value",
+        "All new functionality is covered by tests"
+      ],
+      "passes": true
+    },
+    {
+      "id": "FR-3.1",
+      "category": "interactive-tui",
+      "description": "Display styled header with feature name",
+      "stepsToVerify": [
+        "Run `kampus generate spellbook test-feature`",
+        "TUI should display header like 'Creating TestFeature Spellbook...'",
+        "Header should have styling (color/bold)",
+        "Added --no-tui flag to skip TUI for scripted usage"
+      ],
+      "passes": true
+    },
+    {
+      "id": "FR-3.2",
+      "category": "interactive-tui",
+      "description": "Column definition loop: prompt name, type, nullable",
+      "stepsToVerify": [
+        "Run generator",
+        "Should prompt for column name via <input>",
+        "After name, Tab moves to type selector",
+        "After type, Tab moves to nullable toggle",
+        "Enter on nullable field adds column and loops back",
+        "Empty name + Enter exits loop"
+      ],
+      "passes": true
+    },
+    {
+      "id": "FR-3.3",
+      "category": "interactive-tui",
+      "description": "Support column types: text, integer, boolean, timestamp",
+      "stepsToVerify": [
+        "In type selector, left/right arrows cycle through 4 types",
+        "Visual indicator shows current selection",
+        "Each type generates correct Drizzle column type",
+        "Each type generates correct Schema type"
+      ],
+      "passes": true
+    },
+    {
+      "id": "FR-3.4",
+      "category": "interactive-tui",
+      "description": "Tab/Enter/Arrow keys for navigation",
+      "stepsToVerify": [
+        "Tab cycles through name → type → nullable fields",
+        "Left/Right arrows change type selection",
+        "Space or Left/Right toggles nullable",
+        "Enter on nullable submits column"
+      ],
+      "passes": true
+    },
+    {
+      "id": "FR-3.5",
+      "category": "interactive-tui",
+      "description": "Display summary of columns before proceeding",
+      "stepsToVerify": [
+        "After defining columns, TUI shows summary",
+        "Summary lists: column name, type, nullable status",
+        "Format should be readable table/list"
+      ],
+      "passes": true
+    },
+    {
+      "id": "FR-3.6",
+      "category": "interactive-tui",
+      "description": "Confirm prompt before file generation",
+      "stepsToVerify": [
+        "After column summary, should ask 'Proceed? [Y/n]'",
+        "N should cancel generation",
+        "Y or Enter should proceed"
+      ],
+      "passes": true
+    },
+    {
+      "id": "FR-3.7",
+      "category": "interactive-tui",
+      "description": "Progress display during file generation",
+      "stepsToVerify": [
+        "During file generation, show progress indicator",
+        "Each file created should be listed",
+        "Format: checkmark + file path",
+        "TUI shows real-time updates via sendProgressUpdate()"
+      ],
+      "passes": true
+    },
+    {
+      "id": "FR-3.8",
+      "category": "interactive-tui",
+      "description": "Success/error messages with colors",
+      "stepsToVerify": [
+        "Success messages should be green (#00aa00)",
+        "Error messages should be red (#ff0000)",
+        "Warning/dry-run messages should be yellow (#ffaa00)",
+        "Progress messages shown in green, starting in gray"
+      ],
+      "passes": true
+    },
+    {
+      "id": "FR-3.9",
+      "category": "interactive-tui",
+      "description": "TUI uses only @opentui/react primitives: box, text, input",
+      "stepsToVerify": [
+        "No <select> or <checkbox> components used",
+        "Type selection implemented with keyboard + visual feedback",
+        "Nullable toggle implemented with keyboard + visual feedback",
+        "All components use only box, text, input primitives"
+      ],
+      "passes": true
+    },
+    {
+      "id": "FR-4.1",
+      "category": "package-layer",
+      "description": "Create `packages/<feature>/package.json` with @kampus scope",
+      "stepsToVerify": [
+        "File exists at `packages/<feature>/package.json`",
+        "Contains `\"name\": \"@kampus/<feature>\"`",
+        "Contains required dependencies (@effect/rpc, effect)",
+        "All new functionality is covered by tests"
+      ],
+      "passes": true
+    },
+    {
+      "id": "FR-4.2",
+      "category": "package-layer",
+      "description": "Create `packages/<feature>/tsconfig.json` extending root",
+      "stepsToVerify": [
+        "File exists at `packages/<feature>/tsconfig.json`",
+        "Contains `\"extends\": \"../../tsconfig.json\"`",
+        "All new functionality is covered by tests"
+      ],
+      "passes": true
+    },
+    {
+      "id": "FR-4.3",
+      "category": "package-layer",
+      "description": "Create `packages/<feature>/src/index.ts` with re-exports",
+      "stepsToVerify": [
+        "File exists at `packages/<feature>/src/index.ts`",
+        "Exports from ./errors.js",
+        "Exports from ./rpc.js",
+        "Exports from ./schema.js",
+        "All new functionality is covered by tests"
+      ],
+      "passes": true
+    },
+    {
+      "id": "FR-4.4",
+      "category": "package-layer",
+      "description": "Create `packages/<feature>/src/errors.ts` scaffold",
+      "stepsToVerify": [
+        "File exists at `packages/<feature>/src/errors.ts`",
+        "Contains import from 'effect'",
+        "Contains commented example of Schema.TaggedError",
+        "All new functionality is covered by tests"
+      ],
+      "passes": true
+    },
+    {
+      "id": "FR-4.5",
+      "category": "package-layer",
+      "description": "Create `packages/<feature>/src/schema.ts` with user-defined columns",
+      "stepsToVerify": [
+        "File exists at `packages/<feature>/src/schema.ts`",
+        "Contains Schema.Struct with id, createdAt, updatedAt",
+        "Contains all user-defined columns with correct Schema types",
+        "Exports entity type",
+        "All new functionality is covered by tests"
+      ],
+      "passes": true
+    },
+    {
+      "id": "FR-4.6",
+      "category": "package-layer",
+      "description": "Create `packages/<feature>/src/rpc.ts` with get/list RPCs",
+      "stepsToVerify": [
+        "File exists at `packages/<feature>/src/rpc.ts`",
+        "Contains RpcGroup.make()",
+        "Contains get<Feature> RPC with id payload",
+        "Contains list<Feature>s RPC with void payload",
+        "Exports RpcGroup type",
+        "All new functionality is covered by tests"
+      ],
+      "passes": true
+    },
+    {
+      "id": "FR-5.1",
+      "category": "worker-layer",
+      "description": "Create DO class file with Spellbook.make()",
+      "stepsToVerify": [
+        "File exists at `apps/worker/src/features/<feature>/<Feature>.ts`",
+        "Imports from @kampus/<feature>",
+        "Imports Spellbook from shared",
+        "Exports const <Feature> = Spellbook.make({...})",
+        "All new functionality is covered by tests"
+      ],
+      "passes": true
+    },
+    {
+      "id": "FR-5.2",
+      "category": "worker-layer",
+      "description": "Create handlers.ts with get/list handlers",
+      "stepsToVerify": [
+        "File exists at `apps/worker/src/features/<feature>/handlers.ts`",
+        "Imports SqliteDrizzle from @effect/sql-drizzle",
+        "Contains get<Feature> handler using Effect.gen",
+        "Contains list<Feature>s handler using Effect.gen",
+        "Handlers query drizzle schema correctly",
+        "All new functionality is covered by tests"
+      ],
+      "passes": true
+    },
+    {
+      "id": "FR-5.3",
+      "category": "worker-layer",
+      "description": "Create drizzle.config.ts",
+      "stepsToVerify": [
+        "File exists at `apps/worker/src/features/<feature>/drizzle/drizzle.config.ts`",
+        "Contains defineConfig from drizzle-kit",
+        "dialect is 'sqlite'",
+        "driver is 'durable-sqlite'",
+        "schema path points to drizzle.schema.ts",
+        "out path points to migrations/",
+        "All new functionality is covered by tests"
+      ],
+      "passes": true
+    },
+    {
+      "id": "FR-5.4",
+      "category": "worker-layer",
+      "description": "Create drizzle.schema.ts with columns",
+      "stepsToVerify": [
+        "File exists at `apps/worker/src/features/<feature>/drizzle/drizzle.schema.ts`",
+        "Imports from drizzle-orm/sqlite-core",
+        "Imports id from @usirin/forge",
+        "Contains sqliteTable with correct name",
+        "Contains id column with $defaultFn",
+        "Contains all user-defined columns",
+        "Contains createdAt and updatedAt timestamps",
+        "Contains index on createdAt",
+        "All new functionality is covered by tests"
+      ],
+      "passes": true
+    },
+    {
+      "id": "FR-5.5",
+      "category": "worker-layer",
+      "description": "Create migrations folder with empty migrations.js and _journal.json",
+      "stepsToVerify": [
+        "Folder exists at `apps/worker/src/features/<feature>/drizzle/migrations/`",
+        "File exists at migrations/migrations.js",
+        "migrations.js exports journal and empty migrations object",
+        "File exists at migrations/meta/_journal.json",
+        "_journal.json has version, dialect, and empty entries",
+        "All new functionality is covered by tests"
+      ],
+      "passes": true
+    },
+    {
+      "id": "FR-6.1",
+      "category": "integration",
+      "description": "Add DO export to apps/worker/src/index.ts",
+      "stepsToVerify": [
+        "index.ts contains export {<Feature>} from './features/<feature>/<Feature>'",
+        "Export is placed after other feature exports",
+        "File still passes typecheck",
+        "All new functionality is covered by tests"
+      ],
+      "passes": true
+    },
+    {
+      "id": "FR-6.2",
+      "category": "integration",
+      "description": "Add binding to wrangler.jsonc durable_objects.bindings",
+      "stepsToVerify": [
+        "wrangler.jsonc contains new binding in durable_objects.bindings array",
+        "Binding has name: <BINDING_NAME> (SCREAMING_SNAKE)",
+        "Binding has class_name: <Feature> (PascalCase)",
+        "All new functionality is covered by tests"
+      ],
+      "passes": true
+    },
+    {
+      "id": "FR-6.3",
+      "category": "integration",
+      "description": "Add migration entry to wrangler.jsonc migrations array",
+      "stepsToVerify": [
+        "wrangler.jsonc contains new migration entry",
+        "Migration has incremented tag (v2, v3, etc.)",
+        "Migration has new_sqlite_classes: [<Feature>]",
+        "All new functionality is covered by tests"
+      ],
+      "passes": true
+    },
+    {
+      "id": "FR-6.4",
+      "category": "integration",
+      "description": "Use jsonc-parser to preserve comments when updating wrangler.jsonc",
+      "stepsToVerify": [
+        "jsonc-parser package is used (not custom regex)",
+        "Uses modify() and applyEdits() from jsonc-parser",
+        "After update, wrangler.jsonc still contains original comments",
+        "File structure and formatting preserved",
+        "All new functionality is covered by tests"
+      ],
+      "passes": true
+    },
+    {
+      "id": "FR-7.1",
+      "category": "drizzle-kit",
+      "description": "Execute drizzle-kit generate after schema creation",
+      "stepsToVerify": [
+        "After schema file written, drizzle-kit generate runs",
+        "runDrizzleKit function in generator.ts executes pnpm exec drizzle-kit generate",
+        "Command output captured and emitted as progress events",
+        "Success/failure status tracked"
+      ],
+      "passes": true
+    },
+    {
+      "id": "FR-7.2",
+      "category": "drizzle-kit",
+      "description": "Use feature-specific drizzle.config.ts path",
+      "stepsToVerify": [
+        "drizzle-kit command uses --config flag",
+        "Config path is apps/worker/src/features/<feature>/drizzle/drizzle.config.ts",
+        "Path constructed dynamically from rootDir and naming.featureName"
+      ],
+      "passes": true
+    },
+    {
+      "id": "FR-7.3",
+      "category": "drizzle-kit",
+      "description": "Display drizzle-kit output in TUI",
+      "stepsToVerify": [
+        "drizzle-kit stdout visible in TUI via drizzle_output progress events",
+        "drizzle_start event shows 'Running drizzle-kit generate...'",
+        "drizzle_complete event shows success/failure status",
+        "Non-TUI mode also displays drizzle output via Console.log"
+      ],
+      "passes": true
+    },
+    {
+      "id": "FR-7.4",
+      "category": "drizzle-kit",
+      "description": "--skip-drizzle flag skips drizzle-kit execution",
+      "stepsToVerify": [
+        "Run with --skip-drizzle flag",
+        "options.skipDrizzle checked before calling runDrizzleKit",
+        "drizzle-kit NOT executed when skipDrizzle is true",
+        "migrations/ folder contains only empty scaffolds"
+      ],
+      "passes": true
+    },
+    {
+      "id": "FR-8.1",
+      "category": "optional-extras",
+      "description": "--with-test creates test file",
+      "stepsToVerify": [
+        "Run with --with-test flag",
+        "File created at apps/worker/test/<feature>.spec.ts",
+        "Test file imports from cloudflare:test",
+        "Test file has basic describe/it structure",
+        "All new functionality is covered by tests"
+      ],
+      "passes": true
+    },
+    {
+      "id": "FR-8.2",
+      "category": "optional-extras",
+      "description": "--with-graphql creates resolver and updates schema",
+      "stepsToVerify": [
+        "Run with --with-graphql flag",
+        "File created at apps/worker/src/graphql/resolvers/<Feature>Client.ts",
+        "GraphQL type readme created with code to add to schema.ts",
+        "Client follows existing LibraryClient pattern",
+        "graphql/resolvers/index.ts updated with export",
+        "All new functionality is covered by tests"
+      ],
+      "passes": true
+    },
+    {
+      "id": "FR-8.3",
+      "category": "optional-extras",
+      "description": "--with-route adds RPC route to index.ts",
+      "stepsToVerify": [
+        "Run with --with-route flag",
+        "index.ts contains new app.all('/rpc/<feature>/*', ...) route",
+        "Route follows existing library route pattern",
+        "Route includes auth check",
+        "All new functionality is covered by tests"
+      ],
+      "passes": true
+    },
+    {
+      "id": "FR-8.4",
+      "category": "optional-extras",
+      "description": "--with-all enables all extras",
+      "stepsToVerify": [
+        "Run with --with-all flag",
+        "Test file created",
+        "GraphQL scaffolds created",
+        "RPC route added",
+        "All new functionality is covered by tests"
+      ],
+      "passes": true
+    },
+    {
+      "id": "FR-9.1",
+      "category": "dry-run",
+      "description": "--dry-run shows file tree without writing",
+      "stepsToVerify": [
+        "Run with --dry-run --no-tui flag",
+        "Output displays list of files that would be created",
+        "TUI mode shows file list in success phase",
+        "No files actually written to disk",
+        "packages/<feature>/ folder does NOT exist after run"
+      ],
+      "passes": true
+    },
+    {
+      "id": "FR-9.2",
+      "category": "dry-run",
+      "description": "Display file contents preview in dry run",
+      "stepsToVerify": [
+        "Run with --dry-run --no-tui flag",
+        "Output shows full content for each file",
+        "Content includes actual generated code",
+        "File paths shown with ━━━ delimiters"
+      ],
+      "passes": true
+    },
+    {
+      "id": "FR-9.3",
+      "category": "dry-run",
+      "description": "No side effects in dry run mode",
+      "stepsToVerify": [
+        "Run with --dry-run flag",
+        "wrangler.jsonc unchanged",
+        "index.ts unchanged",
+        "drizzle-kit NOT executed",
+        "No directories created"
+      ],
+      "passes": true
+    },
+    {
+      "id": "NFR-1.1",
+      "category": "tech-stack",
+      "description": "Use @effect/cli for command parsing",
+      "stepsToVerify": [
+        "Command defined using Command.make from @effect/cli",
+        "Args and Options from @effect/cli used",
+        "No bluebun imports in spellbook command",
+        "All new functionality is covered by tests"
+      ],
+      "passes": true
+    },
+    {
+      "id": "NFR-1.2",
+      "category": "tech-stack",
+      "description": "Use @opentui/react for TUI rendering",
+      "stepsToVerify": [
+        "TUI components use @opentui/react primitives (box, text, input only)",
+        "createCliRenderer and createRoot from @opentui",
+        "React components for all TUI elements",
+        "useKeyboard hook for keyboard navigation"
+      ],
+      "passes": true
+    },
+    {
+      "id": "NFR-1.3",
+      "category": "tech-stack",
+      "description": "Use @effect/platform FileSystem for file operations",
+      "stepsToVerify": [
+        "File writes use FileSystem.FileSystem service",
+        "No raw fs/node:fs imports for file operations",
+        "All new functionality is covered by tests"
+      ],
+      "passes": true
+    },
+    {
+      "id": "NFR-1.4",
+      "category": "tech-stack",
+      "description": "Use Effect.gen() for all async operations",
+      "stepsToVerify": [
+        "All async code uses Effect.gen(function* () {...})",
+        "No raw Promise/async-await outside Effect",
+        "All new functionality is covered by tests"
+      ],
+      "passes": true
+    },
+    {
+      "id": "NFR-1.5",
+      "category": "tech-stack",
+      "description": "Use jsonc-parser for JSONC file manipulation",
+      "stepsToVerify": [
+        "jsonc-parser package added to dependencies",
+        "Uses parse, modify, applyEdits from jsonc-parser",
+        "No custom regex for comment handling",
+        "All new functionality is covered by tests"
+      ],
+      "passes": true
+    },
+    {
+      "id": "NFR-2.1",
+      "category": "code-quality",
+      "description": "Generated code passes biome check",
+      "stepsToVerify": [
+        "Generate a feature",
+        "Run `biome check packages/<feature>/`",
+        "Run `biome check apps/worker/src/features/<feature>/`",
+        "No errors or warnings",
+        "All new functionality is covered by tests"
+      ],
+      "passes": true
+    },
+    {
+      "id": "NFR-2.2",
+      "category": "code-quality",
+      "description": "Generated code passes turbo run typecheck",
+      "stepsToVerify": [
+        "Generate a feature",
+        "Run `turbo run typecheck`",
+        "No TypeScript errors in generated files",
+        "All new functionality is covered by tests"
+      ],
+      "passes": true
+    },
+    {
+      "id": "NFR-2.3",
+      "category": "code-quality",
+      "description": "Templates match existing library/web-page-parser patterns",
+      "stepsToVerify": [
+        "Compare generated <Feature>.ts with Library.ts - same Spellbook.make structure",
+        "Compare generated handlers.ts with library/handlers.ts - same Effect.gen + SqliteDrizzle pattern",
+        "Compare generated rpc.ts with library rpc.ts - same RpcGroup.make structure",
+        "Patterns should be identical (structure matches, complexity differs as expected)",
+        "All templates covered by unit tests (170 passing)"
+      ],
+      "passes": true
+    },
+    {
+      "id": "NFR-3.1",
+      "category": "user-experience",
+      "description": "Clear error messages for validation failures",
+      "stepsToVerify": [
+        "Invalid feature name shows: 'Must be kebab-case (e.g., book-shelf)' + received value",
+        "Duplicate feature shows: 'Feature X already exists at Y/'",
+        "Error messages actionable (tell user what to do)",
+        "Implemented in spellbook.ts lines 152-164"
+      ],
+      "passes": true
+    },
+    {
+      "id": "NFR-3.2",
+      "category": "user-experience",
+      "description": "Colored output for status",
+      "stepsToVerify": [
+        "Success messages render in green (#00aa00) - renderApp.tsx line 133, 145, 152, 162",
+        "Error messages render in red (#ff0000) - renderApp.tsx lines 170-171",
+        "Warning/dry-run messages render in yellow (#ffaa00) - renderApp.tsx lines 145, 159, 162",
+        "Progress messages shown in green, starting with gray placeholder"
+      ],
+      "passes": true
+    },
+    {
+      "id": "NFR-3.3",
+      "category": "user-experience",
+      "description": "Non-blocking TUI",
+      "stepsToVerify": [
+        "TUI uses React + @opentui/react which is non-blocking",
+        "useKeyboard hook for responsive keyboard input",
+        "Ctrl+C cancels at any point (SpellbookApp.tsx lines 19-24)",
+        "File generation runs in fiber, doesn't block UI (spellbook.ts line 95)"
+      ],
+      "passes": true
+    },
+    {
+      "id": "NFR-4.1",
+      "category": "maintainability",
+      "description": "Shared types in types.ts",
+      "stepsToVerify": [
+        "types.ts exists in generators/spellbook/",
+        "Contains Column, Naming, GeneratorOptions interfaces",
+        "All modules import types from this file",
+        "All new functionality is covered by tests"
+      ],
+      "passes": true
+    },
+    {
+      "id": "NFR-4.2",
+      "category": "maintainability",
+      "description": "Templates as pure functions returning strings",
+      "stepsToVerify": [
+        "All template functions take (naming, columns) and return string",
+        "No side effects in template functions",
+        "Templates are easily testable",
+        "All new functionality is covered by tests"
+      ],
+      "passes": true
+    },
+    {
+      "id": "NFR-4.3",
+      "category": "maintainability",
+      "description": "Naming utils as separate module",
+      "stepsToVerify": [
+        "naming.ts exists in generators/spellbook/",
+        "deriveNaming function exported",
+        "No naming logic scattered in other files",
+        "All new functionality is covered by tests"
+      ],
+      "passes": true
+    },
+    {
+      "id": "NFR-4.4",
+      "category": "maintainability",
+      "description": "Validation logic as separate module",
+      "stepsToVerify": [
+        "validation.ts exists in generators/spellbook/",
+        "validateFeatureName and checkFeatureExists exported",
+        "Tagged errors for validation failures",
+        "All new functionality is covered by tests"
+      ],
+      "passes": true
+    },
+    {
+      "id": "NFR-4.5",
+      "category": "maintainability",
+      "description": "Integration logic as separate module",
+      "stepsToVerify": [
+        "integrations.ts exists in generators/spellbook/",
+        "updateWorkerIndex, updateWranglerJsonc functions here",
+        "Integration logic not mixed with templates",
+        "All new functionality is covered by tests"
+      ],
+      "passes": true
+    },
+    {
+      "id": "TEST-1.3",
+      "category": "testing-unit",
+      "description": "Unit tests for column type mappings",
+      "stepsToVerify": [
+        "Test file exists: generators/spellbook/templates/package.test.ts",
+        "Tests text → Schema.String",
+        "Tests integer → Schema.Int",
+        "Tests boolean → Schema.Boolean",
+        "Tests timestamp → Schema.String",
+        "Tests nullable variants",
+        "All new functionality is covered by tests"
+      ],
+      "passes": true
+    },
+    {
+      "id": "TEST-1.4",
+      "category": "testing-unit",
+      "description": "Unit tests for Drizzle type mappings",
+      "stepsToVerify": [
+        "Test file exists: generators/spellbook/templates/worker.test.ts",
+        "Tests text → text()",
+        "Tests integer → integer()",
+        "Tests boolean → integer() with mode",
+        "Tests timestamp → integer() with mode: timestamp",
+        "Tests nullable variants",
+        "All new functionality is covered by tests"
+      ],
+      "passes": true
+    },
+    {
+      "id": "TEST-1.5",
+      "category": "testing-unit",
+      "description": "Unit tests for package layer template output",
+      "stepsToVerify": [
+        "Tests package.json template content",
+        "Tests tsconfig.json template content",
+        "Tests index.ts template content",
+        "Tests schema.ts with various column configurations",
+        "Tests rpc.ts template content",
+        "All new functionality is covered by tests"
+      ],
+      "passes": true
+    },
+    {
+      "id": "TEST-1.6",
+      "category": "testing-unit",
+      "description": "Unit tests for worker layer template output",
+      "stepsToVerify": [
+        "Tests DO class template content",
+        "Tests handlers.ts template content",
+        "Tests drizzle.config.ts template content",
+        "Tests drizzle.schema.ts with various columns",
+        "Tests migrations scaffolds",
+        "All new functionality is covered by tests"
+      ],
+      "passes": true
+    },
+    {
+      "id": "TEST-2.1",
+      "category": "testing-integration",
+      "description": "Integration test: full generation in temp directory",
+      "stepsToVerify": [
+        "Test file exists: generators/spellbook/generator.test.ts",
+        "Uses FileSystem.layerNoop to create tracking mock layer",
+        "Tests writeFiles with mock filesystem, verifies all files written",
+        "Verifies package files (6) and worker files (6) created",
+        "Verifies correct directories created",
+        "Tests with --with-test, --with-graphql, --with-all flags",
+        "196 total CLI tests passing"
+      ],
+      "passes": true
+    },
+    {
+      "id": "TEST-2.2",
+      "category": "testing-integration",
+      "description": "Integration test: --dry-run produces no files",
+      "stepsToVerify": [
+        "Runs generate() with dryRun: true",
+        "Verifies no files written (writeAttempts.length === 0)",
+        "Verifies no directories created (dirAttempts.length === 0)",
+        "Verifies files list returned but written: false",
+        "Tests with --with-all flag also produces no files"
+      ],
+      "passes": true
+    },
+    {
+      "id": "TEST-2.3",
+      "category": "testing-integration",
+      "description": "Integration test: index.ts export insertion",
+      "stepsToVerify": [
+        "Test file exists: generators/spellbook/integrations.test.ts",
+        "Creates mock index.ts with existing exports",
+        "Runs updateWorkerIndex",
+        "Verifies new export added in correct location",
+        "All new functionality is covered by tests"
+      ],
+      "passes": true
+    },
+    {
+      "id": "TEST-2.4",
+      "category": "testing-integration",
+      "description": "Integration test: wrangler.jsonc modification",
+      "stepsToVerify": [
+        "Creates mock wrangler.jsonc with comments",
+        "Runs updateWranglerJsonc",
+        "Verifies binding added",
+        "Verifies migration added with correct tag",
+        "All new functionality is covered by tests"
+      ],
+      "passes": true
+    },
+    {
+      "id": "TEST-2.5",
+      "category": "testing-integration",
+      "description": "Integration test: wrangler.jsonc preserves comments",
+      "stepsToVerify": [
+        "Creates mock wrangler.jsonc with various comments",
+        "Runs updateWranglerJsonc",
+        "Verifies all original comments still present",
+        "Verifies file is still valid JSONC",
+        "All new functionality is covered by tests"
+      ],
+      "passes": true
+    },
+    {
+      "id": "TEST-2.6",
+      "category": "testing-integration",
+      "description": "Integration test: duplicate feature detection",
+      "stepsToVerify": [
+        "Uses FileSystem.layerNoop to mock existing feature directories",
+        "Tests checkFeatureExists() with mock where packages/existing-feature exists",
+        "Verifies FeatureExistsError thrown with correct featureName and existingPath",
+        "Tests checkFeatureExists() with mock where apps/worker/src/features/ exists",
+        "Tests successful case when feature doesn't exist"
+      ],
+      "passes": true
+    },
+    {
+      "id": "TEST-2.7",
+      "category": "testing-integration",
+      "description": "Integration test: invalid feature name rejection",
+      "stepsToVerify": [
+        "Tests validateFeatureName with PascalCase - rejects with InvalidFeatureNameError",
+        "Tests validateFeatureName with snake_case - rejects with InvalidFeatureNameError",
+        "Tests validateFeatureName with camelCase, numbers, double hyphens, trailing/leading hyphens",
+        "Tests validateFeatureName accepts valid kebab-case, single word, numbers in middle",
+        "11 validation tests total"
+      ],
+      "passes": true
+    },
+    {
+      "id": "TEST-3.1",
+      "category": "testing-e2e",
+      "description": "E2E test: generated feature passes typecheck",
+      "stepsToVerify": [
+        "Test file exists: generators/spellbook/e2e.test.ts",
+        "Generates feature in real codebase location",
+        "Verifies TypeScript structure is valid",
+        "Verifies all imports and exports are correct",
+        "Cleans up generated files",
+        "All new functionality is covered by tests"
+      ],
+      "passes": true
+    },
+    {
+      "id": "TEST-3.2",
+      "category": "testing-e2e",
+      "description": "E2E test: generated feature passes biome check",
+      "stepsToVerify": [
+        "Generates feature",
+        "Runs biome check on generated files",
+        "Verifies no lint errors",
+        "Cleans up generated files",
+        "All new functionality is covered by tests"
+      ],
+      "passes": true
+    },
+    {
+      "id": "TEST-3.3",
+      "category": "testing-e2e",
+      "description": "E2E test: generated RPC handlers are functional",
+      "stepsToVerify": [
+        "Generates feature with test columns",
+        "Verifies handlers have correct Effect types",
+        "Verifies drizzle schema has correct structure",
+        "Cleans up generated files",
+        "All new functionality is covered by tests"
+      ],
+      "passes": true
+    },
+    {
+      "id": "TEST-3.4",
+      "category": "testing-e2e",
+      "description": "E2E test: --with-test generates valid test file",
+      "stepsToVerify": [
+        "Generates feature with --with-test",
+        "Verifies test file is valid TypeScript",
+        "Verifies test file has correct imports",
+        "Cleans up generated files",
+        "All new functionality is covered by tests"
+      ],
+      "passes": true
+    },
+    {
+      "id": "TEST-3.5",
+      "category": "testing-e2e",
+      "description": "E2E test: --with-graphql generates valid resolver",
+      "stepsToVerify": [
+        "Generates feature with --with-graphql",
+        "Verifies resolver file is valid TypeScript",
+        "Verifies resolver follows existing pattern",
+        "Cleans up generated files",
+        "All new functionality is covered by tests"
+      ],
+      "passes": true
+    }
+  ]
+}

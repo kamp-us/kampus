@@ -48,7 +48,7 @@ This follows the spec-driven development workflow with **MANDATORY USER AUTHORIZ
 - **Phase 2**: Derive `requirements.md` from instructions (structured analysis) - **REQUIRES USER APPROVAL**
 - **Phase 3**: Create `design.md` from requirements (technical design) - **REQUIRES USER APPROVAL**
 - **Phase 4**: Generate `plan.md` from design (implementation roadmap) - **REQUIRES USER APPROVAL**
-- **Phase 5**: Execute implementation following the plan - **REQUIRES USER APPROVAL**
+- **Phase 5**: Convert my spec into structured PRD items. Each item should have: category, description, steps to verify, and passes: false. Format as JSON. Be specific about acceptance criteria. name it `prd.json`.
 
 **CRITICAL RULE**: Never proceed to the next phase without explicit user authorization. Always present the completed work from the current phase and ask for permission to continue.
 

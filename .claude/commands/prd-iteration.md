@@ -42,9 +42,6 @@ Work on a single feature from a PRD file, following a structured workflow.
 
 ## Output
 
-If PRD is complete (all items pass), output:
-```
-<complete>PRD COMPLETE</complete>
-```
+If PRD is complete (all items pass), update the specs/README.md file and mark it completed.
 
 Otherwise, summarize what was done and what remains.
