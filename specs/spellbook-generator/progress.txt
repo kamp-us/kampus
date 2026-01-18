@@ -26,9 +26,13 @@
 - [x] TEST-1.4: Unit tests for Drizzle type mappings
 - [x] TEST-1.5: Unit tests for package layer template output
 - [x] TEST-1.6: Unit tests for worker layer template output
+- [x] TEST-2.1: Integration test: full generation in temp directory
+- [x] TEST-2.2: Integration test: --dry-run produces no files
 - [x] TEST-2.3: Integration test: index.ts export insertion
 - [x] TEST-2.4: Integration test: wrangler.jsonc modification
 - [x] TEST-2.5: Integration test: wrangler.jsonc preserves comments
+- [x] TEST-2.6: Integration test: duplicate feature detection
+- [x] TEST-2.7: Integration test: invalid feature name rejection
 - [x] FR-7.1: Execute drizzle-kit generate after schema creation
 - [x] FR-7.2: Use feature-specific drizzle.config.ts path
 - [x] FR-7.3: Display drizzle-kit output in TUI
@@ -384,5 +388,35 @@
   - File generation runs in Fiber (spellbook.ts:95)
 
 **Remaining:**
-- Integration tests (TEST-2.1, TEST-2.2, TEST-2.6, TEST-2.7)
+- E2E tests (TEST-3.x)
+
+---
+
+## 2026-01-17: Integration Tests (TEST-2.1, TEST-2.2, TEST-2.6, TEST-2.7)
+
+**Files changed:**
+- `apps/cli/generators/spellbook/generator.test.ts` (added 25 integration tests)
+
+**Key decisions:**
+- TEST-2.1: Full generation test using FileSystem.layerNoop with tracking
+  - `createTrackingLayer()` helper tracks writtenFiles (Map) and createdDirs (Set)
+  - Mock Path.Path layer with minimal implementation
+  - Tests verify all 12 base files written, plus optional files with flags
+  - Tests verify directory creation for nested paths
+  - Tests verify file content matches generateFiles output
+- TEST-2.2: Dry-run test verifies no writes occur
+  - `createStrictNoWriteLayer()` tracks any write attempts
+  - Verifies writeAttempts.length === 0 and dirAttempts.length === 0
+  - Verifies generate() returns written: false with file list
+- TEST-2.6: Duplicate detection test using mock filesystem
+  - `makeExistingFeatureLayer()` simulates existing feature directories
+  - Tests checkFeatureExists for both packages/ and apps/worker/src/features/
+  - Verifies FeatureExistsError with correct featureName and existingPath
+- TEST-2.7: Invalid feature name rejection tests
+  - Tests validateFeatureName with various invalid formats
+  - Verifies InvalidFeatureNameError with correct featureName and reason
+  - 11 validation tests covering PascalCase, snake_case, camelCase, numbers, hyphens
+- Total: 196 CLI tests passing
+
+**Remaining:**
 - E2E tests (TEST-3.x)
