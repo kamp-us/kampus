@@ -1,0 +1,18 @@
+.codeBlock {
+	margin: 0;
+	border-radius: 8px;
+	overflow-x: auto;
+}
+
+.codeBlock pre {
+	margin: 0;
+	padding: 1rem;
+	border-radius: 8px;
+	overflow-x: auto;
+}
+
+.codeBlock code {
+	font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+	font-size: 0.875rem;
+	line-height: 1.5;
+}

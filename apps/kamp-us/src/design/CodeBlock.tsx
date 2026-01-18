@@ -1,0 +1,46 @@
+import {useEffect, useState} from "react";
+import {codeToHtml} from "shiki";
+import styles from "./CodeBlock.module.css";
+
+interface CodeBlockProps {
+	code: string;
+	language?: string;
+}
+
+export function CodeBlock({code, language}: CodeBlockProps) {
+	const [html, setHtml] = useState<string | null>(null);
+
+	useEffect(() => {
+		if (!language) {
+			setHtml(null);
+			return;
+		}
+
+		let cancelled = false;
+		codeToHtml(code, {
+			lang: language,
+			theme: "github-dark",
+		})
+			.then((result) => {
+				if (!cancelled) setHtml(result);
+			})
+			.catch(() => {
+				// Keep unhighlighted on error
+			});
+
+		return () => {
+			cancelled = true;
+		};
+	}, [code, language]);
+
+	if (html) {
+		// biome-ignore lint/security/noDangerouslySetInnerHtml: Shiki output is safe
+		return <div className={styles.codeBlock} dangerouslySetInnerHTML={{__html: html}} />;
+	}
+
+	return (
+		<pre className={styles.codeBlock}>
+			<code>{code}</code>
+		</pre>
+	);
+}
