@@ -21,7 +21,7 @@
       "Method calls client.getReaderContent({}) RPC",
       "turbo run typecheck passes"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "id": "task-3",

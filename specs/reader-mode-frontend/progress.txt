@@ -10,3 +10,16 @@ Changes:
 
 Verified:
 - tsc --noEmit passes
+
+## 2026-01-18: Extend WebPageParserClient with getReaderContent (task-2)
+
+Files changed:
+- apps/worker/src/graphql/resolvers/WebPageParserClient.ts
+
+Changes:
+- Added ReaderContent and ReaderResult interfaces
+- Added getReaderContent() method that calls client.getReaderContent({}) RPC
+- Method returns mapped result matching interface shape
+
+Verified:
+- turbo run typecheck passes
