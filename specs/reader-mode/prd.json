@@ -77,14 +77,14 @@
       "steps": [
         "Edit apps/worker/src/features/web-page-parser/drizzle/drizzle.schema.ts",
         "Add readerContent table with columns: id, readable, title, content, textContent, excerpt, byline, siteName, wordCount, readingTimeMinutes, error, createdAt",
-        "Run: cd apps/worker && pnpm exec drizzle-kit generate",
+        "Run: cd apps/worker && pnpm exec drizzle-kit generate --config=./src/features/web-page-parser/drizzle/drizzle.config.ts",
         "Verify migration file created"
       ],
       "verification": [
         "turbo run typecheck passes",
         "migration SQL file exists with CREATE TABLE reader_content"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "6",

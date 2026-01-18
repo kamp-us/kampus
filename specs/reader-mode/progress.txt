@@ -74,3 +74,18 @@
 **Verification:**
 - `turbo run typecheck` ✓
 - `pnpm --filter worker run test` ✓
+
+## 2026-01-18: Task 5 - Database Schema
+
+**Files changed:**
+- `apps/worker/src/features/web-page-parser/drizzle/drizzle.schema.ts` - added readerContent table
+- `apps/worker/src/features/web-page-parser/drizzle/migrations/0001_orange_marvel_boy.sql` - migration created
+- `apps/worker/src/features/web-page-parser/drizzle/migrations/migrations.js` - auto-updated
+
+**Notes:**
+- drizzle-kit requires explicit `--config` path for per-feature configs
+
+**Verification:**
+- `turbo run typecheck` ✓
+- `pnpm --filter worker run test` ✓
+- Migration SQL contains CREATE TABLE reader_content ✓
