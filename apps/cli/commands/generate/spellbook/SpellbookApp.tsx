@@ -4,20 +4,15 @@ import {useState} from "react";
 import {deriveNaming} from "../../../generators/spellbook/naming";
 import type {Column, GeneratorOptions, Naming} from "../../../generators/spellbook/types";
 
-export type Phase =
-	| {type: "input"; columns: Column[]}
-	| {type: "confirm"; columns: Column[]}
-	| {type: "generating"; columns: Column[]; progress: string[]}
-	| {type: "success"; files: string[]}
-	| {type: "error"; message: string};
+export type Phase = {type: "input"; columns: Column[]} | {type: "confirm"; columns: Column[]};
 
 export type SpellbookAppProps = {
 	options: GeneratorOptions;
-	onComplete: (columns: Column[]) => void;
+	onColumnsReady: (columns: Column[]) => void;
 	onCancel: () => void;
 };
 
-export const SpellbookApp = ({options, onComplete, onCancel}: SpellbookAppProps) => {
+export const SpellbookApp = ({options, onColumnsReady, onCancel}: SpellbookAppProps) => {
 	const naming = deriveNaming(options.featureName, options.table, options.idPrefix);
 	const [phase, setPhase] = useState<Phase>({type: "input", columns: []});
 
@@ -41,7 +36,7 @@ export const SpellbookApp = ({options, onComplete, onCancel}: SpellbookAppProps)
 			{phase.type === "confirm" && (
 				<ConfirmPhase
 					columns={phase.columns}
-					onConfirm={() => onComplete(phase.columns)}
+					onConfirm={() => onColumnsReady(phase.columns)}
 					onBack={() => setPhase({type: "input", columns: phase.columns})}
 				/>
 			)}
@@ -65,7 +60,12 @@ const Header = ({naming}: HeaderProps) => {
 	);
 };
 
-const COLUMN_TYPES = ["text", "integer", "boolean", "timestamp"] as const;
+const COLUMN_TYPES: readonly ["text", "integer", "boolean", "timestamp"] = [
+	"text",
+	"integer",
+	"boolean",
+	"timestamp",
+];
 
 type ColumnInputPhaseProps = {
 	columns: Column[];
@@ -94,9 +94,10 @@ const ColumnInputPhase = ({columns, onColumnsChange, onConfirm}: ColumnInputPhas
 				setField("nullable");
 			} else if (field === "nullable") {
 				// Add column and reset
+				const columnType = COLUMN_TYPES[typeIndex] ?? "text";
 				const newColumn: Column = {
 					name,
-					type: COLUMN_TYPES[typeIndex],
+					type: columnType,
 					nullable,
 				};
 				onColumnsChange([...columns, newColumn]);
@@ -126,9 +127,10 @@ const ColumnInputPhase = ({columns, onColumnsChange, onConfirm}: ColumnInputPhas
 
 		// Enter on nullable = submit column
 		if (key.name === "return" && field === "nullable" && name !== "") {
+			const columnType = COLUMN_TYPES[typeIndex] ?? "text";
 			const newColumn: Column = {
 				name,
-				type: COLUMN_TYPES[typeIndex],
+				type: columnType,
 				nullable,
 			};
 			onColumnsChange([...columns, newColumn]);

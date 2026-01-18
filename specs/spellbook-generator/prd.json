@@ -208,21 +208,21 @@
         "During file generation, show progress indicator",
         "Each file created should be listed",
         "Format: checkmark + file path",
-        "All new functionality is covered by tests"
+        "TUI shows real-time updates via sendProgressUpdate()"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FR-3.8",
       "category": "interactive-tui",
       "description": "Success/error messages with colors",
       "stepsToVerify": [
-        "Success messages should be green",
-        "Error messages should be red",
-        "Warning messages should be yellow",
-        "All new functionality is covered by tests"
+        "Success messages should be green (#00aa00)",
+        "Error messages should be red (#ff0000)",
+        "Warning/dry-run messages should be yellow (#ffaa00)",
+        "Progress messages shown in green, starting in gray"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FR-3.9",

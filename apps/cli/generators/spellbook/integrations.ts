@@ -21,10 +21,12 @@ export const updateWorkerPackageJson = (naming: Naming, content: string): string
 	pkg.dependencies[depKey] = "workspace:*";
 
 	// Sort dependencies alphabetically for consistency
-	const sortedDeps = Object.fromEntries(Object.entries(pkg.dependencies).sort(([a], [b]) => a.localeCompare(b)));
+	const sortedDeps = Object.fromEntries(
+		Object.entries(pkg.dependencies).sort(([a], [b]) => a.localeCompare(b)),
+	);
 	pkg.dependencies = sortedDeps;
 
-	return JSON.stringify(pkg, null, "\t") + "\n";
+	return `${JSON.stringify(pkg, null, "\t")}\n`;
 };
 
 /**
@@ -44,7 +46,8 @@ export const updateWorkerIndex = (naming: Naming, content: string): string => {
 	// Find the last feature export line (export {X} from "./features/...)
 	let lastExportIndex = -1;
 	for (let i = 0; i < lines.length; i++) {
-		if (lines[i].match(/^export \{.+\} from "\.\/features\/.+";$/)) {
+		const line = lines[i];
+		if (line?.match(/^export \{.+\} from "\.\/features\/.+";$/)) {
 			lastExportIndex = i;
 		}
 	}
@@ -104,7 +107,7 @@ export const updateWranglerJsonc = (naming: Naming, content: string): string => 
 	if (migrationsMatch) {
 		const tagNumbers = migrationsMatch.map((m) => {
 			const num = m.match(/v(\d+)/);
-			return num ? Number.parseInt(num[1], 10) : 0;
+			return num?.[1] ? Number.parseInt(num[1], 10) : 0;
 		});
 		nextTagNumber = Math.max(...tagNumbers) + 1;
 	}

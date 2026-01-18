@@ -14,9 +14,7 @@ describe("generateFiles", () => {
 			const naming = deriveNaming("book-shelf");
 			const files = generateFiles(naming, columns);
 
-			const doClassFile = files.find((f) =>
-				f.path.endsWith("/BookShelf.ts"),
-			);
+			const doClassFile = files.find((f) => f.path.endsWith("/BookShelf.ts"));
 			expect(doClassFile).toBeDefined();
 			expect(doClassFile?.content).toContain("export const BookShelf = Spellbook.make");
 		});
@@ -27,11 +25,9 @@ describe("generateFiles", () => {
 			const naming = deriveNaming("book-shelf");
 			const files = generateFiles(naming, columns);
 
-			const schemaFile = files.find((f) =>
-				f.path.endsWith("/drizzle.schema.ts"),
-			);
+			const schemaFile = files.find((f) => f.path.endsWith("/drizzle.schema.ts"));
 			expect(schemaFile).toBeDefined();
-			expect(schemaFile?.content).toContain('export const book_shelf = sqliteTable(');
+			expect(schemaFile?.content).toContain("export const book_shelf = sqliteTable(");
 			expect(schemaFile?.content).toContain('"book_shelf"');
 		});
 	});
@@ -48,9 +44,7 @@ describe("generateFiles", () => {
 			const naming = deriveNaming("book-shelf");
 			const files = generateFiles(naming, columns);
 
-			const schemaFile = files.find((f) =>
-				f.path.endsWith("/drizzle.schema.ts"),
-			);
+			const schemaFile = files.find((f) => f.path.endsWith("/drizzle.schema.ts"));
 			expect(schemaFile?.content).toContain('id("bs")');
 		});
 
@@ -65,10 +59,8 @@ describe("generateFiles", () => {
 			const naming = deriveNaming("book-shelf", "custom_books");
 			const files = generateFiles(naming, columns);
 
-			const schemaFile = files.find((f) =>
-				f.path.endsWith("/drizzle.schema.ts"),
-			);
-			expect(schemaFile?.content).toContain('export const custom_books = sqliteTable(');
+			const schemaFile = files.find((f) => f.path.endsWith("/drizzle.schema.ts"));
+			expect(schemaFile?.content).toContain("export const custom_books = sqliteTable(");
 			expect(schemaFile?.content).toContain('"custom_books"');
 			expect(schemaFile?.content).not.toContain("book_shelf");
 		});
@@ -79,9 +71,7 @@ describe("generateFiles", () => {
 			const naming = deriveNaming("book-shelf", undefined, "bk");
 			const files = generateFiles(naming, columns);
 
-			const schemaFile = files.find((f) =>
-				f.path.endsWith("/drizzle.schema.ts"),
-			);
+			const schemaFile = files.find((f) => f.path.endsWith("/drizzle.schema.ts"));
 			expect(schemaFile?.content).toContain('id("bk")');
 			expect(schemaFile?.content).not.toContain('id("bs")');
 		});
@@ -111,9 +101,7 @@ describe("generateFiles", () => {
 			const naming = deriveNaming("book-shelf");
 			const files = generateFiles(naming, columns);
 
-			const tsconfig = files.find((f) =>
-				f.path === "packages/book-shelf/tsconfig.json",
-			);
+			const tsconfig = files.find((f) => f.path === "packages/book-shelf/tsconfig.json");
 			expect(tsconfig).toBeDefined();
 		});
 	});
@@ -123,9 +111,7 @@ describe("generateFiles", () => {
 			const naming = deriveNaming("book-shelf");
 			const files = generateFiles(naming, columns);
 
-			const indexFile = files.find((f) =>
-				f.path === "packages/book-shelf/src/index.ts",
-			);
+			const indexFile = files.find((f) => f.path === "packages/book-shelf/src/index.ts");
 			expect(indexFile?.content).toContain('from "./errors.js"');
 			expect(indexFile?.content).toContain('from "./rpc.js"');
 			expect(indexFile?.content).toContain('from "./schema.js"');
@@ -137,10 +123,8 @@ describe("generateFiles", () => {
 			const naming = deriveNaming("book-shelf");
 			const files = generateFiles(naming, columns);
 
-			const errorsFile = files.find((f) =>
-				f.path === "packages/book-shelf/src/errors.ts",
-			);
-			expect(errorsFile?.content).toContain("import {Schema} from \"effect\"");
+			const errorsFile = files.find((f) => f.path === "packages/book-shelf/src/errors.ts");
+			expect(errorsFile?.content).toContain('import {Schema} from "effect"');
 			expect(errorsFile?.content).toContain("TaggedError");
 		});
 	});
@@ -150,9 +134,7 @@ describe("generateFiles", () => {
 			const naming = deriveNaming("book-shelf");
 			const files = generateFiles(naming, columns);
 
-			const schemaFile = files.find((f) =>
-				f.path === "packages/book-shelf/src/schema.ts",
-			);
+			const schemaFile = files.find((f) => f.path === "packages/book-shelf/src/schema.ts");
 			expect(schemaFile?.content).toContain("id: Schema.String");
 			expect(schemaFile?.content).toContain("createdAt: Schema.String");
 			expect(schemaFile?.content).toContain("updatedAt: Schema.NullOr(Schema.String)");
@@ -162,9 +144,7 @@ describe("generateFiles", () => {
 			const naming = deriveNaming("book-shelf");
 			const files = generateFiles(naming, columns);
 
-			const schemaFile = files.find((f) =>
-				f.path === "packages/book-shelf/src/schema.ts",
-			);
+			const schemaFile = files.find((f) => f.path === "packages/book-shelf/src/schema.ts");
 			expect(schemaFile?.content).toContain("title: Schema.String");
 			expect(schemaFile?.content).toContain("count: Schema.NullOr(Schema.Int)");
 		});
@@ -175,9 +155,7 @@ describe("generateFiles", () => {
 			const naming = deriveNaming("book-shelf");
 			const files = generateFiles(naming, columns);
 
-			const rpcFile = files.find((f) =>
-				f.path === "packages/book-shelf/src/rpc.ts",
-			);
+			const rpcFile = files.find((f) => f.path === "packages/book-shelf/src/rpc.ts");
 			expect(rpcFile?.content).toContain("RpcGroup.make(");
 			expect(rpcFile?.content).toContain('"getBookShelf"');
 			expect(rpcFile?.content).toContain('"listBookShelfs"');
@@ -189,9 +167,7 @@ describe("generateFiles", () => {
 			const naming = deriveNaming("book-shelf");
 			const files = generateFiles(naming, columns);
 
-			const doFile = files.find((f) =>
-				f.path.endsWith("/BookShelf.ts"),
-			);
+			const doFile = files.find((f) => f.path.endsWith("/BookShelf.ts"));
 			expect(doFile?.content).toContain('from "@kampus/book-shelf"');
 			expect(doFile?.content).toContain('import * as Spellbook from "../../shared/Spellbook"');
 			expect(doFile?.content).toContain("export const BookShelf = Spellbook.make({");
@@ -203,9 +179,7 @@ describe("generateFiles", () => {
 			const naming = deriveNaming("book-shelf");
 			const files = generateFiles(naming, columns);
 
-			const handlersFile = files.find((f) =>
-				f.path.endsWith("/handlers.ts"),
-			);
+			const handlersFile = files.find((f) => f.path.endsWith("/handlers.ts"));
 			expect(handlersFile?.content).toContain("SqliteDrizzle");
 			expect(handlersFile?.content).toContain("export const getBookShelf");
 			expect(handlersFile?.content).toContain("export const listBookShelfs");
@@ -218,9 +192,7 @@ describe("generateFiles", () => {
 			const naming = deriveNaming("book-shelf");
 			const files = generateFiles(naming, columns);
 
-			const configFile = files.find((f) =>
-				f.path.endsWith("/drizzle.config.ts"),
-			);
+			const configFile = files.find((f) => f.path.endsWith("/drizzle.config.ts"));
 			expect(configFile?.content).toContain('dialect: "sqlite"');
 			expect(configFile?.content).toContain('driver: "durable-sqlite"');
 			expect(configFile?.content).toContain("book-shelf/drizzle/drizzle.schema.ts");
@@ -233,9 +205,7 @@ describe("generateFiles", () => {
 			const naming = deriveNaming("book-shelf");
 			const files = generateFiles(naming, columns);
 
-			const schemaFile = files.find((f) =>
-				f.path.endsWith("/drizzle.schema.ts"),
-			);
+			const schemaFile = files.find((f) => f.path.endsWith("/drizzle.schema.ts"));
 			expect(schemaFile?.content).toContain("sqliteTable");
 			expect(schemaFile?.content).toContain('text("id")');
 			expect(schemaFile?.content).toContain(".primaryKey()");
@@ -247,9 +217,7 @@ describe("generateFiles", () => {
 			const naming = deriveNaming("book-shelf");
 			const files = generateFiles(naming, columns);
 
-			const schemaFile = files.find((f) =>
-				f.path.endsWith("/drizzle.schema.ts"),
-			);
+			const schemaFile = files.find((f) => f.path.endsWith("/drizzle.schema.ts"));
 			expect(schemaFile?.content).toContain("index(");
 			expect(schemaFile?.content).toContain("table.createdAt");
 		});
@@ -258,9 +226,7 @@ describe("generateFiles", () => {
 			const naming = deriveNaming("book-shelf");
 			const files = generateFiles(naming, columns);
 
-			const schemaFile = files.find((f) =>
-				f.path.endsWith("/drizzle.schema.ts"),
-			);
+			const schemaFile = files.find((f) => f.path.endsWith("/drizzle.schema.ts"));
 			expect(schemaFile?.content).toContain('text("title").notNull()');
 			expect(schemaFile?.content).toContain('integer("count")');
 		});
@@ -271,9 +237,7 @@ describe("generateFiles", () => {
 			const naming = deriveNaming("book-shelf");
 			const files = generateFiles(naming, columns);
 
-			const migrationsFile = files.find((f) =>
-				f.path.endsWith("/migrations.js"),
-			);
+			const migrationsFile = files.find((f) => f.path.endsWith("/migrations.js"));
 			expect(migrationsFile).toBeDefined();
 			expect(migrationsFile?.content).toContain('import journal from "./meta/_journal.json"');
 			expect(migrationsFile?.content).toContain("migrations: {}");
@@ -283,9 +247,7 @@ describe("generateFiles", () => {
 			const naming = deriveNaming("book-shelf");
 			const files = generateFiles(naming, columns);
 
-			const journalFile = files.find((f) =>
-				f.path.endsWith("/_journal.json"),
-			);
+			const journalFile = files.find((f) => f.path.endsWith("/_journal.json"));
 			expect(journalFile).toBeDefined();
 			expect(journalFile?.content).toContain('"version"');
 			expect(journalFile?.content).toContain('"dialect": "sqlite"');
@@ -316,8 +278,12 @@ describe("generateFiles", () => {
 			expect(paths).toContain("apps/worker/src/features/book-shelf/handlers.ts");
 			expect(paths).toContain("apps/worker/src/features/book-shelf/drizzle/drizzle.config.ts");
 			expect(paths).toContain("apps/worker/src/features/book-shelf/drizzle/drizzle.schema.ts");
-			expect(paths).toContain("apps/worker/src/features/book-shelf/drizzle/migrations/migrations.js");
-			expect(paths).toContain("apps/worker/src/features/book-shelf/drizzle/migrations/meta/_journal.json");
+			expect(paths).toContain(
+				"apps/worker/src/features/book-shelf/drizzle/migrations/migrations.js",
+			);
+			expect(paths).toContain(
+				"apps/worker/src/features/book-shelf/drizzle/migrations/meta/_journal.json",
+			);
 		});
 	});
 });

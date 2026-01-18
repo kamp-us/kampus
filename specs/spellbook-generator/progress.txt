@@ -195,8 +195,31 @@
 - Uses useKeyboard hook for all keyboard navigation
 
 **Remaining:**
-- FR-3.7: Progress display during file generation (needs integration)
-- FR-3.8: Success/error messages with colors (needs integration)
 - Drizzle-kit execution (FR-7.x)
 - Optional extras (FR-8.x)
 - Dry-run content preview (FR-9.2)
+
+---
+
+## 2026-01-17: Progress Display and Colored Messages (FR-3.7, FR-3.8)
+
+**Files changed:**
+- `apps/cli/generators/spellbook/generator.ts` (added ProgressEvent type, generateWithProgress stream)
+- `apps/cli/commands/generate/spellbook/renderApp.tsx` (added ProgressApp, sendProgressUpdate)
+- `apps/cli/commands/generate/spellbook/spellbook.ts` (integrated progress TUI)
+- `apps/cli/commands/generate/spellbook/SpellbookApp.tsx` (simplified to input/confirm phases only)
+
+**Key decisions:**
+- Generator now emits ProgressEvent stream during file creation
+- New `ProgressApp` component handles generating/success/error phases
+- `sendProgressUpdate()` uses global callback for TUI updates
+- Colors: green (#00aa00) for success, red (#ff0000) for error, yellow (#ffaa00) for warnings
+- Two modes: TUI mode uses ProgressApp, --no-tui mode uses Console.log
+- Used Effect.either pattern for type-safe error handling with catchTag
+
+**Remaining:**
+- Drizzle-kit execution (FR-7.x)
+- Optional extras (FR-8.x)
+- Dry-run content preview (FR-9.2)
+- Integration tests (TEST-2.1, TEST-2.2, TEST-2.6, TEST-2.7)
+- E2E tests (TEST-3.x)

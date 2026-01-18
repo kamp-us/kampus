@@ -40,9 +40,7 @@ export const findMonorepoRoot = Effect.gen(function* () {
 
 		const parent = dir.substring(0, dir.lastIndexOf("/"));
 		if (parent === dir || parent === "") {
-			return yield* Effect.fail(
-				new Error("Could not find monorepo root (pnpm-workspace.yaml)"),
-			);
+			return yield* Effect.fail(new Error("Could not find monorepo root (pnpm-workspace.yaml)"));
 		}
 		dir = parent;
 	}
