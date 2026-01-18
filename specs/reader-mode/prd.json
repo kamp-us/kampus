@@ -50,7 +50,7 @@
         "turbo run typecheck passes",
         "errors importable from @kampus/web-page-parser"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "4",

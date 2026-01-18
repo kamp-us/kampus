@@ -47,3 +47,16 @@
 
 **Verification:**
 - `turbo run typecheck` ✓
+
+## 2026-01-18: Task 3 - TaggedErrors
+
+**Files changed:**
+- `packages/web-page-parser/src/errors.ts` - new file with 6 TaggedErrors
+- `packages/web-page-parser/src/index.ts` - export all errors
+
+**Errors added:**
+- FetchTimeoutError, FetchHttpError, FetchNetworkError
+- NotReadableError, ParseError, InvalidProtocolError
+
+**Verification:**
+- `turbo run typecheck` ✓
