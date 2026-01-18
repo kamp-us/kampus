@@ -14,6 +14,32 @@ import {parseHTML} from "linkedom/worker";
 
 const IMAGE_PROXY_BASE = "/api/proxy-image?url=";
 
+/**
+ * Preserve newlines in code blocks before Readability processing.
+ * Many sites (Docusaurus, etc.) render code lines as separate divs/spans.
+ * Readability collapses these to a single string, losing line breaks.
+ * This adds newlines between line-level children of pre/code elements.
+ */
+const preserveCodeBlockNewlines = (document: Document): void => {
+	for (const pre of document.querySelectorAll("pre")) {
+		const code = pre.querySelector("code");
+		const target = code || pre;
+
+		// If target has multiple child elements (line-level children), join with newlines
+		const children = Array.from(target.childNodes);
+		if (children.length > 1 && children.some((n) => n.nodeType === 1)) {
+			const lines: string[] = [];
+			for (const child of children) {
+				// Preserve leading whitespace (indentation), only trim trailing
+				const text = child.textContent?.trimEnd() ?? "";
+				if (text || lines.length > 0) lines.push(text); // Keep empty lines in middle
+			}
+			// Replace content with newline-joined text
+			target.textContent = lines.join("\n");
+		}
+	}
+};
+
 // --- Pure helpers ---
 
 const validateUrl = (url: string) =>
@@ -87,9 +113,16 @@ export const fetchReaderContent = (url: string) =>
 			return yield* Effect.fail(new NotReadableError({url}));
 		}
 
+		// Preserve newlines in code blocks before Readability collapses them
+		preserveCodeBlockNewlines(document);
+
 		// Extract with Readability
 		const article = yield* Effect.try({
-			try: () => new Readability(document.cloneNode(true) as Document, {charThreshold: 100}).parse(),
+			try: () =>
+				new Readability(document.cloneNode(true) as Document, {
+					charThreshold: 100,
+					keepClasses: true, // Preserve language-* classes on code blocks
+				}).parse(),
 			catch: (e) => new ParseError({url, message: String(e)}),
 		});
 
