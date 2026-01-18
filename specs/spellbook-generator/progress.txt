@@ -29,6 +29,10 @@
 - [x] TEST-2.3: Integration test: index.ts export insertion
 - [x] TEST-2.4: Integration test: wrangler.jsonc modification
 - [x] TEST-2.5: Integration test: wrangler.jsonc preserves comments
+- [x] FR-7.1: Execute drizzle-kit generate after schema creation
+- [x] FR-7.2: Use feature-specific drizzle.config.ts path
+- [x] FR-7.3: Display drizzle-kit output in TUI
+- [x] FR-7.4: --skip-drizzle flag skips drizzle-kit execution
 
 ## Phase 1: Command Wiring
 - [x] Create generate parent command
@@ -219,6 +223,31 @@
 
 **Remaining:**
 - Drizzle-kit execution (FR-7.x)
+- Optional extras (FR-8.x)
+- Dry-run content preview (FR-9.2)
+- Integration tests (TEST-2.1, TEST-2.2, TEST-2.6, TEST-2.7)
+- E2E tests (TEST-3.x)
+
+---
+
+## 2026-01-17: Drizzle-Kit Execution (FR-7.1, FR-7.2, FR-7.3, FR-7.4)
+
+**Files changed:**
+- `apps/cli/generators/spellbook/generator.ts` (added runDrizzleKit, drizzle progress events)
+- `apps/cli/commands/generate/spellbook/renderApp.tsx` (added drizzle_start/output/complete event handling)
+- `apps/cli/commands/generate/spellbook/spellbook.ts` (wired drizzle events to TUI and console)
+
+**Key decisions:**
+- Used `@effect/platform` Command.make for subprocess execution
+- `runDrizzleKit` function executes `pnpm exec drizzle-kit generate --config <path>`
+- Config path dynamically constructed: `${rootDir}/apps/worker/src/features/${naming.featureName}/drizzle/drizzle.config.ts`
+- New progress event types: `drizzle_start`, `drizzle_output`, `drizzle_complete`
+- Output lines split and emitted individually for TUI streaming
+- Error handling wraps failures in success object with error message
+- `options.skipDrizzle` check prevents execution when flag is set
+- Both TUI and non-TUI modes display drizzle output
+
+**Remaining:**
 - Optional extras (FR-8.x)
 - Dry-run content preview (FR-9.2)
 - Integration tests (TEST-2.1, TEST-2.2, TEST-2.6, TEST-2.7)

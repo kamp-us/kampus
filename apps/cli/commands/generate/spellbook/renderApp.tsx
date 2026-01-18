@@ -77,6 +77,30 @@ const ProgressApp = ({naming, dryRun, onDone}: ProgressAppProps) => {
 						? {...p, progress: [...p.progress, `✓ ${event.name} (updated)`]}
 						: p,
 				);
+			} else if (event.type === "drizzle_start") {
+				setPhase((p) =>
+					p.type === "generating"
+						? {...p, progress: [...p.progress, "", "Running drizzle-kit generate..."]}
+						: p,
+				);
+			} else if (event.type === "drizzle_output") {
+				setPhase((p) =>
+					p.type === "generating"
+						? {...p, progress: [...p.progress, `  ${event.line}`]}
+						: p,
+				);
+			} else if (event.type === "drizzle_complete") {
+				setPhase((p) =>
+					p.type === "generating"
+						? {
+								...p,
+								progress: [
+									...p.progress,
+									event.success ? "✓ drizzle-kit complete" : "✗ drizzle-kit failed",
+								],
+							}
+						: p,
+				);
 			} else if (event.type === "complete") {
 				setPhase({type: "success", naming: event.naming, files: event.files});
 			} else if (event.type === "error") {
@@ -156,6 +180,9 @@ const ProgressApp = ({naming, dryRun, onDone}: ProgressAppProps) => {
 export type ProgressUpdateEvent =
 	| {type: "file"; path: string}
 	| {type: "integration"; name: string}
+	| {type: "drizzle_start"}
+	| {type: "drizzle_output"; line: string}
+	| {type: "drizzle_complete"; success: boolean}
 	| {type: "complete"; naming: Naming; files: GeneratedFile[]}
 	| {type: "error"; message: string};
 

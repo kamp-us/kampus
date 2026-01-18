@@ -1,4 +1,4 @@
-import {FileSystem, Path} from "@effect/platform";
+import {Command, CommandExecutor, FileSystem, Path} from "@effect/platform";
 import type {PlatformError} from "@effect/platform/Error";
 import {Effect, Stream} from "effect";
 import {updateWorkerIndex, updateWorkerPackageJson, updateWranglerJsonc} from "./integrations";
@@ -15,6 +15,9 @@ export interface GeneratedFile {
 export type ProgressEvent =
 	| {type: "file_written"; path: string}
 	| {type: "integration_updated"; name: string}
+	| {type: "drizzle_start"}
+	| {type: "drizzle_output"; line: string}
+	| {type: "drizzle_complete"; success: boolean}
 	| {type: "complete"; naming: Naming; files: GeneratedFile[]};
 
 /**
@@ -156,6 +159,21 @@ export const generate = (rootDir: string, options: GeneratorOptions, columns: Co
 	});
 
 /**
+ * Runs drizzle-kit generate for the feature.
+ * Returns the output as a string.
+ */
+export const runDrizzleKit = (rootDir: string, naming: Naming) =>
+	Effect.gen(function* () {
+		const configPath = `${rootDir}/apps/worker/src/features/${naming.featureName}/drizzle/drizzle.config.ts`;
+
+		const command = Command.make("pnpm", "exec", "drizzle-kit", "generate", "--config", configPath);
+
+		const output = yield* Command.string(command);
+
+		return output;
+	});
+
+/**
  * Generator that emits progress events as a stream.
  * Used by TUI to show real-time progress.
  */
@@ -164,7 +182,7 @@ export const generateWithProgress = (
 	options: GeneratorOptions,
 	columns: Column[],
 ) =>
-	Stream.asyncEffect<ProgressEvent, PlatformError, FileSystem.FileSystem | Path.Path>((emit) =>
+	Stream.asyncEffect<ProgressEvent, PlatformError, FileSystem.FileSystem | Path.Path | CommandExecutor.CommandExecutor>((emit) =>
 		Effect.gen(function* () {
 			const naming = deriveNaming(options.featureName, options.table, options.idPrefix);
 			const files = generateFiles(naming, columns);
@@ -208,6 +226,25 @@ export const generateWithProgress = (
 				const updatedWorkerPackageJson = updateWorkerPackageJson(naming, workerPackageJsonContent);
 				yield* fs.writeFileString(workerPackageJsonPath, updatedWorkerPackageJson);
 				emit.single({type: "integration_updated", name: "apps/worker/package.json"});
+			}
+
+			// Run drizzle-kit generate (unless skipped)
+			if (!options.skipDrizzle) {
+				emit.single({type: "drizzle_start"});
+
+				const drizzleResult = yield* runDrizzleKit(rootDir, naming).pipe(
+					Effect.map((output) => ({success: true, output})),
+					Effect.catchAll((error) =>
+						Effect.succeed({success: false, output: String(error)}),
+					),
+				);
+
+				// Emit each line of output
+				for (const line of drizzleResult.output.split("\n").filter(Boolean)) {
+					emit.single({type: "drizzle_output", line});
+				}
+
+				emit.single({type: "drizzle_complete", success: drizzleResult.success});
 			}
 
 			emit.single({type: "complete", naming, files});

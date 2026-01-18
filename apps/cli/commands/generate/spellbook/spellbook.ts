@@ -65,6 +65,16 @@ const runGenerator = (
 						yield* Console.log(`  ✓ ${event.path}`);
 					} else if (event.type === "integration_updated") {
 						yield* Console.log(`  ✓ ${event.name} (updated)`);
+					} else if (event.type === "drizzle_start") {
+						yield* Console.log("\nRunning drizzle-kit generate...");
+					} else if (event.type === "drizzle_output") {
+						yield* Console.log(`  ${event.line}`);
+					} else if (event.type === "drizzle_complete") {
+						if (event.success) {
+							yield* Console.log("✓ drizzle-kit complete");
+						} else {
+							yield* Console.log("✗ drizzle-kit failed");
+						}
 					} else if (event.type === "complete") {
 						if (args.dryRun) {
 							yield* Console.log("\n[Dry Run] No files were written.");
@@ -87,6 +97,12 @@ const runGenerator = (
 						sendProgressUpdate({type: "file", path: event.path});
 					} else if (event.type === "integration_updated") {
 						sendProgressUpdate({type: "integration", name: event.name});
+					} else if (event.type === "drizzle_start") {
+						sendProgressUpdate({type: "drizzle_start"});
+					} else if (event.type === "drizzle_output") {
+						sendProgressUpdate({type: "drizzle_output", line: event.line});
+					} else if (event.type === "drizzle_complete") {
+						sendProgressUpdate({type: "drizzle_complete", success: event.success});
 					} else if (event.type === "complete") {
 						sendProgressUpdate({type: "complete", naming: event.naming, files: event.files});
 					}
