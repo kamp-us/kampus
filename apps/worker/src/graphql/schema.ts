@@ -52,6 +52,32 @@ const UrlMetadataType = new GraphQLObjectType({
 });
 
 // =============================================================================
+// Reader Mode Types
+// =============================================================================
+
+const ReaderContentType = new GraphQLObjectType({
+	name: "ReaderContent",
+	fields: {
+		title: {type: new GraphQLNonNull(GraphQLString)},
+		content: {type: new GraphQLNonNull(GraphQLString)},
+		byline: {type: GraphQLString},
+		siteName: {type: GraphQLString},
+		wordCount: {type: new GraphQLNonNull(GraphQLInt)},
+		readingTimeMinutes: {type: new GraphQLNonNull(GraphQLInt)},
+		excerpt: {type: GraphQLString},
+	},
+});
+
+const ReaderResultType = new GraphQLObjectType({
+	name: "ReaderResult",
+	fields: {
+		readable: {type: new GraphQLNonNull(GraphQLBoolean)},
+		content: {type: ReaderContentType},
+		error: {type: GraphQLString},
+	},
+});
+
+// =============================================================================
 // Node Interface (Relay)
 // =============================================================================
 

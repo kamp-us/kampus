@@ -1,0 +1,12 @@
+## 2026-01-18: Add ReaderContent/ReaderResult GraphQL types (task-1)
+
+Files changed:
+- apps/worker/src/graphql/schema.ts
+
+Changes:
+- Added ReaderContentType with fields: title, content, byline, siteName, wordCount, readingTimeMinutes, excerpt
+- Added ReaderResultType with fields: readable, content, error
+- Types placed after UrlMetadataType, before Node interface section
+
+Verified:
+- tsc --noEmit passes

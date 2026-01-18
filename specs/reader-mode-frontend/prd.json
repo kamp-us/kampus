@@ -9,7 +9,7 @@
       "ReaderResultType defined with fields: readable, content, error",
       "turbo run typecheck passes"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "id": "task-2",
