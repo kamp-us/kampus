@@ -3,6 +3,7 @@
 import {Command} from "@effect/cli";
 import {BunContext, BunRuntime} from "@effect/platform-bun";
 import {Console, Effect, Layer} from "effect";
+import {generate} from "../commands/generate/generate";
 import {gql} from "../commands/gql";
 import {login} from "../commands/login";
 import {KampusStateStorage} from "../services/KampusStateStorage";
@@ -12,7 +13,7 @@ const command = Command.make("kampus", {}, () =>
 	Effect.gen(function* () {
 		yield* Console.log("kampus cli - use a subcommand to get started");
 	}),
-).pipe(Command.withSubcommands([login, gql]));
+).pipe(Command.withSubcommands([login, gql, generate]));
 
 // Set up the CLI application
 const cli = Command.run(command, {
