@@ -65,7 +65,7 @@
         "Check `apps/worker/src/features/book-shelf/BookShelf.ts`",
         "All new functionality is covered by tests"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FR-2.2",
@@ -77,7 +77,7 @@
         "Table name should be `book_shelf`",
         "All new functionality is covered by tests"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FR-2.3",
@@ -89,7 +89,7 @@
         "Binding name should be `BOOK_SHELF`",
         "All new functionality is covered by tests"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FR-2.4",
@@ -102,7 +102,7 @@
         "Verify `id('bs')` is used in schema",
         "All new functionality is covered by tests"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FR-2.5",
@@ -114,7 +114,7 @@
         "Table name should be `custom_books` not `book_shelf`",
         "All new functionality is covered by tests"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FR-2.6",
@@ -126,7 +126,7 @@
         "ID prefix should be `bk` not auto-derived value",
         "All new functionality is covered by tests"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FR-3.1",
@@ -252,7 +252,7 @@
         "Contains required dependencies (@effect/rpc, effect)",
         "All new functionality is covered by tests"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FR-4.2",
@@ -263,7 +263,7 @@
         "Contains `\"extends\": \"../../tsconfig.json\"`",
         "All new functionality is covered by tests"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FR-4.3",
@@ -276,7 +276,7 @@
         "Exports from ./schema.js",
         "All new functionality is covered by tests"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FR-4.4",
@@ -288,7 +288,7 @@
         "Contains commented example of Schema.TaggedError",
         "All new functionality is covered by tests"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FR-4.5",
@@ -301,7 +301,7 @@
         "Exports entity type",
         "All new functionality is covered by tests"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FR-4.6",
@@ -315,7 +315,7 @@
         "Exports RpcGroup type",
         "All new functionality is covered by tests"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FR-5.1",
@@ -328,7 +328,7 @@
         "Exports const <Feature> = Spellbook.make({...})",
         "All new functionality is covered by tests"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FR-5.2",
@@ -342,7 +342,7 @@
         "Handlers query drizzle schema correctly",
         "All new functionality is covered by tests"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FR-5.3",
@@ -357,7 +357,7 @@
         "out path points to migrations/",
         "All new functionality is covered by tests"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FR-5.4",
@@ -374,7 +374,7 @@
         "Contains index on createdAt",
         "All new functionality is covered by tests"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FR-5.5",
@@ -388,7 +388,7 @@
         "_journal.json has version, dialect, and empty entries",
         "All new functionality is covered by tests"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FR-6.1",
@@ -400,7 +400,7 @@
         "File still passes typecheck",
         "All new functionality is covered by tests"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FR-6.2",
@@ -412,7 +412,7 @@
         "Binding has class_name: <Feature> (PascalCase)",
         "All new functionality is covered by tests"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FR-6.3",
@@ -424,7 +424,7 @@
         "Migration has new_sqlite_classes: [<Feature>]",
         "All new functionality is covered by tests"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FR-6.4",
@@ -585,7 +585,7 @@
         "No bluebun imports in spellbook command",
         "All new functionality is covered by tests"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "NFR-1.2",
@@ -609,7 +609,7 @@
         "No raw fs/node:fs imports for file operations",
         "All new functionality is covered by tests"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "NFR-1.4",
@@ -620,7 +620,7 @@
         "No raw Promise/async-await outside Effect",
         "All new functionality is covered by tests"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "NFR-1.5",

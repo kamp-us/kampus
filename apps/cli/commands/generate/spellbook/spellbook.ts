@@ -1,7 +1,10 @@
-import {Args, Command} from "@effect/cli";
-import {Console, Effect, Match} from "effect";
+import {Args, Command, Options} from "@effect/cli";
+import {Console, Effect, Match, Option} from "effect";
+import {generate} from "../../../generators/spellbook/generator";
+import type {GeneratorOptions} from "../../../generators/spellbook/types";
 import {
 	checkFeatureExists,
+	findMonorepoRoot,
 	validateFeatureName,
 } from "../../../generators/spellbook/validation";
 
@@ -9,12 +12,57 @@ export const spellbook = Command.make(
 	"spellbook",
 	{
 		featureName: Args.text({name: "feature-name"}),
+		table: Options.text("table").pipe(Options.optional),
+		idPrefix: Options.text("id-prefix").pipe(Options.optional),
+		skipWrangler: Options.boolean("skip-wrangler").pipe(Options.withDefault(false)),
+		skipIndex: Options.boolean("skip-index").pipe(Options.withDefault(false)),
+		skipDrizzle: Options.boolean("skip-drizzle").pipe(Options.withDefault(false)),
+		withTest: Options.boolean("with-test").pipe(Options.withDefault(false)),
+		withGraphql: Options.boolean("with-graphql").pipe(Options.withDefault(false)),
+		withRoute: Options.boolean("with-route").pipe(Options.withDefault(false)),
+		withAll: Options.boolean("with-all").pipe(Options.withDefault(false)),
+		dryRun: Options.boolean("dry-run").pipe(Options.withDefault(false)),
 	},
-	({featureName}) =>
+	(args) =>
 		Effect.gen(function* () {
-			yield* validateFeatureName(featureName);
-			yield* checkFeatureExists(featureName);
-			yield* Console.log(`Creating spellbook for feature: ${featureName}`);
+			yield* validateFeatureName(args.featureName);
+			yield* checkFeatureExists(args.featureName);
+
+			const rootDir = yield* findMonorepoRoot;
+
+			const options: GeneratorOptions = {
+				featureName: args.featureName,
+				table: Option.getOrUndefined(args.table),
+				idPrefix: Option.getOrUndefined(args.idPrefix),
+				skipWrangler: args.skipWrangler,
+				skipIndex: args.skipIndex,
+				skipDrizzle: args.skipDrizzle,
+				withTest: args.withTest,
+				withGraphql: args.withGraphql,
+				withRoute: args.withRoute,
+				withAll: args.withAll,
+				dryRun: args.dryRun,
+			};
+
+			// For now, use empty columns - TUI will be added later
+			const columns: {name: string; type: "text" | "integer" | "boolean" | "timestamp"; nullable: boolean}[] = [];
+
+			yield* Console.log(`Creating spellbook for feature: ${args.featureName}...`);
+
+			const result = yield* generate(rootDir, options, columns);
+
+			if (args.dryRun) {
+				yield* Console.log("\n[Dry Run] Files that would be created:");
+				for (const file of result.files) {
+					yield* Console.log(`  - ${file.path}`);
+				}
+			} else {
+				yield* Console.log("\nFiles created:");
+				for (const file of result.files) {
+					yield* Console.log(`  ✓ ${file.path}`);
+				}
+				yield* Console.log(`\nSpellbook "${result.naming.className}" created successfully!`);
+			}
 		}).pipe(
 			Effect.catchAll((error) =>
 				Match.value(error).pipe(

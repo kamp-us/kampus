@@ -115,3 +115,28 @@
 - `updateWranglerJsonc`: Uses jsonc-parser `parseTree`, `modify`, `applyEdits`
 - Tests use mock content strings, no filesystem mocking needed
 - 8 tests covering: export insertion, binding addition, migration tag increment, comment preservation
+
+---
+
+## 2026-01-17: File Generation (FR-2.1-2.6, FR-4.1-4.6, FR-5.1-5.5, FR-6.1-6.3, NFR-1.1, NFR-1.3, NFR-1.4)
+
+**Files changed:**
+- `apps/cli/generators/spellbook/generator.ts` (new)
+- `apps/cli/generators/spellbook/generator.test.ts` (new)
+- `apps/cli/generators/spellbook/validation.ts` (modified - exported findMonorepoRoot)
+- `apps/cli/commands/generate/spellbook/spellbook.ts` (modified - wired generator)
+
+**Key decisions:**
+- `generateFiles`: Pure function returning array of {path, content} objects
+- `writeFiles`: Effect function using FileSystem.FileSystem + Path.Path services
+- `updateIntegrations`: Effect function updating index.ts and wrangler.jsonc
+- `generate`: Main orchestrator combining all steps
+- All file writes through @effect/platform, no raw fs imports
+- Added 25 comprehensive tests covering all naming conventions and file output
+- Total: 127 tests passing across 6 test files
+
+**Remaining:**
+- Interactive TUI (FR-3.x) - columns hardcoded as empty for now
+- Drizzle-kit execution (FR-7.x)
+- Optional extras (FR-8.x)
+- Dry-run content preview (FR-9.2)
