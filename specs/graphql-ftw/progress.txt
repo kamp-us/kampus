@@ -483,3 +483,26 @@ TagManagement.tsx was already migrated to Relay in previous iteration:
 **PRD Status:**
 - REFACTOR-2: passes=true
 - M2 PRD COMPLETE: All items pass
+
+## 2026-01-17: Extract WebPageParserClient Module
+
+**Files:**
+- apps/worker/src/graphql/resolvers/WebPageParserClient.ts - NEW: make(env, url) factory
+- apps/worker/src/graphql/resolvers/index.ts - added export
+- apps/worker/src/graphql/schema.ts - use WebPageParserClient.make in webPage + fetchUrlMetadata
+
+**Implementation:**
+- `WebPageParserClient.make(env, url)` returns Effect with getMetadata() method
+- Encapsulates URL normalization + DO init internally
+- Stateless public API (DO handles caching internally)
+- Both webPage and fetchUrlMetadata resolvers use clean pattern
+
+**Design Decision:**
+Simple `make()` function, not Context.Tag + Layer pattern. Rationale:
+- WebPageParser needs URL at creation time (can't inject as service)
+- Stateless from caller's perspective (cache is internal DO detail)
+- On-demand client creation per-URL is the right pattern here
+
+**Verified:**
+- `turbo run typecheck --filter=worker` passes
+- `pnpm --filter worker run test` passes (82 tests)

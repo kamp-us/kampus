@@ -71,7 +71,8 @@ apps/worker/src/
 │       ├── index.ts          # NEW: barrel export
 │       ├── StoryResolver.ts  # NEW: batched story lookups
 │       ├── TagResolver.ts    # NEW: batched tag lookups
-│       └── LibraryClient.ts  # NEW: Spellcaster service
+│       ├── LibraryClient.ts  # NEW: Spellcaster service (Context.Tag)
+│       └── WebPageParserClient.ts # NEW: make(env, url) factory
 ├── features/library/
 │   ├── Library.ts            # existing DO
 │   └── handlers.ts           # flatten exports, add batch
@@ -169,6 +170,57 @@ export const makeLibraryClientLayer = (env: Env, userId: string) =>
     })
   )
 ```
+
+### WebPageParserClient (make pattern)
+
+Unlike LibraryClient, WebPageParserClient uses a simple `make()` factory instead of Context.Tag + Layer.
+
+**Why different patterns:**
+- LibraryClient is keyed by userId (known at request start, same for entire request)
+- WebPageParserClient is keyed by URL (different per-call, resolved dynamically)
+
+```typescript
+// apps/worker/src/graphql/resolvers/WebPageParserClient.ts
+import {WebPageParserRpcs} from "@kampus/web-page-parser"
+import {Effect} from "effect"
+import {getNormalizedUrl} from "../../features/library/getNormalizedUrl"
+import * as Spellcaster from "../../shared/Spellcaster"
+
+export interface WebPageMetadata {
+  title: string | null
+  description: string | null
+}
+
+// Simple make() factory - returns Effect with initialized client
+export const make = (env: Env, url: string) =>
+  Effect.gen(function* () {
+    const normalizedUrl = getNormalizedUrl(url)
+    const client = yield* Spellcaster.make({
+      rpcs: WebPageParserRpcs,
+      stub: env.WEB_PAGE_PARSER.get(env.WEB_PAGE_PARSER.idFromName(normalizedUrl)),
+    })
+    yield* client.init({url})  // init encapsulated here
+
+    return {
+      getMetadata: (): Effect.Effect<WebPageMetadata> =>
+        Effect.gen(function* () {
+          const metadata = yield* client.getMetadata({})
+          return {
+            title: metadata.title || null,
+            description: metadata.description || null,
+          }
+        }),
+    }
+  })
+
+export const WebPageParserClient = {make}
+```
+
+**Key design decisions:**
+- Encapsulates `init()` call - callers just get metadata
+- Handles URL normalization internally
+- Returns Effect (not Layer) - created on-demand per URL
+- Stateless from caller's perspective (DO caches internally)
 
 ### Effect Request Types
 
@@ -393,14 +445,10 @@ const LibraryType = new GraphQLObjectType({
       type: WebPageType,
       args: {url: {type: new GraphQLNonNull(GraphQLString)}},
       resolve: resolver(function* (_, {url}: {url: string}) {
-        // Route to WebPageParser DO
         const env = yield* CloudflareEnv
-        const client = yield* Spellcaster.make({
-          rpcs: WebPageParserRpcs,
-          stub: env.WEB_PAGE_PARSER.get(env.WEB_PAGE_PARSER.idFromName(url))
-        })
-        yield* client.init({url})
-        return yield* client.getMetadata({})
+        const client = yield* WebPageParserClient.make(env, url)
+        const metadata = yield* client.getMetadata()
+        return {url, title: metadata.title, description: metadata.description, error: null}
       }),
     },
   },
