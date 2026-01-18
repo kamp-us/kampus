@@ -645,7 +645,7 @@
         "No errors or warnings",
         "All new functionality is covered by tests"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "NFR-2.2",
@@ -657,7 +657,7 @@
         "No TypeScript errors in generated files",
         "All new functionality is covered by tests"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "NFR-2.3",

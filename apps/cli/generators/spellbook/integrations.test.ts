@@ -1,5 +1,5 @@
 import {describe, expect, test} from "bun:test";
-import {updateWorkerIndex, updateWranglerJsonc} from "./integrations";
+import {updateWorkerIndex, updateWorkerPackageJson, updateWranglerJsonc} from "./integrations";
 import type {Naming} from "./types";
 
 const bookShelfNaming: Naming = {
@@ -145,5 +145,57 @@ describe("updateWranglerJsonc", () => {
 		const result = updateWranglerJsonc(bookShelfNaming, content);
 
 		expect(result).toContain('"tag": "v1"');
+	});
+});
+
+describe("updateWorkerPackageJson", () => {
+	test("adds dependency to package.json", () => {
+		const content = `{
+	"name": "worker",
+	"dependencies": {
+		"@kampus/library": "workspace:*"
+	}
+}
+`;
+
+		const result = updateWorkerPackageJson(bookShelfNaming, content);
+		const pkg = JSON.parse(result);
+
+		expect(pkg.dependencies["@kampus/book-shelf"]).toBe("workspace:*");
+	});
+
+	test("sorts dependencies alphabetically", () => {
+		const content = `{
+	"name": "worker",
+	"dependencies": {
+		"zod": "^3.0.0",
+		"@kampus/library": "workspace:*"
+	}
+}
+`;
+
+		const result = updateWorkerPackageJson(bookShelfNaming, content);
+		const depKeys = Object.keys(JSON.parse(result).dependencies);
+
+		expect(depKeys[0]).toBe("@kampus/book-shelf");
+		expect(depKeys[1]).toBe("@kampus/library");
+		expect(depKeys[2]).toBe("zod");
+	});
+
+	test("does not duplicate existing dependency", () => {
+		const content = `{
+	"name": "worker",
+	"dependencies": {
+		"@kampus/book-shelf": "workspace:*",
+		"@kampus/library": "workspace:*"
+	}
+}
+`;
+
+		const result = updateWorkerPackageJson(bookShelfNaming, content);
+
+		// Should return unchanged (or at least not duplicate)
+		const pkg = JSON.parse(result);
+		expect(Object.keys(pkg.dependencies).filter((k) => k === "@kampus/book-shelf").length).toBe(1);
 	});
 });

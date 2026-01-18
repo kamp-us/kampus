@@ -101,14 +101,14 @@ describe("indexTs template", () => {
 });
 
 describe("errorsTs template", () => {
-	test("imports from effect", () => {
-		const result = errorsTs();
-		expect(result).toContain('import {Schema} from "effect"');
-	});
-
 	test("contains example error comment", () => {
 		const result = errorsTs();
 		expect(result).toContain("Schema.TaggedError");
+	});
+
+	test("has placeholder export", () => {
+		const result = errorsTs();
+		expect(result).toContain("export {}");
 	});
 });
 

@@ -87,9 +87,7 @@ ${columnDefs}
 			.$defaultFn(() => new Date()),
 		updatedAt: timestamp("updated_at"),
 	},
-	(table) => [
-		index("idx_${naming.tableName}_created_at").on(table.createdAt),
-	],
+	(table) => [index("idx_${naming.tableName}_created_at").on(table.createdAt)],
 );
 `;
 };

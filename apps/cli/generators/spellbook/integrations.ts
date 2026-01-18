@@ -2,6 +2,32 @@ import {applyEdits, modify, parseTree} from "jsonc-parser";
 import type {Naming} from "./types";
 
 /**
+ * Updates worker's package.json to add the new package as a dependency.
+ * Returns the updated file content.
+ */
+export const updateWorkerPackageJson = (naming: Naming, content: string): string => {
+	const pkg = JSON.parse(content);
+	const depKey = naming.packageName;
+
+	// Check if already exists
+	if (pkg.dependencies?.[depKey]) {
+		return content;
+	}
+
+	// Add dependency
+	if (!pkg.dependencies) {
+		pkg.dependencies = {};
+	}
+	pkg.dependencies[depKey] = "workspace:*";
+
+	// Sort dependencies alphabetically for consistency
+	const sortedDeps = Object.fromEntries(Object.entries(pkg.dependencies).sort(([a], [b]) => a.localeCompare(b)));
+	pkg.dependencies = sortedDeps;
+
+	return JSON.stringify(pkg, null, "\t") + "\n";
+};
+
+/**
  * Updates worker/src/index.ts to export the new DO class.
  * Returns the updated file content.
  */

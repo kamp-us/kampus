@@ -1,6 +1,6 @@
 import {FileSystem, Path} from "@effect/platform";
 import {Effect} from "effect";
-import {updateWranglerJsonc, updateWorkerIndex} from "./integrations";
+import {updateWorkerPackageJson, updateWranglerJsonc, updateWorkerIndex} from "./integrations";
 import {deriveNaming} from "./naming";
 import * as packageTemplates from "./templates/package";
 import * as workerTemplates from "./templates/worker";
@@ -70,7 +70,7 @@ export const writeFiles = (rootDir: string, files: GeneratedFile[]) =>
 	});
 
 /**
- * Updates existing project files (index.ts, wrangler.jsonc).
+ * Updates existing project files (index.ts, wrangler.jsonc, package.json).
  */
 export const updateIntegrations = (rootDir: string, naming: Naming) =>
 	Effect.gen(function* () {
@@ -88,6 +88,12 @@ export const updateIntegrations = (rootDir: string, naming: Naming) =>
 		const wranglerContent = yield* fs.readFileString(wranglerPath);
 		const updatedWrangler = updateWranglerJsonc(naming, wranglerContent);
 		yield* fs.writeFileString(wranglerPath, updatedWrangler);
+
+		// Update worker package.json to add dependency
+		const workerPackageJsonPath = path.join(rootDir, "apps/worker/package.json");
+		const workerPackageJsonContent = yield* fs.readFileString(workerPackageJsonPath);
+		const updatedWorkerPackageJson = updateWorkerPackageJson(naming, workerPackageJsonContent);
+		yield* fs.writeFileString(workerPackageJsonPath, updatedWorkerPackageJson);
 	});
 
 /**

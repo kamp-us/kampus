@@ -57,12 +57,15 @@ export {${naming.className}Rpcs} from "./rpc.js";
 export * from "./schema.js";
 `;
 
-export const errorsTs = (): string => `import {Schema} from "effect";
-
-// Example tagged error - uncomment and modify as needed:
+export const errorsTs = (): string => `// Add custom errors for this feature here.
+// Example:
+// import {Schema} from "effect";
 // export class MyError extends Schema.TaggedError<MyError>()("MyError", {
 // 	message: Schema.String,
 // }) {}
+
+// Placeholder export to make this a valid module
+export {};
 `;
 
 export const schemaTs = (naming: Naming, columns: Column[]): string => {
