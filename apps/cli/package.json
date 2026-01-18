@@ -14,6 +14,7 @@
 		"@opentui/react": "catalog:",
 		"bluebun": "catalog:",
 		"effect": "catalog:",
+		"jsonc-parser": "catalog:",
 		"react": "catalog:"
 	},
 	"devDependencies": {
