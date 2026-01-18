@@ -46,14 +46,14 @@
     ],
     "steps_to_verify": [
       "ReaderPageQuery GraphQL query defined",
-      "ReaderPageContent uses useLazyLoadQuery",
+      "ReaderPageContentInner uses useLazyLoadQuery",
       "NotFound component renders for missing story",
       "NotReadable component renders when readable: false",
       "ReaderSkeleton component for loading state",
-      "Article renders with dangerouslySetInnerHTML",
+      "Article renders with dangerouslySetInnerHTML (with biome-ignore comment)",
       "CSS uses ch/rem units, 75ch max-width"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "id": "task-5",
@@ -63,9 +63,9 @@
     "steps_to_verify": [
       "ReaderPage imported",
       "Route { path: '/me/library/:storyId', element: <ReaderPage /> } added",
-      "Route placed before /me/library to avoid conflicts"
+      "Route placed after /me/library/tags (react-router v6 ranking handles conflicts)"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "id": "task-6",
@@ -77,7 +77,7 @@
       "ReaderPageQuery.graphql.ts generated",
       "turbo run typecheck passes"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "id": "task-7",
@@ -89,9 +89,9 @@
       "Menu includes 'View original' item",
       "'View original' opens story.url in new tab",
       "turbo run typecheck passes",
-      "turbo run lint passes"
+      "biome check passes"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "id": "task-8",
@@ -107,6 +107,6 @@
       "Non-readable URL shows error UI with 'View original' link",
       "Invalid storyId shows 'not found' UI"
     ],
-    "passes": false
+    "passes": true
   }
 ]

@@ -19,3 +19,4 @@ Feature directory with completion status. Each feature follows the [spec-driven 
 - [x] **[graphql-ftw](./graphql-ftw/)** - GraphQL + Relay data layer replacing effect-atom RPC
 - [x] **[spellbook-generator](./spellbook-generator/)** - Rails-style CLI generator for Spellbook scaffolding
 - [x] **[reader-mode](./reader-mode/)** - Instapaper-like clean content extraction for web pages
+- [x] **[reader-mode-frontend](./reader-mode-frontend/)** - Frontend reader view page for extracted article content

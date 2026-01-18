@@ -735,15 +735,13 @@ function StoryRow({
 		<article className={styles.storyRow}>
 			<div className={styles.storyContent}>
 				<div className={styles.storyMain}>
-					<a
-						href={story.url}
-						target="_blank"
-						rel="noopener noreferrer"
+					<Link
+						to={`/me/library/${story.id}`}
 						className={styles.storyTitle}
 						title={story.description ?? undefined}
 					>
 						{story.title}
-					</a>
+					</Link>
 					<div className={styles.storyMeta}>
 						{domain} · {relativeDate}
 					</div>
@@ -765,6 +763,9 @@ function StoryRow({
 					<Menu.Portal>
 						<Menu.Positioner>
 							<Menu.Popup>
+								<Menu.Item onClick={() => window.open(story.url, "_blank")}>
+									View original
+								</Menu.Item>
 								<Menu.Item onClick={handleEdit}>Edit</Menu.Item>
 								<Menu.Separator />
 								<Menu.Item data-danger onClick={() => setDeleteDialogOpen(true)}>

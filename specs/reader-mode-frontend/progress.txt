@@ -36,3 +36,32 @@ Changes:
 
 Verified:
 - turbo run typecheck passes
+
+## 2026-01-18: Frontend implementation (task-4, task-5, task-6, task-7, task-8)
+
+Files changed:
+- apps/kamp-us/src/pages/library/ReaderPage.tsx (new)
+- apps/kamp-us/src/pages/library/ReaderPage.module.css (new)
+- apps/kamp-us/src/main.tsx (route added)
+- apps/kamp-us/src/pages/Library.tsx (StoryRow updated)
+- apps/kamp-us/schema.graphql (fetched updated schema)
+- apps/kamp-us/src/__generated__/ReaderPageQuery.graphql.ts (generated)
+
+Changes:
+- Created ReaderPage component with ReaderPageQuery GraphQL query
+- Split into ReaderPageContent (param validation) and ReaderPageContentInner (data fetching)
+- NotFound, NotReadable, ReaderSkeleton components for error/loading states
+- CSS uses ch/rem units, 75ch max-width for readable typography
+- Added route /me/library/:storyId after /me/library/tags
+- StoryRow title now uses <Link> to reader page instead of <a> to external URL
+- Added "View original" menu item that opens story.url in new tab
+
+Decisions:
+- Used wrapper component pattern to avoid hook-before-conditional-return issue
+- Added biome-ignore for dangerouslySetInnerHTML (content from Readability is sanitized)
+- Removed :global() CSS syntax; biome doesn't support it, used plain descendant selectors
+
+Verified:
+- turbo run typecheck passes
+- biome check passes
+- Playwright tests: library links work, reader page loads, not-found/not-readable states work, back navigation works
