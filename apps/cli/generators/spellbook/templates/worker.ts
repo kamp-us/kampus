@@ -118,3 +118,23 @@ export const journalJson = (): string => `{
 	"entries": []
 }
 `;
+
+export const testSpecTs = (
+	naming: Naming,
+): string => `import {env} from "cloudflare:test";
+import {describe, expect, it} from "vitest";
+
+describe("${naming.className}", () => {
+	const get${naming.className} = (name: string) => {
+		const id = env.${naming.bindingName}.idFromName(name);
+		return env.${naming.bindingName}.get(id);
+	};
+
+	describe("basic operations", () => {
+		it("initializes correctly", async () => {
+			const stub = get${naming.className}("test-instance");
+			expect(stub).toBeDefined();
+		});
+	});
+});
+`;

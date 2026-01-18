@@ -8,6 +8,7 @@ import {
 	handlersTs,
 	journalJson,
 	migrationsJs,
+	testSpecTs,
 } from "./worker";
 
 const mockNaming: Naming = {
@@ -243,5 +244,37 @@ describe("journalJson template", () => {
 	test("has empty entries", () => {
 		const result = journalJson();
 		expect(result).toContain('"entries": []');
+	});
+});
+
+describe("testSpecTs template", () => {
+	test("imports from cloudflare:test", () => {
+		const result = testSpecTs(mockNaming);
+		expect(result).toContain('import {env} from "cloudflare:test"');
+	});
+
+	test("imports vitest", () => {
+		const result = testSpecTs(mockNaming);
+		expect(result).toContain('import {describe, expect, it} from "vitest"');
+	});
+
+	test("creates describe block with class name", () => {
+		const result = testSpecTs(mockNaming);
+		expect(result).toContain('describe("BookShelf"');
+	});
+
+	test("creates helper to get DO stub", () => {
+		const result = testSpecTs(mockNaming);
+		expect(result).toContain("const getBookShelf = (name: string)");
+		expect(result).toContain("env.BOOK_SHELF.idFromName(name)");
+		expect(result).toContain("env.BOOK_SHELF.get(id)");
+	});
+
+	test("includes basic test structure", () => {
+		const result = testSpecTs(mockNaming);
+		expect(result).toContain('describe("basic operations"');
+		expect(result).toContain('it("initializes correctly"');
+		expect(result).toContain('getBookShelf("test-instance")');
+		expect(result).toContain("expect(stub).toBeDefined()");
 	});
 });

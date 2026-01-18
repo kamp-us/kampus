@@ -33,6 +33,7 @@
 - [x] FR-7.2: Use feature-specific drizzle.config.ts path
 - [x] FR-7.3: Display drizzle-kit output in TUI
 - [x] FR-7.4: --skip-drizzle flag skips drizzle-kit execution
+- [x] FR-8.1: --with-test creates test file
 
 ## Phase 1: Command Wiring
 - [x] Create generate parent command
@@ -250,5 +251,30 @@
 **Remaining:**
 - Optional extras (FR-8.x)
 - Dry-run content preview (FR-9.2)
+- Integration tests (TEST-2.1, TEST-2.2, TEST-2.6, TEST-2.7)
+- E2E tests (TEST-3.x)
+
+---
+
+## 2026-01-17: --with-test Flag (FR-8.1)
+
+**Files changed:**
+- `apps/cli/generators/spellbook/templates/worker.ts` (added testSpecTs template)
+- `apps/cli/generators/spellbook/templates/worker.test.ts` (added tests for testSpecTs)
+- `apps/cli/generators/spellbook/generator.ts` (updated generateFiles to accept options, include test file)
+- `apps/cli/generators/spellbook/generator.test.ts` (added FR-8.1 tests)
+
+**Key decisions:**
+- `testSpecTs(naming)` generates cloudflare:test + vitest test file
+- Test file at `apps/worker/test/<feature>.spec.ts`
+- Includes helper `get<Feature>(name)` to get DO stub
+- Basic describe/it structure for initialization test
+- `generateFiles` now accepts optional `GeneratorOptions` to conditionally include test file
+- Test file included when `options.withTest || options.withAll`
+- 139 tests passing
+
+**Remaining:**
+- FR-8.2 (--with-graphql), FR-8.3 (--with-route), FR-8.4 (--with-all complete)
+- Dry-run (FR-9.x)
 - Integration tests (TEST-2.1, TEST-2.2, TEST-2.6, TEST-2.7)
 - E2E tests (TEST-3.x)

@@ -24,11 +24,11 @@ export type ProgressEvent =
  * Generates all file contents for a spellbook feature.
  * Pure function - no side effects.
  */
-export const generateFiles = (naming: Naming, columns: Column[]): GeneratedFile[] => {
+export const generateFiles = (naming: Naming, columns: Column[], options?: GeneratorOptions): GeneratedFile[] => {
 	const packageDir = `packages/${naming.featureName}`;
 	const workerDir = `apps/worker/src/features/${naming.featureName}`;
 
-	return [
+	const files: GeneratedFile[] = [
 		// Package layer
 		{path: `${packageDir}/package.json`, content: packageTemplates.packageJson(naming)},
 		{path: `${packageDir}/tsconfig.json`, content: packageTemplates.tsconfigJson()},
@@ -56,6 +56,16 @@ export const generateFiles = (naming: Naming, columns: Column[]): GeneratedFile[
 			content: workerTemplates.journalJson(),
 		},
 	];
+
+	// Optional test file
+	if (options?.withTest || options?.withAll) {
+		files.push({
+			path: `apps/worker/test/${naming.featureName}.spec.ts`,
+			content: workerTemplates.testSpecTs(naming),
+		});
+	}
+
+	return files;
 };
 
 /**
@@ -140,7 +150,7 @@ export const generate = (rootDir: string, options: GeneratorOptions, columns: Co
 		const naming = deriveNaming(options.featureName, options.table, options.idPrefix);
 
 		// Generate file contents
-		const files = generateFiles(naming, columns);
+		const files = generateFiles(naming, columns, options);
 
 		if (options.dryRun) {
 			// Just return the files that would be created
@@ -185,7 +195,7 @@ export const generateWithProgress = (
 	Stream.asyncEffect<ProgressEvent, PlatformError, FileSystem.FileSystem | Path.Path | CommandExecutor.CommandExecutor>((emit) =>
 		Effect.gen(function* () {
 			const naming = deriveNaming(options.featureName, options.table, options.idPrefix);
-			const files = generateFiles(naming, columns);
+			const files = generateFiles(naming, columns, options);
 
 			if (options.dryRun) {
 				// Just emit complete with files that would be created

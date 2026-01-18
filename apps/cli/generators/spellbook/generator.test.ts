@@ -286,4 +286,72 @@ describe("generateFiles", () => {
 			);
 		});
 	});
+
+	describe("FR-8.1: --with-test creates test file", () => {
+		test("test file not included by default", () => {
+			const naming = deriveNaming("book-shelf");
+			const files = generateFiles(naming, columns);
+
+			const testFile = files.find((f) => f.path.includes(".spec.ts"));
+			expect(testFile).toBeUndefined();
+		});
+
+		test("test file included when withTest is true", () => {
+			const naming = deriveNaming("book-shelf");
+			const files = generateFiles(naming, columns, {
+				featureName: "book-shelf",
+				withTest: true,
+				withGraphql: false,
+				withRoute: false,
+				withAll: false,
+				dryRun: false,
+				skipWrangler: false,
+				skipIndex: false,
+				skipDrizzle: false,
+			});
+
+			const testFile = files.find((f) => f.path.includes(".spec.ts"));
+			expect(testFile).toBeDefined();
+			expect(testFile?.path).toBe("apps/worker/test/book-shelf.spec.ts");
+		});
+
+		test("test file included when withAll is true", () => {
+			const naming = deriveNaming("book-shelf");
+			const files = generateFiles(naming, columns, {
+				featureName: "book-shelf",
+				withTest: false,
+				withGraphql: false,
+				withRoute: false,
+				withAll: true,
+				dryRun: false,
+				skipWrangler: false,
+				skipIndex: false,
+				skipDrizzle: false,
+			});
+
+			const testFile = files.find((f) => f.path.includes(".spec.ts"));
+			expect(testFile).toBeDefined();
+		});
+
+		test("test file has correct content structure", () => {
+			const naming = deriveNaming("book-shelf");
+			const files = generateFiles(naming, columns, {
+				featureName: "book-shelf",
+				withTest: true,
+				withGraphql: false,
+				withRoute: false,
+				withAll: false,
+				dryRun: false,
+				skipWrangler: false,
+				skipIndex: false,
+				skipDrizzle: false,
+			});
+
+			const testFile = files.find((f) => f.path.includes(".spec.ts"));
+			expect(testFile?.content).toContain('import {env} from "cloudflare:test"');
+			expect(testFile?.content).toContain('import {describe, expect, it} from "vitest"');
+			expect(testFile?.content).toContain('describe("BookShelf"');
+			expect(testFile?.content).toContain("env.BOOK_SHELF.idFromName");
+		});
+	});
 });

@@ -491,7 +491,7 @@
         "Test file has basic describe/it structure",
         "All new functionality is covered by tests"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FR-8.2",
