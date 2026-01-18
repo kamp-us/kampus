@@ -119,21 +119,25 @@
     {
       "id": "7",
       "category": "implementation",
-      "description": "Create proxyImage.ts with tests",
+      "description": "Create proxyImage.ts with Effect + HttpClient",
       "steps": [
         "Create apps/worker/src/features/web-page-parser/proxyImage.ts",
-        "Validate URL protocol (http/https only)",
-        "Fetch image with 10s timeout",
-        "Return response with Cache-Control header",
+        "Use HttpClient from @effect/platform",
+        "Use HttpClientRequest.get with User-Agent header",
+        "Apply Effect.timeout with Duration.seconds(10)",
+        "Map HttpClient errors to domain TaggedErrors using Effect.catchTag",
+        "Return Effect<Response, ...errors, HttpClient>",
+        "Stream response body with Cache-Control header",
         "Add tests in apps/worker/test/proxyImage.spec.ts",
-        "Test: rejects non-http protocols",
-        "Test: returns correct cache headers",
-        "Test: handles fetch errors gracefully"
+        "Test: InvalidProtocolError on file:// URL",
+        "Test: FetchTimeoutError on timeout",
+        "Test: FetchHttpError on 404/500",
+        "Test: returns correct cache headers on success"
       ],
       "verification": [
         "turbo run typecheck passes",
         "pnpm --filter worker run test passes",
-        "proxyImage tests cover validation and error cases"
+        "proxyImage tests cover all error types"
       ],
       "passes": false
     },
@@ -165,20 +169,25 @@
     {
       "id": "9",
       "category": "routing",
-      "description": "Add /api/proxy-image route with tests",
+      "description": "Add /api/proxy-image route with Effect error handling",
       "steps": [
         "Edit apps/worker/src/index.ts",
-        "Import proxyImage function",
+        "Import proxyImage, FetchHttpClient, Effect, Match",
         "Add GET /api/proxy-image route",
-        "Extract url query param, call proxyImage",
+        "Return 400 if url param missing",
+        "Run proxyImage Effect with Effect.runPromise",
+        "Convert TaggedErrors to HTTP responses using Match.value + Match.tag",
+        "Provide FetchHttpClient.layer",
         "Add integration test in apps/worker/test/proxy-image-route.spec.ts",
         "Test: returns 400 for missing url param",
-        "Test: proxies valid image URL"
+        "Test: returns 400 for invalid protocol",
+        "Test: returns 504 for timeout",
+        "Test: proxies valid image URL with cache headers"
       ],
       "verification": [
         "turbo run typecheck passes",
         "pnpm --filter worker run test passes",
-        "route tests cover param validation"
+        "route tests cover param validation and error responses"
       ],
       "passes": false
     },

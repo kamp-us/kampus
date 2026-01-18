@@ -343,55 +343,92 @@ export const handlers = {
 };
 ```
 
-### Image Proxy (`proxyImage.ts`)
+### Image Proxy (`proxyImage.ts`) (Effect + HttpClient)
 
 ```typescript
-export async function proxyImage(url: string): Promise<Response> {
-  // Validate URL
-  const parsed = new URL(url);
-  if (!["http:", "https:"].includes(parsed.protocol)) {
-    return new Response("Invalid URL protocol", {status: 400});
-  }
+import {HttpClient, HttpClientRequest} from "@effect/platform";
+import {Effect, Duration} from "effect";
+import {
+  FetchTimeoutError,
+  FetchHttpError,
+  FetchNetworkError,
+  InvalidProtocolError,
+} from "@kampus/web-page-parser";
 
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 10000);
+const validateImageUrl = (url: string) =>
+  Effect.try({
+    try: () => {
+      const parsed = new URL(url);
+      if (!["http:", "https:"].includes(parsed.protocol)) {
+        throw parsed.protocol;
+      }
+      return parsed;
+    },
+    catch: (e) => new InvalidProtocolError({url, protocol: String(e)}),
+  });
 
-  try {
-    const res = await fetch(url, {
-      signal: controller.signal,
-      headers: {
+export const proxyImage = (url: string) =>
+  Effect.gen(function* () {
+    yield* validateImageUrl(url);
+
+    const client = yield* HttpClient.HttpClient;
+
+    const request = HttpClientRequest.get(url).pipe(
+      HttpClientRequest.setHeaders({
         "User-Agent": "Mozilla/5.0 (compatible; KampusBot/1.0)",
-      },
-    });
-    clearTimeout(timeoutId);
+      }),
+    );
 
-    if (!res.ok) {
-      return new Response("Failed to fetch image", {status: res.status});
-    }
+    const response = yield* client.execute(request).pipe(
+      Effect.timeout(Duration.seconds(10)),
+      Effect.catchTag("TimeoutException", () => Effect.fail(new FetchTimeoutError({url}))),
+      Effect.catchTag("RequestError", (e) => Effect.fail(new FetchNetworkError({url, message: e.message}))),
+      Effect.catchTag("ResponseError", (e) => Effect.fail(new FetchHttpError({url, status: e.response.status}))),
+    );
 
-    // Pass through with cache headers
-    return new Response(res.body, {
+    const contentType = response.headers["content-type"] ?? "image/png";
+
+    // Stream body through with cache headers
+    return new Response(response.stream, {
       headers: {
-        "Content-Type": res.headers.get("Content-Type") || "image/png",
+        "Content-Type": contentType,
         "Cache-Control": "public, max-age=86400", // 24h
       },
     });
-  } catch {
-    clearTimeout(timeoutId);
-    return new Response("Image fetch failed", {status: 502});
-  }
-}
+  });
+
+// Type: Effect<Response, FetchTimeoutError | FetchHttpError | FetchNetworkError | InvalidProtocolError, HttpClient.HttpClient>
 ```
 
 ### Route (`index.ts`)
 
 ```typescript
+import {FetchHttpClient} from "@effect/platform";
+import {Effect, Match} from "effect";
+import {proxyImage} from "./features/web-page-parser/proxyImage";
+
 app.get("/api/proxy-image", async (c) => {
   const url = c.req.query("url");
   if (!url) {
     return c.text("Missing url parameter", 400);
   }
-  return proxyImage(decodeURIComponent(url));
+
+  const program = proxyImage(decodeURIComponent(url)).pipe(
+    Effect.catchAll((error) =>
+      Effect.succeed(
+        Match.value(error).pipe(
+          Match.tag("InvalidProtocolError", () => new Response("Invalid URL protocol", {status: 400})),
+          Match.tag("FetchTimeoutError", () => new Response("Request timed out", {status: 504})),
+          Match.tag("FetchHttpError", (e) => new Response("Failed to fetch image", {status: e.status})),
+          Match.tag("FetchNetworkError", () => new Response("Network error", {status: 502})),
+          Match.exhaustive,
+        )
+      )
+    ),
+    Effect.provide(FetchHttpClient.layer),
+  );
+
+  return Effect.runPromise(program);
 });
 ```
 

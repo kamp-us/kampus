@@ -61,14 +61,16 @@ pnpm --filter worker add -D @types/mozilla__readability
 - Return `Effect<ReaderContent, ...errors, HttpClient>`
 - Tests: happy path, error types, image rewriting
 
-### Step 7: Create Image Proxy
+### Step 7: Create Image Proxy (Effect + HttpClient)
 
 **File:** `apps/worker/src/features/web-page-parser/proxyImage.ts`
 
-- Validate URL protocol
-- Fetch with 10s timeout
-- Pass through with cache headers
-- Tests: validation, headers, errors
+- Use `HttpClient` from `@effect/platform`
+- Apply `Effect.timeout(Duration.seconds(10))`
+- Map HttpClient errors to domain TaggedErrors via `Effect.catchTag`
+- Stream response body with Cache-Control header
+- Return `Effect<Response, ...errors, HttpClient>`
+- Tests: error types, cache headers
 
 ### Step 8: Add Handler
 
@@ -80,12 +82,15 @@ pnpm --filter worker add -D @types/mozilla__readability
 - Cache pattern (24h TTL)
 - Tests: cache behavior, error conversion
 
-### Step 9: Add Route
+### Step 9: Add Route (Effect error handling)
 
 **File:** `apps/worker/src/index.ts`
 
 - Add `/api/proxy-image` GET route
-- Tests: param validation, proxying
+- Run proxyImage Effect with `Effect.runPromise`
+- Convert TaggedErrors to HTTP responses using `Match`
+- Provide `FetchHttpClient.layer`
+- Tests: param validation, error responses, proxying
 
 ## Verification
 
