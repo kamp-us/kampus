@@ -1,6 +1,7 @@
 # Spellbook Generator Progress
 
 ## Completed
+- [x] FR-0.1: Set up bun test with initial test files
 - [x] FR-1.1: CLI accepts `kampus generate spellbook <feature-name>` command
 - [x] FR-1.2: Feature name validated as kebab-case
 - [x] FR-1.3: Duplicate feature detection (package/worker folder exists)
@@ -17,7 +18,7 @@
 - [x] Implement deriveNaming function
 - [x] Implement validateFeatureName (kebab-case check)
 - [x] Implement checkFeatureExists
-- [ ] Add tests for naming utils
+- [x] Add tests for naming utils
 
 ## Notes
 - Removed alias support (`g` for `generate`) - only one way to invoke commands
@@ -52,3 +53,18 @@
 - Checks both `packages/<feature>` and `apps/worker/src/features/<feature>`
 - Uses `@effect/platform` FileSystem service for file existence checks
 - Error message shows relative path for clarity
+
+---
+
+## 2026-01-17: Testing Infrastructure (FR-0.1)
+
+**Files changed:**
+- `apps/cli/package.json` (added test script)
+- `apps/cli/generators/spellbook/naming.test.ts` (new)
+- `apps/cli/generators/spellbook/validation.test.ts` (new)
+
+**Key decisions:**
+- Used `bun test` as test runner (native to CLI runtime)
+- Tests colocated with source files
+- `FileSystem.layerNoop` for mocking filesystem in validation tests
+- Must mock `pnpm-workspace.yaml` exists check for monorepo root detection

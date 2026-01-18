@@ -14,7 +14,7 @@
         "Run `pnpm --filter cli exec bun test` - all tests pass",
         "All new functionality is covered by tests"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FR-1.1",
@@ -26,7 +26,7 @@
         "No 'unknown command' errors",
         "All new functionality is covered by tests"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FR-1.2",
@@ -41,7 +41,7 @@
         "Should proceed without validation error",
         "All new functionality is covered by tests"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FR-1.3",
@@ -53,7 +53,7 @@
         "Should show error: 'Feature library already exists at packages/library/'",
         "All new functionality is covered by tests"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FR-2.1",
