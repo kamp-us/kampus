@@ -15,7 +15,7 @@
         "pnpm install completes without errors",
         "packages listed in package.json dependencies"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "2",

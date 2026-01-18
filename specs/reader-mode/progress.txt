@@ -26,3 +26,15 @@
 - 15 functional requirements (FR-1 to FR-5)
 - 11 non-functional requirements (NFR-1 to NFR-4)
 - 7 acceptance tests
+
+## 2026-01-18: Task 1 - Dependencies
+
+**Completed:**
+- Added `linkedom` and `@mozilla/readability` to worker dependencies
+- Added `@types/mozilla__readability` to worker devDependencies
+- All packages use workspace catalog versions
+
+**Verification:**
+- `pnpm install` ✓
+- `turbo run typecheck` ✓
+- Packages in `apps/worker/package.json` ✓
