@@ -26,6 +26,7 @@
 		"@effect/sql-sqlite-do": "catalog:",
 		"@kampus/library": "workspace:*",
 		"@kampus/web-page-parser": "workspace:*",
+		"@mozilla/readability": "catalog:",
 		"@usirin/forge": "catalog:",
 		"better-auth": "catalog:",
 		"drizzle-orm": "catalog:",
@@ -33,6 +34,7 @@
 		"graphql": "catalog:",
 		"graphql-yoga": "catalog:",
 		"hono": "catalog:",
+		"linkedom": "catalog:",
 		"normalize-url": "catalog:"
 	}
 }

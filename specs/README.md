@@ -18,3 +18,4 @@ Feature directory with completion status. Each feature follows the [spec-driven 
 - [x] **[effect-sql-drizzle](./effect-sql-drizzle/)** - Replace Model.Class with @effect/sql-drizzle for single schema source
 - [x] **[graphql-ftw](./graphql-ftw/)** - GraphQL + Relay data layer replacing effect-atom RPC
 - [x] **[spellbook-generator](./spellbook-generator/)** - Rails-style CLI generator for Spellbook scaffolding
+- [x] **[reader-mode](./reader-mode/)** - Instapaper-like clean content extraction for web pages
