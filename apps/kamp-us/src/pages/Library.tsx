@@ -387,6 +387,20 @@ function CreateStoryForm({
 		const color = getNextTagColor(availableTags);
 		commitCreateTag({
 			variables: {input: {name, color}},
+			updater: (store) => {
+				const payload = store.getRootField("createTag");
+				const newTag = payload?.getLinkedRecord("tag");
+				if (!newTag) return;
+
+				// Add new tag to library.tags list
+				const root = store.getRoot();
+				const me = root.getLinkedRecord("me");
+				const library = me?.getLinkedRecord("library");
+				if (!library) return;
+
+				const existingTags = library.getLinkedRecords("tags") || [];
+				library.setLinkedRecords([...existingTags, newTag], "tags");
+			},
 			onCompleted: (response) => {
 				if (response.createTag.tag) {
 					// Add the new tag to selected tags
@@ -581,6 +595,20 @@ function StoryRow({
 		const color = getNextTagColor(availableTags);
 		commitCreateTag({
 			variables: {input: {name, color}},
+			updater: (store) => {
+				const payload = store.getRootField("createTag");
+				const newTag = payload?.getLinkedRecord("tag");
+				if (!newTag) return;
+
+				// Add new tag to library.tags list
+				const root = store.getRoot();
+				const me = root.getLinkedRecord("me");
+				const library = me?.getLinkedRecord("library");
+				if (!library) return;
+
+				const existingTags = library.getLinkedRecords("tags") || [];
+				library.setLinkedRecords([...existingTags, newTag], "tags");
+			},
 			onCompleted: (response) => {
 				if (response.createTag.tag) {
 					setEditTags([...editTags, response.createTag.tag]);
