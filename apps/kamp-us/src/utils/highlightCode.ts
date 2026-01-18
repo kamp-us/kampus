@@ -46,8 +46,8 @@ export async function highlightHtmlCodeBlocks(html: string): Promise<string> {
 					pre.style.cssText = shikiPre.style.cssText;
 				}
 			}
-		} catch {
-			// Keep original if highlighting fails (unknown language, etc.)
+		} catch (error) {
+			console.warn(`Syntax highlighting failed for language "${lang}":`, error);
 		}
 	}
 

@@ -87,6 +87,7 @@ function ReaderPageContentInner({storyId}: {storyId: string}) {
 	useEffect(() => {
 		if (!content) return;
 		let cancelled = false;
+		setHighlightedContent(null); // Clear previous highlights on content change
 		highlightHtmlCodeBlocks(content).then((result) => {
 			if (!cancelled) setHighlightedContent(result);
 		});

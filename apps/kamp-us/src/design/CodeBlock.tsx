@@ -27,8 +27,8 @@ export function CodeBlock({code, language}: CodeBlockProps) {
 			.then((result) => {
 				if (!cancelled) setHtml(result);
 			})
-			.catch(() => {
-				// Keep unhighlighted on error
+			.catch((error) => {
+				console.warn(`Syntax highlighting failed for language "${language}":`, error);
 			});
 
 		return () => {
