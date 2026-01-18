@@ -5,6 +5,7 @@ import {
 	generateGraphQLTypeCode,
 	updateGraphqlResolversIndex,
 	updateWorkerIndex,
+	updateWorkerIndexWithRoute,
 	updateWorkerPackageJson,
 	updateWranglerJsonc,
 } from "./integrations";
@@ -280,6 +281,18 @@ export const generateWithProgress = (
 				emit.single({
 					type: "integration_updated",
 					name: "apps/worker/src/graphql/resolvers/index.ts",
+				});
+			}
+
+			// Update worker index.ts with RPC route when using --with-route
+			if (options.withRoute || options.withAll) {
+				const indexPath = path.join(rootDir, "apps/worker/src/index.ts");
+				const indexContent = yield* fs.readFileString(indexPath);
+				const updatedIndex = updateWorkerIndexWithRoute(naming, indexContent);
+				yield* fs.writeFileString(indexPath, updatedIndex);
+				emit.single({
+					type: "integration_updated",
+					name: "apps/worker/src/index.ts (RPC route)",
 				});
 			}
 

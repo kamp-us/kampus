@@ -518,7 +518,7 @@
         "Route includes auth check",
         "All new functionality is covered by tests"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FR-8.4",
@@ -531,7 +531,7 @@
         "RPC route added",
         "All new functionality is covered by tests"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FR-9.1",

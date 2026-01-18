@@ -3,6 +3,7 @@ import {
 	generateGraphQLTypeCode,
 	updateGraphqlResolversIndex,
 	updateWorkerIndex,
+	updateWorkerIndexWithRoute,
 	updateWorkerPackageJson,
 	updateWranglerJsonc,
 } from "./integrations";
@@ -286,5 +287,99 @@ describe("generateGraphQLTypeCode", () => {
 		const result = generateGraphQLTypeCode(bookShelfNaming, []);
 		expect(result).toContain("// TODO: Add this to apps/worker/src/graphql/schema.ts");
 		expect(result).toContain("// Add to schema types array:");
+	});
+});
+
+describe("updateWorkerIndexWithRoute", () => {
+	test("inserts route after last RPC route", () => {
+		const content = `import {Hono} from "hono";
+
+export {Library} from "./features/library/Library";
+
+const app = new Hono<{Bindings: Env}>();
+
+// RPC endpoint - auth + route to Library DO
+app.all("/rpc/library/*", async (c) => {
+	try {
+		const pasaport = c.env.PASAPORT.getByName("kampus");
+		const sessionData = await pasaport.validateSession(c.req.raw.headers);
+
+		if (!sessionData?.user) {
+			return c.json({error: "Unauthorized"}, 401);
+		}
+
+		const libraryId = c.env.LIBRARY.idFromName(sessionData.user.id);
+		const library = c.env.LIBRARY.get(libraryId);
+
+		return library.fetch(c.req.raw);
+	} catch (error) {
+		console.error("RPC error:", error);
+		return c.json({error: "Internal server error"}, 500);
+	}
+});
+
+app.get("/graphql/schema", (c) => {
+	return c.text(printSchemaSDL());
+});`;
+
+		const result = updateWorkerIndexWithRoute(bookShelfNaming, content);
+
+		expect(result).toContain('app.all("/rpc/book-shelf/*"');
+		expect(result).toContain("c.env.BOOK_SHELF.idFromName(sessionData.user.id)");
+		expect(result).toContain("// Route to user's BookShelf DO");
+		// Should be after library route and before graphql
+		expect(result.indexOf("/rpc/book-shelf/")).toBeGreaterThan(result.indexOf("/rpc/library/"));
+		expect(result.indexOf("/rpc/book-shelf/")).toBeLessThan(result.indexOf("/graphql/schema"));
+	});
+
+	test("does not duplicate existing route", () => {
+		const content = `const app = new Hono<{Bindings: Env}>();
+
+app.all("/rpc/book-shelf/*", async (c) => {
+	// existing route
+});`;
+
+		const result = updateWorkerIndexWithRoute(bookShelfNaming, content);
+
+		const matches = result.match(/app\.all\("\/rpc\/book-shelf\/\*"/g);
+		expect(matches?.length).toBe(1);
+	});
+
+	test("uses correct variable names from naming", () => {
+		const content = `const app = new Hono<{Bindings: Env}>();
+
+app.all("/rpc/library/*", async (c) => {
+	return c.json({});
+});`;
+
+		const result = updateWorkerIndexWithRoute(bookShelfNaming, content);
+
+		// Variable name should be feature name without dashes
+		expect(result).toContain("const bookshelfId = c.env.BOOK_SHELF.idFromName");
+		expect(result).toContain("const bookshelf = c.env.BOOK_SHELF.get(bookshelfId)");
+		expect(result).toContain("return bookshelf.fetch(c.req.raw)");
+	});
+
+	test("includes auth check", () => {
+		const content = `const app = new Hono<{Bindings: Env}>();`;
+
+		const result = updateWorkerIndexWithRoute(bookShelfNaming, content);
+
+		expect(result).toContain("pasaport.validateSession(c.req.raw.headers)");
+		expect(result).toContain('return c.json({error: "Unauthorized"}, 401)');
+	});
+
+	test("handles file with no existing RPC routes", () => {
+		const content = `import {Hono} from "hono";
+
+const app = new Hono<{Bindings: Env}>();
+
+app.get("/health", (c) => c.text("ok"));`;
+
+		const result = updateWorkerIndexWithRoute(bookShelfNaming, content);
+
+		expect(result).toContain('app.all("/rpc/book-shelf/*"');
+		// Should be after app definition
+		expect(result.indexOf("/rpc/book-shelf/")).toBeGreaterThan(result.indexOf("const app = new Hono"));
 	});
 });

@@ -202,3 +202,86 @@ ${fieldDefs}
 // types: [..., ${naming.className}Type]
 `;
 };
+
+/**
+ * Updates worker/src/index.ts to add an RPC route for the feature.
+ * Inserts the route after the last RPC route (app.all("/rpc/...", ...)).
+ * Returns the updated file content.
+ */
+export const updateWorkerIndexWithRoute = (naming: Naming, content: string): string => {
+	const routePattern = `app.all("/rpc/${naming.featureName}/*"`;
+
+	// Check if route already exists
+	if (content.includes(routePattern)) {
+		return content;
+	}
+
+	const routeCode = `
+// RPC endpoint - auth + route to ${naming.className} DO
+app.all("/rpc/${naming.featureName}/*", async (c) => {
+	try {
+		const pasaport = c.env.PASAPORT.getByName("kampus");
+		const sessionData = await pasaport.validateSession(c.req.raw.headers);
+
+		if (!sessionData?.user) {
+			return c.json({error: "Unauthorized"}, 401);
+		}
+
+		// Route to user's ${naming.className} DO
+		const ${naming.featureName.replace(/-/g, "")}Id = c.env.${naming.bindingName}.idFromName(sessionData.user.id);
+		const ${naming.featureName.replace(/-/g, "")} = c.env.${naming.bindingName}.get(${naming.featureName.replace(/-/g, "")}Id);
+
+		return ${naming.featureName.replace(/-/g, "")}.fetch(c.req.raw);
+	} catch (error) {
+		console.error("RPC error:", error);
+		return c.json({error: "Internal server error"}, 500);
+	}
+});`;
+
+	const lines = content.split("\n");
+
+	// Find the last RPC route (app.all("/rpc/...")) closing brace
+	let lastRpcEndIndex = -1;
+	let braceCount = 0;
+	let inRpcRoute = false;
+
+	for (let i = 0; i < lines.length; i++) {
+		const line = lines[i] ?? "";
+
+		// Start of an RPC route
+		if (line.includes('app.all("/rpc/')) {
+			inRpcRoute = true;
+			braceCount = 0;
+		}
+
+		if (inRpcRoute) {
+			// Count braces
+			for (const char of line) {
+				if (char === "{") braceCount++;
+				if (char === "}") braceCount--;
+			}
+
+			// When braces balance and we see });, we've found the end
+			if (braceCount === 0 && line.includes("});")) {
+				lastRpcEndIndex = i;
+				inRpcRoute = false;
+			}
+		}
+	}
+
+	if (lastRpcEndIndex === -1) {
+		// No existing RPC route, find app definition and add after it
+		for (let i = 0; i < lines.length; i++) {
+			const line = lines[i] ?? "";
+			if (line.includes("const app = new Hono")) {
+				lastRpcEndIndex = i;
+				break;
+			}
+		}
+	}
+
+	// Insert the route code after the last RPC route
+	lines.splice(lastRpcEndIndex + 1, 0, routeCode);
+
+	return lines.join("\n");
+};
