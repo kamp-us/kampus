@@ -207,7 +207,7 @@
         "reader content extracts correctly",
         "images display via proxy"
       ],
-      "passes": false
+      "passes": true
     }
   ]
 }
