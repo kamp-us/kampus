@@ -114,7 +114,7 @@ type Story implements Node {
   createdAt: String!
   description: String
   id: ID!
-  readerContent: ReaderResult!
+  readerContent(forceFetch: Boolean): ReaderResult!
   tags: [Tag!]!
   title: String!
   url: String!

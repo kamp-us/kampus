@@ -114,10 +114,13 @@ const StoryType: GraphQLObjectType = new GraphQLObjectType({
 		},
 		readerContent: {
 			type: new GraphQLNonNull(ReaderResultType),
-			resolve: resolver(function* (story: {url: string}) {
+			args: {
+				forceFetch: {type: GraphQLBoolean},
+			},
+			resolve: resolver(function* (story: {url: string}, args: {forceFetch?: boolean}) {
 				const env = yield* CloudflareEnv;
 				const client = yield* WebPageParserClient.make(env, story.url);
-				return yield* client.getReaderContent();
+				return yield* client.getReaderContent({forceFetch: args.forceFetch ?? true});
 			}),
 		},
 	}),

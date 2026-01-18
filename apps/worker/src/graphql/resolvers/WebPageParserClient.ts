@@ -55,9 +55,9 @@ export const make = (env: Env, url: string) =>
 						description: metadata.description || null,
 					};
 				}),
-			getReaderContent: (): Effect.Effect<ReaderResult> =>
+			getReaderContent: (opts?: {forceFetch?: boolean}): Effect.Effect<ReaderResult> =>
 				Effect.gen(function* () {
-					const result = yield* client.getReaderContent({});
+					const result = yield* client.getReaderContent({forceFetch: opts?.forceFetch});
 					return {
 						readable: result.readable,
 						content: result.content
