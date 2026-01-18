@@ -1,0 +1,112 @@
+[
+  {
+    "id": "task-1",
+    "category": "backend",
+    "description": "Add ReaderContent and ReaderResult GraphQL types",
+    "files": ["apps/worker/src/graphql/schema.ts"],
+    "steps_to_verify": [
+      "ReaderContentType defined with fields: title, content, byline, siteName, wordCount, readingTimeMinutes, excerpt",
+      "ReaderResultType defined with fields: readable, content, error",
+      "turbo run typecheck passes"
+    ],
+    "passes": false
+  },
+  {
+    "id": "task-2",
+    "category": "backend",
+    "description": "Extend WebPageParserClient with getReaderContent method",
+    "files": ["apps/worker/src/graphql/resolvers/WebPageParserClient.ts"],
+    "steps_to_verify": [
+      "getReaderContent() method added to client return object",
+      "Method calls client.getReaderContent({}) RPC",
+      "turbo run typecheck passes"
+    ],
+    "passes": false
+  },
+  {
+    "id": "task-3",
+    "category": "backend",
+    "description": "Add readerContent field to Story GraphQL type",
+    "files": ["apps/worker/src/graphql/schema.ts"],
+    "steps_to_verify": [
+      "readerContent field added to StoryType",
+      "Resolver uses WebPageParserClient.make() with story.url",
+      "Returns ReaderResultType",
+      "turbo run typecheck passes"
+    ],
+    "passes": false
+  },
+  {
+    "id": "task-4",
+    "category": "frontend",
+    "description": "Create ReaderPage component with GraphQL query",
+    "files": [
+      "apps/kamp-us/src/pages/library/ReaderPage.tsx",
+      "apps/kamp-us/src/pages/library/ReaderPage.module.css"
+    ],
+    "steps_to_verify": [
+      "ReaderPageQuery GraphQL query defined",
+      "ReaderPageContent uses useLazyLoadQuery",
+      "NotFound component renders for missing story",
+      "NotReadable component renders when readable: false",
+      "ReaderSkeleton component for loading state",
+      "Article renders with dangerouslySetInnerHTML",
+      "CSS uses ch/rem units, 75ch max-width"
+    ],
+    "passes": false
+  },
+  {
+    "id": "task-5",
+    "category": "frontend",
+    "description": "Add /me/library/:storyId route",
+    "files": ["apps/kamp-us/src/main.tsx"],
+    "steps_to_verify": [
+      "ReaderPage imported",
+      "Route { path: '/me/library/:storyId', element: <ReaderPage /> } added",
+      "Route placed before /me/library to avoid conflicts"
+    ],
+    "passes": false
+  },
+  {
+    "id": "task-6",
+    "category": "frontend",
+    "description": "Generate Relay artifacts",
+    "files": ["apps/kamp-us/src/__generated__/ReaderPageQuery.graphql.ts"],
+    "steps_to_verify": [
+      "pnpm --filter kamp-us run relay completes",
+      "ReaderPageQuery.graphql.ts generated",
+      "turbo run typecheck passes"
+    ],
+    "passes": false
+  },
+  {
+    "id": "task-7",
+    "category": "frontend",
+    "description": "Update StoryRow to link to reader view",
+    "files": ["apps/kamp-us/src/pages/Library.tsx"],
+    "steps_to_verify": [
+      "Story title uses <Link to={`/me/library/${story.id}`}>",
+      "Menu includes 'View original' item",
+      "'View original' opens story.url in new tab",
+      "turbo run typecheck passes",
+      "turbo run lint passes"
+    ],
+    "passes": false
+  },
+  {
+    "id": "task-8",
+    "category": "verification",
+    "description": "Manual end-to-end testing",
+    "files": [],
+    "steps_to_verify": [
+      "turbo run dev starts without errors",
+      "Click story in library navigates to /me/library/{id}",
+      "Reader page displays title, byline, reading time, content",
+      "Back button returns to /me/library",
+      "'View original' in library menu opens URL in new tab",
+      "Non-readable URL shows error UI with 'View original' link",
+      "Invalid storyId shows 'not found' UI"
+    ],
+    "passes": false
+  }
+]
