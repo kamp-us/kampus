@@ -45,7 +45,9 @@ export const proxyImage = (url: string) =>
 		const contentType = response.headers["content-type"] ?? "image/png";
 
 		// Get body as ArrayBuffer
-		const body = yield* response.arrayBuffer;
+		const body = yield* response.arrayBuffer.pipe(
+			Effect.catchTag("ResponseError", () => Effect.fail(new FetchNetworkError({url, message: "Failed to read body"}))),
+		);
 
 		// Return response with cache headers
 		return new Response(body, {

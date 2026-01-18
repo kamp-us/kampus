@@ -187,3 +187,36 @@
 **Verification:**
 - `turbo run typecheck` ✓
 - `pnpm --filter worker run test` ✓ (111 tests passing)
+
+## 2026-01-18: Task 9 - /api/proxy-image Route
+
+**Files changed:**
+- `apps/worker/src/index.ts` - added /api/proxy-image GET route
+- `apps/worker/src/features/web-page-parser/proxyImage.ts` - fixed ResponseError from arrayBuffer
+- `apps/worker/test/proxy-image-route.spec.ts` - new file with 5 tests
+
+**Implementation:**
+- GET /api/proxy-image?url=<encoded> route using Hono
+- Returns 400 for missing url param
+- Effect error handling with Match.value + Match.tag
+- Converts domain errors to HTTP responses:
+  - InvalidProtocolError → 400 Invalid URL protocol
+  - FetchTimeoutError → 504 Request timed out
+  - FetchHttpError → proxies status code
+  - FetchNetworkError → 502 Network error
+- Provides FetchHttpClient.layer
+
+**Bug fix:**
+- proxyImage.ts: response.arrayBuffer can fail with ResponseError
+- Added catchTag for ResponseError → FetchNetworkError
+
+**Tests (5 total):**
+- returns 400 for missing url param
+- returns 400 for empty url param
+- returns 400 for file:// protocol
+- returns 400 for data: protocol
+- returns 400 for javascript: protocol
+
+**Verification:**
+- `turbo run typecheck` ✓
+- `pnpm --filter worker run test` ✓ (116 tests passing)

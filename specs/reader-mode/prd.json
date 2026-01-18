@@ -189,7 +189,7 @@
         "pnpm --filter worker run test passes",
         "route tests cover param validation and error responses"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "10",
