@@ -95,6 +95,48 @@
   },
   {
     "id": "task-8",
+    "category": "frontend",
+    "description": "Install shiki dependency",
+    "files": ["apps/kamp-us/package.json"],
+    "steps_to_verify": [
+      "pnpm --filter kamp-us add shiki",
+      "shiki listed in dependencies",
+      "pnpm install completes"
+    ],
+    "passes": false
+  },
+  {
+    "id": "task-9",
+    "category": "frontend",
+    "description": "Create highlightCode utility",
+    "files": ["apps/kamp-us/src/utils/highlightCode.ts"],
+    "steps_to_verify": [
+      "highlightCodeBlocks function exported",
+      "Uses DOMParser to find pre>code elements",
+      "Extracts language from class='language-*'",
+      "Calls codeToHtml with github-dark theme",
+      "Returns modified HTML string",
+      "turbo run typecheck passes"
+    ],
+    "passes": false
+  },
+  {
+    "id": "task-10",
+    "category": "frontend",
+    "description": "Integrate Shiki highlighting in ReaderPage",
+    "files": ["apps/kamp-us/src/pages/library/ReaderPage.tsx"],
+    "steps_to_verify": [
+      "Import highlightCodeBlocks utility",
+      "useState for highlightedContent",
+      "useEffect calls highlightCodeBlocks when content changes",
+      "Render highlightedContent ?? original content",
+      "turbo run typecheck passes",
+      "biome check passes"
+    ],
+    "passes": false
+  },
+  {
+    "id": "task-11",
     "category": "verification",
     "description": "Manual end-to-end testing",
     "files": [],
@@ -102,11 +144,12 @@
       "turbo run dev starts without errors",
       "Click story in library navigates to /me/library/{id}",
       "Reader page displays title, byline, reading time, content",
+      "Code blocks render with syntax highlighting",
       "Back button returns to /me/library",
       "'View original' in library menu opens URL in new tab",
       "Non-readable URL shows error UI with 'View original' link",
       "Invalid storyId shows 'not found' UI"
     ],
-    "passes": true
+    "passes": false
   }
 ]

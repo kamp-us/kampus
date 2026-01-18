@@ -30,6 +30,12 @@
 - **FR-5.1**: Story title changes from `<a href={url}>` to `<Link to={...}>`
 - **FR-5.2**: Add "View original" menu item that opens URL in new tab
 
+### FR-6: Code Syntax Highlighting
+- **FR-6.1**: Code blocks (`<pre><code>`) highlighted using Shiki
+- **FR-6.2**: Language detection from `class="language-*"` attribute on code element
+- **FR-6.3**: Fallback to plain text for unknown languages
+- **FR-6.4**: Theme matches site design (dark code blocks on light background)
+
 ## Non-Functional Requirements
 
 ### NFR-1: Typography

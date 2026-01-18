@@ -372,9 +372,88 @@ function ReaderSkeleton() {
 }
 ```
 
+## Code Syntax Highlighting
+
+### Library: Shiki
+
+Use [Shiki](https://shiki.style/) for syntax highlighting. Shiki uses TextMate grammars (same as VS Code) for accurate highlighting.
+
+### Integration Approach
+
+Process HTML content client-side after receiving from GraphQL:
+
+```typescript
+// utils/highlightCode.ts
+import { codeToHtml } from "shiki";
+
+export async function highlightCodeBlocks(html: string): Promise<string> {
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(html, "text/html");
+  const codeBlocks = doc.querySelectorAll("pre code");
+
+  for (const codeEl of codeBlocks) {
+    const pre = codeEl.parentElement;
+    if (!pre) continue;
+
+    // Extract language from class="language-*"
+    const langClass = Array.from(codeEl.classList).find((c) =>
+      c.startsWith("language-")
+    );
+    const lang = langClass?.replace("language-", "") || "text";
+
+    const code = codeEl.textContent || "";
+
+    try {
+      const highlighted = await codeToHtml(code, {
+        lang,
+        theme: "github-dark",
+      });
+      pre.outerHTML = highlighted;
+    } catch {
+      // Keep original if language not supported
+    }
+  }
+
+  return doc.body.innerHTML;
+}
+```
+
+### Usage in ReaderPage
+
+```typescript
+function ReaderPageContentInner({ storyId }: { storyId: string }) {
+  const data = useLazyLoadQuery<ReaderPageQueryType>(ReaderPageQuery, { storyId });
+  const [highlightedContent, setHighlightedContent] = useState<string | null>(null);
+
+  const story = data.me?.library?.story;
+  const content = story?.readerContent?.content?.content;
+
+  useEffect(() => {
+    if (content) {
+      highlightCodeBlocks(content).then(setHighlightedContent);
+    }
+  }, [content]);
+
+  // Render highlightedContent ?? content
+}
+```
+
+### Theme Selection
+
+Use `github-dark` theme for code blocks - dark background provides good contrast with the light reader page.
+
+### Performance Considerations
+
+- Shiki bundles are loaded lazily on first use
+- Only import languages that are detected in content (future optimization)
+- Highlighting runs after initial render, showing unstyled code briefly
+
 ## Dependencies
 
-No new npm dependencies required. Uses existing:
+New npm dependency:
+- `shiki` - Syntax highlighting
+
+Existing:
 - `react-relay` for GraphQL
 - `react-router` for routing
 - CSS Modules for styling
