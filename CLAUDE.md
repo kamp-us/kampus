@@ -186,7 +186,7 @@ This project follows a **spec-driven development** approach where every feature 
 | 2 | `requirements.md` - structured functional/non-functional requirements | **REQUIRES APPROVAL** |
 | 3 | `design.md` - technical design, architecture, Effect patterns | **REQUIRES APPROVAL** |
 | 4 | `plan.md` - implementation roadmap and task breakdown | **REQUIRES APPROVAL** |
-| 5 | Implementation - follow the plan exactly | **REQUIRES APPROVAL** |
+| 5 | `prd.json` - a json list of tasks with a structured represantation | **REQUIRES APPROVAL** |
 
 ### Specification Structure
 
@@ -197,6 +197,7 @@ specs/
     ├── instructions.md          # Initial requirements capture
     ├── requirements.md          # Structured requirements analysis
     ├── design.md                # Technical design and architecture
+    ├── prd.json                 # Detailed list of tasks with status tracking and verification steps
     └── plan.md                  # Implementation roadmap and progress
 ```
 
