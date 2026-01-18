@@ -16,11 +16,11 @@ Derived from [design.md](./design.md).
 ### Phase 2: Types, Naming & Validation
 | Task | Status | Files |
 |------|--------|-------|
-| Create shared types (Column, Naming, GeneratorOptions) | [ ] | `generators/spellbook/types.ts` |
-| Implement deriveNaming function | [ ] | `generators/spellbook/naming.ts` |
-| Implement kebab→Pascal, snake_case, SCREAMING_SNAKE | [ ] | `generators/spellbook/naming.ts` |
-| Implement ID prefix derivation | [ ] | `generators/spellbook/naming.ts` |
-| Implement validateFeatureName (kebab-case check) | [ ] | `generators/spellbook/validation.ts` |
+| Create shared types (Column, Naming, GeneratorOptions) | [x] | `generators/spellbook/types.ts` |
+| Implement deriveNaming function | [x] | `generators/spellbook/naming.ts` |
+| Implement kebab→Pascal, snake_case, SCREAMING_SNAKE | [x] | `generators/spellbook/naming.ts` |
+| Implement ID prefix derivation | [x] | `generators/spellbook/naming.ts` |
+| Implement validateFeatureName (kebab-case check) | [x] | `generators/spellbook/validation.ts` |
 | Implement checkFeatureExists | [ ] | `generators/spellbook/validation.ts` |
 | Add tests for naming utils | [ ] | `generators/spellbook/naming.test.ts` |
 

@@ -25,7 +25,7 @@
         "Run `kampus generate spellbook test-feature` (kebab-case)",
         "Should proceed without validation error"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FR-1.3",
