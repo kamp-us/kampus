@@ -89,3 +89,42 @@
 - `turbo run typecheck` ✓
 - `pnpm --filter worker run test` ✓
 - Migration SQL contains CREATE TABLE reader_content ✓
+
+## 2026-01-18: Task 6 - fetchReaderContent Implementation
+
+**Files changed:**
+- `apps/worker/src/features/web-page-parser/fetchReaderContent.ts` - new file
+- `apps/worker/test/fetchReaderContent.spec.ts` - new file with 13 tests
+- `apps/worker/package.json` - removed @types/mozilla__readability (package has own types)
+
+**Implementation:**
+- Use HttpClient from @effect/platform with filterStatusOk
+- HttpClientRequest.get with User-Agent and Accept headers
+- Effect.timeout(Duration.seconds(15)) for timeout handling
+- Map HttpClient errors to domain TaggedErrors using Effect.catchTag
+- Parse HTML with linkedom/worker parseHTML
+- Use isProbablyReaderable check before extraction
+- Extract with Readability, validate required fields
+- rewriteImageUrls converts relative URLs to proxy URLs
+- calculateReadingStats at 200 wpm rate
+
+**Tests (13 total):**
+- URL validation: InvalidProtocolError for file://, javascript://
+- URL validation: accepts http://, https://
+- HTTP errors: FetchHttpError for 404/500
+- HTTP errors: FetchNetworkError for network failures
+- Readability: NotReadableError for non-article pages
+- Extraction: extracts title, content, textContent, wordCount, readingTime
+- Extraction: rewrites image URLs to proxy
+- Extraction: calculates word count correctly
+- Extraction: calculates reading time at 200 wpm
+- Optional fields: handles missing byline gracefully
+
+**Key decisions:**
+- Removed @types/mozilla__readability - package has built-in types
+- Check article.title, content, textContent before building result
+- Use ?? null for optional fields (excerpt, byline, siteName)
+
+**Verification:**
+- `turbo run typecheck` ✓
+- `pnpm --filter worker run test fetchReaderContent` ✓ (13 tests passing)

@@ -8,8 +8,7 @@
       "description": "Add linkedom and @mozilla/readability packages",
       "steps": [
         "Run: pnpm --filter worker add linkedom @mozilla/readability",
-        "Run: pnpm --filter worker add -D @types/mozilla__readability",
-        "Verify packages in apps/worker/package.json"
+        "Verify packages in apps/worker/package.json (Note: @types/mozilla__readability not needed, package has own types)"
       ],
       "verification": [
         "pnpm install completes without errors",
@@ -115,7 +114,7 @@
         "pnpm --filter worker run test passes",
         "fetchReaderContent tests cover happy path and all error types"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "7",

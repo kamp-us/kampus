@@ -12,7 +12,6 @@
 	},
 	"devDependencies": {
 		"@cloudflare/vitest-pool-workers": "^0.8.19",
-		"@types/mozilla__readability": "catalog:",
 		"@types/node": "catalog:",
 		"drizzle-kit": "catalog:",
 		"typescript": "^5.5.2",
