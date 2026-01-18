@@ -2,6 +2,9 @@ import {useEffect, useState} from "react";
 import {codeToHtml} from "shiki";
 import styles from "./CodeBlock.module.css";
 
+const getShikiTheme = () =>
+	window.matchMedia("(prefers-color-scheme: dark)").matches ? "github-dark" : "github-light";
+
 interface CodeBlockProps {
 	code: string;
 	language?: string;
@@ -19,7 +22,7 @@ export function CodeBlock({code, language}: CodeBlockProps) {
 		let cancelled = false;
 		codeToHtml(code, {
 			lang: language,
-			theme: "github-dark",
+			theme: getShikiTheme(),
 		})
 			.then((result) => {
 				if (!cancelled) setHtml(result);

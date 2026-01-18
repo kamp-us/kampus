@@ -1,4 +1,5 @@
-import {Suspense, useEffect, useState} from "react";
+import DOMPurify from "dompurify";
+import {Suspense, useEffect, useMemo, useState} from "react";
 import {graphql, useLazyLoadQuery} from "react-relay";
 import {Link, Navigate, useParams} from "react-router";
 import type {ReaderPageQuery as ReaderPageQueryType} from "../../__generated__/ReaderPageQuery.graphql";
@@ -78,6 +79,9 @@ function ReaderPageContentInner({storyId}: {storyId: string}) {
 	const story = data.me?.library?.story;
 	const content = story?.readerContent?.content?.content;
 
+	// Sanitize raw content as fallback before highlighting completes
+	const sanitizedContent = useMemo(() => (content ? DOMPurify.sanitize(content) : ""), [content]);
+
 	const [highlightedContent, setHighlightedContent] = useState<string | null>(null);
 
 	useEffect(() => {
@@ -114,8 +118,8 @@ function ReaderPageContentInner({storyId}: {storyId: string}) {
 					<span>{c.readingTimeMinutes} min read</span>
 				</div>
 			</header>
-			{/* biome-ignore lint/security/noDangerouslySetInnerHtml: Reader content is sanitized HTML from Readability */}
-			<div className={styles.content} dangerouslySetInnerHTML={{__html: highlightedContent ?? c.content}} />
+			{/* biome-ignore lint/security/noDangerouslySetInnerHtml: Content sanitized with DOMPurify */}
+			<div className={styles.content} dangerouslySetInnerHTML={{__html: highlightedContent ?? sanitizedContent}} />
 		</article>
 	);
 }
