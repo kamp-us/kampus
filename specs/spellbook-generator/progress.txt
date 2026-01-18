@@ -5,6 +5,14 @@
 - [x] FR-1.1: CLI accepts `kampus generate spellbook <feature-name>` command
 - [x] FR-1.2: Feature name validated as kebab-case
 - [x] FR-1.3: Duplicate feature detection (package/worker folder exists)
+- [x] NFR-4.1: Shared types in types.ts
+- [x] NFR-4.2: Templates as pure functions returning strings
+- [x] NFR-4.3: Naming utils as separate module
+- [x] NFR-4.4: Validation logic as separate module
+- [x] TEST-1.3: Unit tests for column type mappings
+- [x] TEST-1.4: Unit tests for Drizzle type mappings
+- [x] TEST-1.5: Unit tests for package layer template output
+- [x] TEST-1.6: Unit tests for worker layer template output
 
 ## Phase 1: Command Wiring
 - [x] Create generate parent command
@@ -68,3 +76,22 @@
 - Tests colocated with source files
 - `FileSystem.layerNoop` for mocking filesystem in validation tests
 - Must mock `pnpm-workspace.yaml` exists check for monorepo root detection
+
+---
+
+## 2026-01-17: Template Functions (TEST-1.3, TEST-1.4, TEST-1.5, TEST-1.6, NFR-4.1-4.4)
+
+**Files changed:**
+- `apps/cli/generators/spellbook/templates/package.ts` (new)
+- `apps/cli/generators/spellbook/templates/worker.ts` (new)
+- `apps/cli/generators/spellbook/templates/package.test.ts` (new)
+- `apps/cli/generators/spellbook/templates/worker.test.ts` (new)
+
+**Key decisions:**
+- Templates are pure functions: `(naming: Naming, columns?: Column[]) => string`
+- Package layer templates: packageJson, tsconfigJson, indexTs, errorsTs, schemaTs, rpcTs
+- Worker layer templates: doClassTs, handlersTs, drizzleSchemaTs, drizzleConfigTs, migrationsJs, journalJson
+- Column type mappings: text→Schema.String, integer→Schema.Int, boolean→Schema.Boolean, timestamp→Schema.String
+- Drizzle type mappings: text→text(), integer→integer(), boolean→integer({mode:"boolean"}), timestamp→timestamp() helper
+- Templates follow existing library/web-page-parser patterns exactly
+- All templates covered by comprehensive unit tests (94 tests passing)

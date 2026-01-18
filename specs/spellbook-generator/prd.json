@@ -718,7 +718,7 @@
         "All modules import types from this file",
         "All new functionality is covered by tests"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "NFR-4.2",
@@ -730,7 +730,7 @@
         "Templates are easily testable",
         "All new functionality is covered by tests"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "NFR-4.3",
@@ -742,7 +742,7 @@
         "No naming logic scattered in other files",
         "All new functionality is covered by tests"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "NFR-4.4",
@@ -754,7 +754,7 @@
         "Tagged errors for validation failures",
         "All new functionality is covered by tests"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "NFR-4.5",
@@ -781,7 +781,7 @@
         "Tests nullable variants",
         "All new functionality is covered by tests"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "TEST-1.4",
@@ -796,7 +796,7 @@
         "Tests nullable variants",
         "All new functionality is covered by tests"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "TEST-1.5",
@@ -810,7 +810,7 @@
         "Tests rpc.ts template content",
         "All new functionality is covered by tests"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "TEST-1.6",
@@ -824,7 +824,7 @@
         "Tests migrations scaffolds",
         "All new functionality is covered by tests"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "TEST-2.1",
