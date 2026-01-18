@@ -1,0 +1,611 @@
+{
+  "name": "GraphQL + Relay Data Layer - M1: Backend",
+  "rfc": "https://github.com/kamp-us/kampus/issues/23",
+  "milestone": "M1",
+  "description": "Backend-only: Spellcaster, RequestResolver, GraphQL schema, mutations. Ship when worker tests pass and GraphQL queries work via curl.",
+  "items": [
+    {
+      "id": "FR-1.1",
+      "category": "Batch RPC Endpoints",
+      "description": "getBatchStory({ids: string[]}) returns (Story | null)[] preserving input order",
+      "stepsToVerify": [
+        "Call getBatchStory with ids ['story_1', 'story_2', 'story_3']",
+        "Verify response is array of same length as input",
+        "Verify order matches input order",
+        "Verify missing stories return null at correct index",
+        "Tests: library-stories.spec.ts 'Batch Story Operations (FR-1.1)'"
+      ],
+      "passes": true
+    },
+    {
+      "id": "FR-1.2",
+      "category": "Batch RPC Endpoints",
+      "description": "getBatchTag({ids: string[]}) returns (Tag | null)[] preserving input order",
+      "stepsToVerify": [
+        "Call getBatchTag with ids ['tag_1', 'tag_2', 'tag_3']",
+        "Verify response is array of same length as input",
+        "Verify order matches input order",
+        "Verify missing tags return null at correct index",
+        "Tests: library-tags.spec.ts 'Batch Tag Operations (FR-1.2, FR-1.3)'"
+      ],
+      "passes": true
+    },
+    {
+      "id": "FR-1.3",
+      "category": "Batch RPC Endpoints",
+      "description": "Empty ids array returns empty array without DB call",
+      "stepsToVerify": [
+        "Call getBatchStory with empty array []",
+        "Verify response is []",
+        "Early return in handler verified via code inspection (line 80, 335)",
+        "Tests: library-stories.spec.ts, library-tags.spec.ts empty array tests"
+      ],
+      "passes": true
+    },
+    {
+      "id": "FR-2.1",
+      "category": "Spellcaster RPC Client Factory",
+      "description": "Spellcaster.make({rpcs, stub}) creates typed RPC client for DO stub",
+      "stepsToVerify": [
+        "Import Spellcaster from apps/worker/src/shared/Spellcaster.ts",
+        "Call Spellcaster.make({rpcs: LibraryRpcs, stub: doStub})",
+        "Verify returned client has all RPC methods typed correctly",
+        "Verify TypeScript shows correct parameter and return types",
+        "Tests: Verified by typecheck (turbo run typecheck)"
+      ],
+      "passes": true
+    },
+    {
+      "id": "FR-2.2",
+      "category": "Spellcaster RPC Client Factory",
+      "description": "Client methods return Effects, not Promises",
+      "stepsToVerify": [
+        "Get client from Spellcaster.make()",
+        "Call client.getStory({id: 'test'})",
+        "Verify return type is Effect.Effect<Story | null, ...>",
+        "Verify must use yield* or Effect.runPromise to execute",
+        "Tests: Verified by typecheck (turbo run typecheck)"
+      ],
+      "passes": true
+    },
+    {
+      "id": "FR-2.3",
+      "category": "Spellcaster RPC Client Factory",
+      "description": "Uses existing Effect RPC protocol (HTTP + JSON serialization)",
+      "stepsToVerify": [
+        "Inspect Spellcaster.make implementation",
+        "Verify uses RpcClient.layerProtocolHttp",
+        "Verify uses RpcSerialization.layerJson",
+        "Verify requests go to DO stub.fetch()",
+        "Tests: Verified by code inspection (Spellcaster.ts lines 51-54)"
+      ],
+      "passes": true
+    },
+    {
+      "id": "FR-2.4",
+      "category": "Spellcaster RPC Client Factory",
+      "description": "LibraryClient Context.Tag provides typed client service",
+      "stepsToVerify": [
+        "Import LibraryClient from graphql/resolvers/LibraryClient.ts",
+        "Verify LibraryClient extends Context.Tag",
+        "Verify can yield* LibraryClient in Effect.gen",
+        "Tests: Verified by typecheck + request-resolver.spec.ts"
+      ],
+      "passes": true
+    },
+    {
+      "id": "FR-2.5",
+      "category": "Spellcaster RPC Client Factory",
+      "description": "LibraryClient.layer(env, userId) creates per-request layer",
+      "stepsToVerify": [
+        "Call LibraryClient.layer(env, 'user_123')",
+        "Verify returns Layer that provides LibraryClient",
+        "Verify layer routes to correct user's DO",
+        "Tests: Verified by typecheck (LibraryClient.ts lines 34-42)"
+      ],
+      "passes": true
+    },
+    {
+      "id": "FR-3.1",
+      "category": "Effect RequestResolver",
+      "description": "GetStory request type for single story lookup",
+      "stepsToVerify": [
+        "Import GetStory from apps/worker/src/graphql/requests.ts",
+        "Verify GetStory has _tag: 'GetStory' and id: string",
+        "Verify extends Request.Request<Story | null, never>",
+        "Tests: test/request-resolver.spec.ts covers this"
+      ],
+      "passes": true
+    },
+    {
+      "id": "FR-3.2",
+      "category": "Effect RequestResolver",
+      "description": "GetTag request type for single tag lookup",
+      "stepsToVerify": [
+        "Import GetTag from apps/worker/src/graphql/requests.ts",
+        "Verify GetTag has _tag: 'GetTag' and id: string",
+        "Verify extends Request.Request<Tag | null, never>",
+        "Tests: test/request-resolver.spec.ts covers this"
+      ],
+      "passes": true
+    },
+    {
+      "id": "FR-3.3",
+      "category": "Effect RequestResolver",
+      "description": "StoryResolver batches GetStory requests and calls getBatchStory",
+      "stepsToVerify": [
+        "Execute multiple loadStory() in parallel with Effect.all([...], {batching: true})",
+        "Verify only one getBatchStory RPC call is made",
+        "Verify all requests receive correct results",
+        "Tests: test/request-resolver.spec.ts 'batches multiple loadStory calls into single getBatchStory RPC'"
+      ],
+      "passes": true
+    },
+    {
+      "id": "FR-3.4",
+      "category": "Effect RequestResolver",
+      "description": "TagResolver batches GetTag requests and calls getBatchTag",
+      "stepsToVerify": [
+        "Execute multiple loadTag() in parallel with Effect.all([...], {batching: true})",
+        "Verify only one getBatchTag RPC call is made",
+        "Verify all requests receive correct results",
+        "Tests: test/request-resolver.spec.ts 'batches multiple loadTag calls into single getBatchTag RPC'"
+      ],
+      "passes": true
+    },
+    {
+      "id": "FR-3.5",
+      "category": "Effect RequestResolver",
+      "description": "Batching occurs within single Effect execution tick (when batching: true)",
+      "stepsToVerify": [
+        "Run Effect.all([loadStory('1'), loadStory('2'), loadStory('3')], {batching: true})",
+        "Verify requests made in same tick are batched together",
+        "Verify requests in different ticks are separate batches",
+        "Tests: test/request-resolver.spec.ts 'makes separate RPC calls for requests in different Effect ticks'"
+      ],
+      "passes": true
+    },
+    {
+      "id": "FR-3.6",
+      "category": "Effect RequestResolver",
+      "description": "loadStory(id) helper wraps Effect.request for story lookup",
+      "stepsToVerify": [
+        "Import loadStory from resolvers",
+        "Call loadStory('story_123')",
+        "Verify returns Effect that resolves to Story | null",
+        "Tests: test/request-resolver.spec.ts 'returns null for missing stories while preserving order'"
+      ],
+      "passes": true
+    },
+    {
+      "id": "FR-3.7",
+      "category": "Effect RequestResolver",
+      "description": "loadTag(id) helper wraps Effect.request for tag lookup",
+      "stepsToVerify": [
+        "Import loadTag from resolvers",
+        "Call loadTag('tag_123')",
+        "Verify returns Effect that resolves to Tag | null",
+        "Tests: test/request-resolver.spec.ts 'returns null for missing tags while preserving order'"
+      ],
+      "passes": true
+    },
+    {
+      "id": "FR-4.1",
+      "category": "GraphQL Schema Types",
+      "description": "Story type with fields: id, url, title, description, createdAt, tags",
+      "stepsToVerify": [
+        "Inspect StoryType in schema.ts",
+        "Verify id: ID!, url: String!, title: String!, description: String, createdAt: String!",
+        "Verify tags: [Tag!]! field exists with resolver",
+        "Verified by typecheck"
+      ],
+      "passes": true
+    },
+    {
+      "id": "FR-4.2",
+      "category": "GraphQL Schema Types",
+      "description": "Tag type with fields: id, name, color",
+      "stepsToVerify": [
+        "Inspect TagType in schema.ts",
+        "Verify id: ID!, name: String!, color: String!",
+        "Verified by typecheck"
+      ],
+      "passes": true
+    },
+    {
+      "id": "FR-4.3",
+      "category": "GraphQL Schema Types",
+      "description": "WebPage type with fields: url, title, description, error",
+      "stepsToVerify": [
+        "Inspect WebPageType in schema.ts",
+        "Verify url: String!, title: String, description: String, error: String",
+        "Verified by typecheck"
+      ],
+      "passes": true
+    },
+    {
+      "id": "FR-4.4",
+      "category": "GraphQL Schema Types",
+      "description": "Library namespace type for scoped queries",
+      "stepsToVerify": [
+        "Inspect LibraryType in schema.ts",
+        "Verify library field on QueryType requires Auth.required",
+        "Verify Library has story, stories, tags, webPage fields",
+        "Verified by typecheck"
+      ],
+      "passes": true
+    },
+    {
+      "id": "FR-4.5",
+      "category": "GraphQL Schema Types",
+      "description": "PageInfo type with Relay spec fields",
+      "stepsToVerify": [
+        "Inspect PageInfoType in connections.ts",
+        "Verify hasNextPage: Boolean!, hasPreviousPage: Boolean!",
+        "Verify startCursor: String, endCursor: String",
+        "Verified by typecheck"
+      ],
+      "passes": true
+    },
+    {
+      "id": "FR-4.6",
+      "category": "GraphQL Schema Types",
+      "description": "StoryEdge type with node and cursor",
+      "stepsToVerify": [
+        "Inspect createConnectionTypes() output in schema.ts",
+        "Verify node: Story!, cursor: String!",
+        "Verified by typecheck"
+      ],
+      "passes": true
+    },
+    {
+      "id": "FR-4.7",
+      "category": "GraphQL Schema Types",
+      "description": "StoryConnection type with edges, pageInfo, totalCount",
+      "stepsToVerify": [
+        "Inspect createConnectionTypes() output in schema.ts",
+        "Verify edges: [StoryEdge!]!, pageInfo: PageInfo!, totalCount: Int!",
+        "Verified by typecheck"
+      ],
+      "passes": true
+    },
+    {
+      "id": "FR-4.8",
+      "category": "GraphQL Schema Types",
+      "description": "Story implements Node interface for Relay refetching",
+      "stepsToVerify": [
+        "Inspect StoryType interfaces in schema.ts",
+        "Verify Story implements Node",
+        "Verify node(id) query resolves stories by ID prefix",
+        "Verified by typecheck"
+      ],
+      "passes": true
+    },
+    {
+      "id": "FR-4.9",
+      "category": "GraphQL Schema Types",
+      "description": "createConnectionTypes() factory for reusable connection pattern",
+      "stepsToVerify": [
+        "Import createConnectionTypes from connections.ts",
+        "Call createConnectionTypes('Story', StoryType)",
+        "Verify returns {EdgeType, ConnectionType} with correct names",
+        "Verified by typecheck + code inspection"
+      ],
+      "passes": true
+    },
+    {
+      "id": "FR-4.10",
+      "category": "GraphQL Schema Types",
+      "description": "toConnection() transforms RPC response to Relay format",
+      "stepsToVerify": [
+        "Call toConnection({stories: [...], hasNextPage: true, endCursor: 'x', totalCount: 10})",
+        "Verify returns {edges: [{node, cursor}...], pageInfo: {...}, totalCount: 10}",
+        "Verify cursor equals node.id",
+        "Verified by typecheck + code inspection in connections.ts"
+      ],
+      "passes": true
+    },
+    {
+      "id": "FR-5.1",
+      "category": "GraphQL Queries",
+      "description": "library.story(id: ID!) returns single story by ID",
+      "stepsToVerify": [
+        "Inspect LibraryType.story resolver in schema.ts",
+        "Verify uses loadStory(id) for batched resolution",
+        "Verified by typecheck"
+      ],
+      "passes": true
+    },
+    {
+      "id": "FR-5.2",
+      "category": "GraphQL Queries",
+      "description": "library.stories(first, after, tagId?) returns paginated connection",
+      "stepsToVerify": [
+        "Inspect LibraryType.stories resolver in schema.ts",
+        "Verify calls client.listStories or client.listStoriesByTag based on tagId",
+        "Verify transforms result with toConnection()",
+        "Verified by typecheck"
+      ],
+      "passes": true
+    },
+    {
+      "id": "FR-5.3",
+      "category": "GraphQL Queries",
+      "description": "library.tags returns all user tags",
+      "stepsToVerify": [
+        "Inspect LibraryType.tags resolver in schema.ts",
+        "Verify calls client.listTags()",
+        "Verified by typecheck"
+      ],
+      "passes": true
+    },
+    {
+      "id": "FR-5.4",
+      "category": "GraphQL Queries",
+      "description": "library.webPage(url: String!) fetches metadata from WebPageParser DO",
+      "stepsToVerify": [
+        "Inspect LibraryType.webPage resolver in schema.ts",
+        "Verify uses WebPageParser DO via stub.fetch()",
+        "Verify returns {url, title, description, error}",
+        "Verified by typecheck"
+      ],
+      "passes": true
+    },
+    {
+      "id": "FR-6.1",
+      "category": "GraphQL Mutations",
+      "description": "createStory mutation returns CreateStoryPayload with story and storyEdge",
+      "stepsToVerify": [
+        "Inspect createStory mutation in schema.ts",
+        "Verify uses CreateStoryInput and CreateStoryPayload",
+        "Verify returns {story, storyEdge: {node, cursor}}",
+        "Verified by typecheck"
+      ],
+      "passes": true
+    },
+    {
+      "id": "FR-6.2",
+      "category": "GraphQL Mutations",
+      "description": "updateStory mutation returns UpdateStoryPayload with updated story",
+      "stepsToVerify": [
+        "Inspect updateStory mutation in schema.ts",
+        "Verify uses UpdateStoryInput and UpdateStoryPayload",
+        "Verify returns {story}",
+        "Verified by typecheck"
+      ],
+      "passes": true
+    },
+    {
+      "id": "FR-6.3",
+      "category": "GraphQL Mutations",
+      "description": "deleteStory mutation returns DeleteStoryPayload with deletedStoryId",
+      "stepsToVerify": [
+        "Inspect deleteStory mutation in schema.ts",
+        "Verify uses DeleteStoryInput and DeleteStoryPayload",
+        "Verify returns {deletedStoryId}",
+        "Verified by typecheck"
+      ],
+      "passes": true
+    },
+    {
+      "id": "FR-6.4",
+      "category": "GraphQL Mutations",
+      "description": "createTag mutation returns CreateTagPayload with tag",
+      "stepsToVerify": [
+        "Inspect createTag mutation in schema.ts",
+        "Verify uses CreateTagInput and CreateTagPayload",
+        "Verify returns {tag}",
+        "Verified by typecheck"
+      ],
+      "passes": true
+    },
+    {
+      "id": "FR-6.5",
+      "category": "GraphQL Mutations",
+      "description": "Mutation payloads designed for Relay store updates",
+      "stepsToVerify": [
+        "Verify CreateStoryPayload has storyEdge for @appendEdge",
+        "Verify DeleteStoryPayload has deletedStoryId for @deleteRecord",
+        "Verified by code inspection in schema.ts"
+      ],
+      "passes": true
+    },
+    {
+      "id": "FR-8.1",
+      "category": "Nested Field Resolution",
+      "description": "Story.tags resolved efficiently (embedded in Story RPC response)",
+      "stepsToVerify": [
+        "Query { library { stories(first: 10) { edges { node { tags { name } } } } } }",
+        "Verify tags are returned for each story",
+        "Design: Tags embedded in Story schema (0 extra RPC calls vs N getBatchTag calls)",
+        "See packages/library/src/schema.ts line 20: tags: Schema.Array(TagRef)"
+      ],
+      "passes": true
+    },
+    {
+      "id": "FR-8.2",
+      "category": "Nested Field Resolution",
+      "description": "Tag batching available for node(id) queries",
+      "stepsToVerify": [
+        "Query { node(id: 'tag_123') { ... on Tag { name } } }",
+        "Verify uses loadTag() which batches via TagResolver",
+        "getBatchTag batching tested in request-resolver.spec.ts",
+        "Note: Story.tags uses embedded TagRef (more efficient than batched resolution)"
+      ],
+      "passes": true
+    },
+    {
+      "id": "FR-9.1",
+      "category": "GraphQL Runtime",
+      "description": "Per-request runtime includes LibraryClient layer",
+      "stepsToVerify": [
+        "Inspect GraphQLRuntime.layer() in runtime.ts",
+        "Verify LibraryClient.layer is merged when user is authenticated",
+        "Verify layer is created with session userId",
+        "Verified by code inspection"
+      ],
+      "passes": true
+    },
+    {
+      "id": "FR-9.2",
+      "category": "GraphQL Runtime",
+      "description": "RequestResolvers provided to per-request runtime",
+      "stepsToVerify": [
+        "Verify resolver() helper wraps effects with Effect.withRequestBatching(true)",
+        "Verify StoryResolver and TagResolver are accessible via Effect.request",
+        "Verified by typecheck + code inspection (resolver.ts line 20)"
+      ],
+      "passes": true
+    },
+    {
+      "id": "NFR-1.1",
+      "category": "Performance",
+      "description": "N+1 queries eliminated via embedded tags + RequestResolver batching",
+      "stepsToVerify": [
+        "Story.tags: embedded in Story RPC response (0 extra calls)",
+        "node(id) queries: batched via StoryResolver/TagResolver",
+        "Runtime: Effect.withRequestBatching(true) enabled in resolver() helper",
+        "Verified by code inspection + request-resolver.spec.ts tests"
+      ],
+      "passes": true
+    },
+    {
+      "id": "NFR-1.2",
+      "category": "Performance",
+      "description": "List queries do not use DataLoader (direct RPC call)",
+      "stepsToVerify": [
+        "Inspect library.stories resolver in schema.ts",
+        "Verify calls client.listStories directly",
+        "Verify does not go through RequestResolver",
+        "Verified by code inspection"
+      ],
+      "passes": true
+    },
+    {
+      "id": "NFR-2.1",
+      "category": "Developer Experience",
+      "description": "Handlers exported as named functions (not object literal)",
+      "stepsToVerify": [
+        "Open apps/worker/src/features/library/handlers.ts",
+        "Verify exports are: export const getStory = ...",
+        "Verify import * as handlers pattern works in Library.ts",
+        "Tests: turbo run typecheck + pnpm --filter worker run test (82 tests)"
+      ],
+      "passes": true
+    },
+    {
+      "id": "NFR-2.2",
+      "category": "Developer Experience",
+      "description": "SqlError auto-caught in Spellbook via wrapHandlers",
+      "stepsToVerify": [
+        "Open handlers.ts - verify no .pipe(Effect.orDie) or .pipe(Effect.catchTag('SqlError', Effect.die))",
+        "Open Spellbook.ts - verify wrapHandlers catches SqlError automatically",
+        "turbo run typecheck passes",
+        "pnpm --filter worker run test passes (82 tests)"
+      ],
+      "passes": true
+    },
+    {
+      "id": "NFR-2.3",
+      "category": "Developer Experience",
+      "description": "Type-safe GraphQL resolvers via resolver() helper",
+      "stepsToVerify": [
+        "Inspect resolver() function in graphql/resolver.ts",
+        "Verify resolvers use resolver(function* () { ... })",
+        "Verify TypeScript errors on incorrect Effect usage",
+        "Verified by typecheck + code inspection"
+      ],
+      "passes": true
+    },
+    {
+      "id": "NFR-3.1",
+      "category": "Maintainability",
+      "description": "GraphQL schema is single source of API truth",
+      "stepsToVerify": [
+        "M2: Verify all frontend queries match schema types (requires Relay migration)",
+        "M1: Backend GraphQL types defined only in schema.ts + connections.ts (factory)",
+        "M1: No duplicate Story/Tag GraphQL type definitions in worker codebase"
+      ],
+      "passes": false,
+      "notes": "M2 item - requires frontend to use GraphQL. Backend portion (no duplicate types) is satisfied."
+    },
+    {
+      "id": "NFR-4.1",
+      "category": "Compatibility",
+      "description": "Auth handled at GraphQL layer via Auth.required",
+      "stepsToVerify": [
+        "Inspect library resolver in schema.ts",
+        "Verify yields Auth.required before returning namespace",
+        "Verify mutations also yield Auth.required",
+        "Verified by code inspection"
+      ],
+      "passes": true
+    },
+    {
+      "id": "NFR-4.2",
+      "category": "Compatibility",
+      "description": "Existing /graphql endpoint extended (not replaced)",
+      "stepsToVerify": [
+        "Verify existing queries (me, fetchUrlMetadata) still in schema.ts",
+        "Verify new library queries added to same QueryType",
+        "Verified by code inspection"
+      ],
+      "passes": true
+    },
+    {
+      "id": "ERR-1",
+      "category": "Error Handling",
+      "description": "SqlError auto-dies in Spellbook handlers",
+      "stepsToVerify": [
+        "Spellbook.wrapHandlers wraps all handlers with Effect.catchTag('SqlError', Effect.die)",
+        "HandlersWithSqlError type allows SqlError in handler error channel",
+        "Verified by typecheck: handlers can have SqlError, Spellbook removes it"
+      ],
+      "passes": true
+    },
+    {
+      "id": "ERR-2",
+      "category": "Error Handling",
+      "description": "RPC errors propagate through Spellcaster as Effect failures",
+      "stepsToVerify": [
+        "Spellcaster uses Effect RPC protocol (layerProtocolHttp + layerJson)",
+        "Existing tests verify: TagNameExistsError, InvalidTagNameError, InvalidTagColorError propagate",
+        "Tests: library-tags.spec.ts 'Tag Validation Errors' (6 tests checking Exit.isFailure)"
+      ],
+      "passes": true
+    },
+    {
+      "id": "ERR-3",
+      "category": "Error Handling",
+      "description": "GraphQL resolver errors returned as GraphQL errors",
+      "stepsToVerify": [
+        "resolver() helper uses runtime.runPromise() which throws on Effect failure",
+        "graphql-yoga catches thrown errors and returns as GraphQL error",
+        "Standard GraphQL error handling behavior"
+      ],
+      "passes": true
+    },
+    {
+      "id": "TEST-1",
+      "category": "Testing",
+      "description": "turbo run typecheck passes after all changes",
+      "stepsToVerify": [
+        "Run turbo run typecheck",
+        "Verify no TypeScript errors",
+        "Verify all packages type-check successfully"
+      ],
+      "passes": true
+    },
+    {
+      "id": "TEST-2",
+      "category": "Testing",
+      "description": "pnpm --filter worker run test passes",
+      "stepsToVerify": [
+        "Run pnpm --filter worker run test",
+        "Verify all tests pass",
+        "Verify no regressions in existing tests"
+      ],
+      "passes": true
+    }
+  ]
+}

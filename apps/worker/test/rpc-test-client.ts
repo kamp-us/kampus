@@ -192,6 +192,23 @@ export const makeLibraryTestClient = (doFetch: (request: Request) => Promise<Res
 			);
 		},
 
+		// Batch operations
+		getBatchStory: (ids: string[]) =>
+			run(
+				Effect.gen(function* () {
+					const client = yield* RpcClient.make(LibraryRpcs);
+					return yield* client.getBatchStory({ids});
+				}).pipe(Effect.scoped),
+			) as Promise<(Story | null)[]>,
+
+		getBatchTag: (ids: string[]) =>
+			run(
+				Effect.gen(function* () {
+					const client = yield* RpcClient.make(LibraryRpcs);
+					return yield* client.getBatchTag({ids});
+				}).pipe(Effect.scoped),
+			) as Promise<(Tag | null)[]>,
+
 		// URL metadata
 		fetchUrlMetadata: (url: string) =>
 			run(

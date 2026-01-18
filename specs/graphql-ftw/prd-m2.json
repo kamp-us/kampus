@@ -1,0 +1,392 @@
+{
+  "name": "GraphQL + Relay Data Layer - M2: Frontend",
+  "rfc": "https://github.com/kamp-us/kampus/issues/23",
+  "milestone": "M2",
+  "description": "Frontend migration: Relay environment, Library.tsx, cleanup RPC atoms. Ship when E2E tests pass. Requires M1 complete.",
+  "dependsOn": "M1",
+  "rollbackPlan": "Keep LibraryRpc.tsx around until M2 is stable. If issues arise, revert route to LibraryRpc.tsx and re-enable atoms.",
+  "items": [
+    {
+      "id": "FR-7.1",
+      "category": "Relay Frontend",
+      "description": "RelayEnvironment configured with fetchQuery to /graphql",
+      "stepsToVerify": [
+        "Import environment from apps/kamp-us/src/relay/environment.ts",
+        "Verify Network.create uses fetch to /graphql",
+        "Verify Authorization header for token auth (not cookies)"
+      ],
+      "passes": true
+    },
+    {
+      "id": "FR-7.2",
+      "category": "Relay Frontend",
+      "description": "LibraryQuery fetches stories connection and tags",
+      "stepsToVerify": [
+        "Find LibraryQuery in Library.tsx",
+        "Verify queries me.library.stories with @connection(key: 'Library_stories')",
+        "Verify queries me.library.tags"
+      ],
+      "passes": true
+    },
+    {
+      "id": "FR-7.3",
+      "category": "Relay Frontend",
+      "description": "Library_story fragment colocates story data requirements",
+      "stepsToVerify": [
+        "Find Library_story fragment in Library.tsx",
+        "Verify fragment is on Story type",
+        "Verify useFragment is used to read fragment data"
+      ],
+      "passes": true
+    },
+    {
+      "id": "FR-7.4",
+      "category": "Relay Frontend",
+      "description": "CreateStoryMutation with optimistic update",
+      "stepsToVerify": [
+        "Find CreateStoryMutation in Library.tsx",
+        "Verify useMutation hook is used",
+        "Verify optimisticResponse is provided",
+        "Verify updater adds story to connection"
+      ],
+      "passes": true
+    },
+    {
+      "id": "FR-7.5",
+      "category": "Relay Frontend",
+      "description": "UpdateStoryMutation with optimistic update",
+      "stepsToVerify": [
+        "Find UpdateStoryMutation in Library.tsx",
+        "Verify useMutation hook is used",
+        "Verify optimisticResponse is provided"
+      ],
+      "passes": true
+    },
+    {
+      "id": "FR-7.6",
+      "category": "Relay Frontend",
+      "description": "DeleteStoryMutation with @deleteRecord",
+      "stepsToVerify": [
+        "Find DeleteStoryMutation in Library.tsx",
+        "Verify uses @deleteRecord directive on deletedStoryId",
+        "Verify optimisticResponse is provided"
+      ],
+      "passes": true
+    },
+    {
+      "id": "FR-7.7",
+      "category": "Relay Frontend",
+      "description": "usePaginationFragment for Load More functionality",
+      "stepsToVerify": [
+        "Find usePaginationFragment in Library.tsx",
+        "Verify @refetchable directive on fragment",
+        "Verify loadNext is called on Load More click"
+      ],
+      "passes": true
+    },
+    {
+      "id": "FR-7.8",
+      "category": "Relay Frontend",
+      "description": "relay-compiler configured and generates types",
+      "stepsToVerify": [
+        "Run pnpm --filter kamp-us relay",
+        "Verify __generated__ folder contains typed artifacts",
+        "Verify no TypeScript errors in generated files"
+      ],
+      "passes": true
+    },
+    {
+      "id": "FR-7.9",
+      "category": "Relay Frontend",
+      "description": "Tag filter syncs with URL search params",
+      "stepsToVerify": [
+        "Verify tagFilterAtom uses effect-atom searchParam",
+        "Verify useTagFilter hook reads/writes URL",
+        "Verify tag name is looked up from tagId for query"
+      ],
+      "passes": true
+    },
+    {
+      "id": "NFR-1.3",
+      "category": "Performance",
+      "description": "Frontend normalized cache reduces redundant fetches",
+      "stepsToVerify": [
+        "Load Library page, note network requests",
+        "Navigate away and back",
+        "Verify cached data shown, no redundant fetch"
+      ],
+      "passes": true,
+      "notes": "Relay store provides normalized caching"
+    },
+    {
+      "id": "NFR-3.2",
+      "category": "Maintainability",
+      "description": "Frontend components own their data requirements via fragments",
+      "stepsToVerify": [
+        "Verify StoryRow uses Library_story fragment",
+        "Verify fragment is colocated with component",
+        "Verify parent queries spread fragment, don't duplicate fields"
+      ],
+      "passes": true
+    },
+    {
+      "id": "NFR-3.3",
+      "category": "Maintainability",
+      "description": "No reactivityKeys manual cache invalidation in new code",
+      "stepsToVerify": [
+        "Search new Library.tsx for 'reactivityKeys'",
+        "Verify no reactivityKeys usage",
+        "Verify mutations use Relay updaters/directives instead"
+      ],
+      "passes": true
+    },
+    {
+      "id": "NFR-4.3",
+      "category": "Compatibility",
+      "description": "effect-atom retained for non-GraphQL data (local state, non-library RPC)",
+      "stepsToVerify": [
+        "Verify effect-atom still in package.json",
+        "Verify tagFilterAtom uses effect-atom for URL state",
+        "Verify non-library RPC atoms still work (TagManagement)",
+        "Verify only library-specific atoms removed in cleanup"
+      ],
+      "passes": true
+    },
+    {
+      "id": "CLEANUP-1",
+      "category": "Cleanup",
+      "description": "Remove storiesAtom from atoms.ts",
+      "stepsToVerify": [
+        "Search for storiesAtom in atoms.ts",
+        "Verify storiesAtom is removed",
+        "Verify no imports of storiesAtom elsewhere"
+      ],
+      "passes": true
+    },
+    {
+      "id": "CLEANUP-2",
+      "category": "Cleanup",
+      "description": "Remove storiesByTagAtom from atoms.ts",
+      "stepsToVerify": [
+        "Search for storiesByTagAtom in atoms.ts",
+        "Verify storiesByTagAtom is removed",
+        "Verify no imports of storiesByTagAtom elsewhere"
+      ],
+      "passes": true
+    },
+    {
+      "id": "CLEANUP-3",
+      "category": "Cleanup",
+      "description": "Remove tagsAtom from atoms.ts (requires TagManagement migration first)",
+      "stepsToVerify": [
+        "Search for tagsAtom in atoms.ts",
+        "Verify tagsAtom is removed",
+        "Verify no imports of tagsAtom elsewhere"
+      ],
+      "passes": true,
+      "notes": "TagManagement.tsx already migrated to Relay in previous iteration"
+    },
+    {
+      "id": "CLEANUP-4",
+      "category": "Cleanup",
+      "description": "Remove library atoms (createStory, updateStory, deleteStory, createTag, fetchUrlMetadata)",
+      "stepsToVerify": [
+        "Verify createStoryMutation removed from atoms.ts",
+        "Verify updateStoryMutation removed",
+        "Verify deleteStoryMutation removed",
+        "Verify createTagMutation removed",
+        "Verify fetchUrlMetadataMutation removed (replaced by library.webPage query)",
+        "Verify non-library atoms untouched"
+      ],
+      "passes": true
+    },
+    {
+      "id": "CLEANUP-5",
+      "category": "Cleanup",
+      "description": "Delete LibraryRpc.tsx (replaced by Library.tsx)",
+      "stepsToVerify": [
+        "Verify LibraryRpc.tsx is deleted",
+        "Verify route updated to use new Library.tsx",
+        "Verify no broken imports"
+      ],
+      "passes": true
+    },
+    {
+      "id": "ERR-4",
+      "category": "Error Handling",
+      "description": "Relay handles GraphQL errors gracefully",
+      "stepsToVerify": [
+        "Trigger a GraphQL error from frontend",
+        "Verify error is available in useMutation onError",
+        "Verify UI can display error message"
+      ],
+      "passes": true,
+      "notes": "Errors handled via mutation onCompleted checking error field"
+    },
+    {
+      "id": "TEST-3",
+      "category": "Testing",
+      "description": "Manual E2E: Library page loads and displays stories",
+      "stepsToVerify": [
+        "Start dev servers (worker + kamp-us)",
+        "Navigate to /me/library",
+        "Verify stories load and display correctly"
+      ],
+      "passes": true
+    },
+    {
+      "id": "TEST-4",
+      "category": "Testing",
+      "description": "Manual E2E: Create story works with optimistic update",
+      "stepsToVerify": [
+        "Click Add Story, fill form, submit",
+        "Verify story appears immediately (optimistic)",
+        "Verify story persists after refresh"
+      ],
+      "passes": true
+    },
+    {
+      "id": "TEST-5",
+      "category": "Testing",
+      "description": "Manual E2E: Delete story works with immediate removal",
+      "stepsToVerify": [
+        "Click delete on a story",
+        "Verify story removed immediately from UI",
+        "Verify story gone after refresh"
+      ],
+      "passes": true
+    },
+    {
+      "id": "TEST-6",
+      "category": "Testing",
+      "description": "Manual E2E: Pagination (Load More) works",
+      "stepsToVerify": [
+        "Create >10 stories",
+        "Verify initial load shows first page (10 stories)",
+        "Click Load More, verify more stories appended",
+        "Verify Load More disappears when no more pages"
+      ],
+      "passes": true,
+      "notes": "Fixed node(id:) type mismatch: changed GraphQLID to GraphQLString to match Relay's pagination query"
+    },
+    {
+      "id": "TEST-7",
+      "category": "Testing",
+      "description": "Manual E2E: Tag filter works and persists via URL",
+      "stepsToVerify": [
+        "Select tag filter, verify stories filtered",
+        "Copy URL with ?tag param",
+        "Open in new tab, verify filter applied",
+        "Clear filter, verify all stories shown"
+      ],
+      "passes": true
+    },
+    {
+      "id": "BUG-1",
+      "category": "Bug",
+      "description": "Fetch URL metadata button broken - makeWebPageParserClient uses @effect/platform FetchHttpClient which fails in Workers",
+      "stepsToVerify": [
+        "Navigate to /me/library",
+        "Click + Add a story...",
+        "Enter URL and click Fetch",
+        "Verify title and description are populated from URL"
+      ],
+      "passes": true,
+      "severity": "high",
+      "rootCause": "makeWebPageParserClient in apps/worker/src/features/web-page-parser/client.ts uses FetchHttpClient.layer from @effect/platform which doesn't work in Cloudflare Workers runtime",
+      "fix": "Deleted makeWebPageParserClient, now uses Spellcaster.make directly for consistent DO-to-DO RPC pattern"
+    },
+    {
+      "id": "CLEANUP-6",
+      "category": "Cleanup",
+      "description": "Migrate TagManagement.tsx to use GraphQL for tag listing",
+      "stepsToVerify": [
+        "Add TagManagementQuery using library.tags",
+        "Use useLazyLoadQuery instead of tagsAtom",
+        "Remove tagsAtom import from TagManagement.tsx"
+      ],
+      "passes": true,
+      "notes": "TagManagement.tsx uses useLazyLoadQuery<TagManagementQuery> with library.tags"
+    },
+    {
+      "id": "CLEANUP-7",
+      "category": "Cleanup",
+      "description": "Migrate TagManagement.tsx to use GraphQL updateTag mutation",
+      "stepsToVerify": [
+        "Add TagManagementUpdateTagMutation",
+        "Use useMutation instead of updateTagMutation atom",
+        "Remove updateTagMutation import from TagManagement.tsx",
+        "Remove reactivityKeys usage"
+      ],
+      "passes": true,
+      "notes": "TagManagement.tsx uses useMutation<TagManagementUpdateTagMutation> with optimistic updates"
+    },
+    {
+      "id": "CLEANUP-8",
+      "category": "Cleanup",
+      "description": "Migrate TagManagement.tsx to use GraphQL deleteTag mutation",
+      "stepsToVerify": [
+        "Add TagManagementDeleteTagMutation with @deleteRecord",
+        "Use useMutation instead of deleteTagMutation atom",
+        "Remove deleteTagMutation import from TagManagement.tsx",
+        "Remove reactivityKeys usage"
+      ],
+      "passes": true,
+      "notes": "TagManagement.tsx uses useMutation<TagManagementDeleteTagMutation> with @deleteRecord"
+    },
+    {
+      "id": "CLEANUP-9",
+      "category": "Cleanup",
+      "description": "Remove updateTagMutation from atoms.ts",
+      "stepsToVerify": [
+        "Verify updateTagMutation is removed from atoms.ts",
+        "Verify no imports of updateTagMutation elsewhere"
+      ],
+      "passes": true
+    },
+    {
+      "id": "CLEANUP-10",
+      "category": "Cleanup",
+      "description": "Remove deleteTagMutation from atoms.ts",
+      "stepsToVerify": [
+        "Verify deleteTagMutation is removed from atoms.ts",
+        "Verify no imports of deleteTagMutation elsewhere"
+      ],
+      "passes": true
+    },
+    {
+      "id": "REFACTOR-1",
+      "category": "Refactor",
+      "description": "Use GraphQLID instead of GraphQLString for ID arguments in mutations",
+      "stepsToVerify": [
+        "updateStory id arg uses GraphQLID",
+        "deleteStory id arg uses GraphQLID",
+        "updateTag id arg uses GraphQLID",
+        "deleteTag id arg uses GraphQLID",
+        "updateStory tagIds arg uses GraphQLID",
+        "Regenerate Relay types after schema change",
+        "Update frontend mutations if types changed"
+      ],
+      "passes": true,
+      "notes": "Updated schema.ts mutations to use GraphQLID for id and tagIds args. Updated frontend GraphQL queries. Regenerated Relay types. Verified with Playwright E2E: updateStory, deleteStory, updateTag, deleteTag all working."
+    },
+    {
+      "id": "REFACTOR-2",
+      "category": "Refactor",
+      "description": "Use GraphQLInputObjectType for mutation arguments",
+      "stepsToVerify": [
+        "CreateStoryInput type with url, title, description, tagIds fields",
+        "UpdateStoryInput type with id, title, description, tagIds fields",
+        "DeleteStoryInput type with id field",
+        "CreateTagInput type with name, color fields",
+        "UpdateTagInput type with id, name, color fields",
+        "DeleteTagInput type with id field",
+        "Mutations use input: {type: InputType} pattern",
+        "Regenerate Relay types after schema change",
+        "Update frontend mutations to use input pattern"
+      ],
+      "passes": true,
+      "notes": "Added GraphQLInputObjectType for all 6 mutations. Backend uses input: {type: InputType} pattern. Frontend mutations updated to pass {input: {...}}. Verified with Playwright E2E: all CRUD operations work."
+    }
+  ]
+}

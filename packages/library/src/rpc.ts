@@ -10,6 +10,11 @@ export const LibraryRpcs = RpcGroup.make(
 		success: Schema.NullOr(Story),
 	}),
 
+	Rpc.make("getBatchStory", {
+		payload: {ids: Schema.Array(Schema.String)},
+		success: Schema.Array(Schema.NullOr(Story)),
+	}),
+
 	Rpc.make("listStories", {
 		payload: PaginationInput,
 		success: StoriesPage,
@@ -51,6 +56,11 @@ export const LibraryRpcs = RpcGroup.make(
 	}),
 
 	// Tag operations
+	Rpc.make("getBatchTag", {
+		payload: {ids: Schema.Array(Schema.String)},
+		success: Schema.Array(Schema.NullOr(Tag)),
+	}),
+
 	Rpc.make("listTags", {
 		payload: Schema.Void,
 		success: Schema.Array(Tag),

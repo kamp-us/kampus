@@ -3,13 +3,30 @@ type ApiKey {
   name: String!
 }
 
+input CreateStoryInput {
+  description: String
+  tagIds: [ID!]
+  title: String!
+  url: String!
+}
+
 type CreateStoryPayload {
-  story: Story!
+  story: Story
+  storyEdge: StoryEdge
+}
+
+input CreateTagInput {
+  color: String!
+  name: String!
 }
 
 type CreateTagPayload {
   error: TagError
   tag: Tag
+}
+
+input DeleteStoryInput {
+  id: ID!
 }
 
 type DeleteStoryPayload {
@@ -18,8 +35,12 @@ type DeleteStoryPayload {
   success: Boolean!
 }
 
+input DeleteTagInput {
+  id: ID!
+}
+
 type DeleteTagPayload {
-  deletedTagId: String
+  deletedTagId: ID
   error: TagNotFoundError
   success: Boolean!
 }
@@ -34,22 +55,23 @@ type Library implements Node {
   id: ID!
   stories(after: String, first: Int): StoryConnection!
   storiesByTag(after: String, first: Int, tagName: String!): StoryConnection!
+  story(id: ID!): Story
   tags: [Tag!]!
+  webPage(url: String!): WebPage
 }
 
 type Mutation {
-  bootstrap(email: String!, name: String!, password: String!): User!
-  createApiKey(name: String!): ApiKey!
-  createStory(description: String, tagIds: [String!], title: String!, url: String!): CreateStoryPayload!
-  createTag(color: String!, name: String!): CreateTagPayload!
-  deleteStory(id: String!): DeleteStoryPayload!
-  deleteTag(id: String!): DeleteTagPayload!
-  signIn(email: String!, password: String!): SignInResponse!
-  updateStory(description: String, id: String!, tagIds: [String!], title: String): UpdateStoryPayload!
-  updateTag(color: String, id: String!, name: String): UpdateTagPayload!
+  bootstrap(email: String!, name: String!, password: String!): User
+  createApiKey(name: String!): ApiKey
+  createStory(input: CreateStoryInput!): CreateStoryPayload!
+  createTag(input: CreateTagInput!): CreateTagPayload!
+  deleteStory(input: DeleteStoryInput!): DeleteStoryPayload!
+  deleteTag(input: DeleteTagInput!): DeleteTagPayload!
+  signIn(email: String!, password: String!): SignInResponse
+  updateStory(input: UpdateStoryInput!): UpdateStoryPayload!
+  updateTag(input: UpdateTagInput!): UpdateTagPayload!
 }
 
-"""An object with a globally unique ID"""
 interface Node {
   id: ID!
 }
@@ -62,8 +84,8 @@ type PageInfo {
 }
 
 type Query {
-  fetchUrlMetadata(url: String!): UrlMetadata!
-  me: User!
+  fetchUrlMetadata(url: String!): UrlMetadata
+  me: User
   node(id: String!): Node
 }
 
@@ -84,7 +106,7 @@ type Story implements Node {
 type StoryConnection {
   edges: [StoryEdge!]!
   pageInfo: PageInfo!
-  totalCount: Float!
+  totalCount: Int!
 }
 
 type StoryEdge {
@@ -100,7 +122,6 @@ type StoryNotFoundError {
 
 type Tag implements Node {
   color: String!
-  createdAt: String!
   id: ID!
   name: String!
   stories(after: String, first: Int): StoryConnection!
@@ -120,12 +141,25 @@ type TagNotFoundError {
   tagId: String!
 }
 
+input UpdateStoryInput {
+  description: String
+  id: ID!
+  tagIds: [ID!]
+  title: String
+}
+
 type UpdateStoryPayload {
   error: StoryNotFoundError
   story: Story
 }
 
 union UpdateTagError = InvalidTagNameError | TagNameExistsError | TagNotFoundError
+
+input UpdateTagInput {
+  color: String
+  id: ID!
+  name: String
+}
 
 type UpdateTagPayload {
   error: UpdateTagError
@@ -143,4 +177,11 @@ type User {
   id: String!
   library: Library!
   name: String
+}
+
+type WebPage {
+  description: String
+  error: String
+  title: String
+  url: String!
 }

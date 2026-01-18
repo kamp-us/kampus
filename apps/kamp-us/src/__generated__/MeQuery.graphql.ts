@@ -1,5 +1,5 @@
 /**
- * @generated SignedSource<<fabf835e1cb215f2f2645ccf645bb1af>>
+ * @generated SignedSource<<3f0c350e920adb4834070070ca91eaba>>
  * @lightSyntaxTransform
  * @nogrep
  */
@@ -15,7 +15,7 @@ export type MeQuery$data = {
     readonly email: string;
     readonly id: string;
     readonly name: string | null | undefined;
-  };
+  } | null | undefined;
 };
 export type MeQuery = {
   response: MeQuery$data;

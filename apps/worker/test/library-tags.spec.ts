@@ -373,6 +373,61 @@ describe("Library Tags", () => {
 		});
 	});
 
+	describe("Batch Tag Operations (FR-1.2, FR-1.3)", () => {
+		it("getBatchTag returns tags in input order", async () => {
+			const library = getLibrary("batch-tag-order");
+			const t1 = await library.createTag("btag1", "111111");
+			const t2 = await library.createTag("btag2", "222222");
+			const t3 = await library.createTag("btag3", "333333");
+
+			// Request in different order than created
+			const result = await library.getBatchTag([t3.id, t1.id, t2.id]);
+
+			expect(result).toHaveLength(3);
+			expect(result[0]?.id).toBe(t3.id);
+			expect(result[1]?.id).toBe(t1.id);
+			expect(result[2]?.id).toBe(t2.id);
+		});
+
+		it("getBatchTag returns null for missing tags at correct index", async () => {
+			const library = getLibrary("batch-tag-null");
+			const t1 = await library.createTag("exists1", "aaaaaa");
+			const t2 = await library.createTag("exists2", "bbbbbb");
+
+			const result = await library.getBatchTag([t1.id, "tag_missing", t2.id]);
+
+			expect(result).toHaveLength(3);
+			expect(result[0]?.id).toBe(t1.id);
+			expect(result[1]).toBeNull();
+			expect(result[2]?.id).toBe(t2.id);
+		});
+
+		it("getBatchTag includes storyCount for each tag", async () => {
+			const library = getLibrary("batch-tag-count");
+			const tag = await library.createTag("counted", "cccccc");
+			await library.createStory({
+				url: "https://example.com/tagged",
+				title: "Tagged Story",
+				tagIds: [tag.id],
+			});
+
+			const result = await library.getBatchTag([tag.id]);
+
+			expect(result).toHaveLength(1);
+			expect(result[0]?.storyCount).toBe(1);
+		});
+
+		it("getBatchTag with empty array returns empty array (no DB call)", async () => {
+			const library = getLibrary("batch-tag-empty");
+			// Ensure user exists with some data
+			await library.createTag("ignored", "ffffff");
+
+			const result = await library.getBatchTag([]);
+
+			expect(result).toEqual([]);
+		});
+	});
+
 	describe("totalCount on connections", () => {
 		it("listStories returns totalCount", async () => {
 			const library = getLibrary("test-user-totalcount-4");

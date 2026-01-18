@@ -1,16 +1,26 @@
 import {Effect} from "effect";
 import {
+	GraphQLBoolean,
+	GraphQLID,
+	GraphQLInputObjectType,
+	GraphQLInt,
+	GraphQLInterfaceType,
+	GraphQLList,
 	GraphQLNonNull,
 	GraphQLObjectType,
 	GraphQLSchema,
 	GraphQLString,
+	GraphQLUnionType,
 	lexicographicSortSchema,
 	printSchema,
 } from "graphql";
-import {getNormalizedUrl} from "../features/library/getNormalizedUrl";
-import {makeWebPageParserClient} from "../features/web-page-parser/client";
 import {Auth, CloudflareEnv, RequestContext} from "../services";
+import {createConnectionTypes, toConnection} from "./connections";
 import {resolver} from "./resolver";
+import {LibraryClient} from "./resolvers/LibraryClient";
+import {loadStory} from "./resolvers/StoryResolver";
+import {loadTag} from "./resolvers/TagResolver";
+import {WebPageParserClient} from "./resolvers/WebPageParserClient";
 
 // =============================================================================
 // GraphQL Types
@@ -24,21 +34,12 @@ const ApiKeyType = new GraphQLObjectType({
 	},
 });
 
-const UserType = new GraphQLObjectType({
-	name: "User",
-	fields: {
-		id: {type: new GraphQLNonNull(GraphQLString)},
-		email: {type: new GraphQLNonNull(GraphQLString)},
-		name: {type: GraphQLString},
-	},
-});
-
 const SignInResponseType = new GraphQLObjectType({
 	name: "SignInResponse",
-	fields: {
+	fields: () => ({
 		user: {type: new GraphQLNonNull(UserType)},
 		token: {type: new GraphQLNonNull(GraphQLString)},
-	},
+	}),
 });
 
 const UrlMetadataType = new GraphQLObjectType({
@@ -47,6 +48,361 @@ const UrlMetadataType = new GraphQLObjectType({
 		title: {type: GraphQLString},
 		description: {type: GraphQLString},
 		error: {type: GraphQLString},
+	},
+});
+
+// =============================================================================
+// Node Interface (Relay)
+// =============================================================================
+
+const NodeInterface = new GraphQLInterfaceType({
+	name: "Node",
+	fields: {
+		id: {type: new GraphQLNonNull(GraphQLID)},
+	},
+	resolveType: (obj) => {
+		if (obj.url !== undefined) return "Story";
+		if (obj.color !== undefined) return "Tag";
+		if (obj.userId !== undefined) return "Library";
+		return undefined;
+	},
+});
+
+// =============================================================================
+// Library Types
+// =============================================================================
+
+// Lazy fields function for Story to handle circular reference with tags
+const StoryType: GraphQLObjectType = new GraphQLObjectType({
+	name: "Story",
+	interfaces: [NodeInterface],
+	fields: () => ({
+		id: {type: new GraphQLNonNull(GraphQLID)},
+		url: {type: new GraphQLNonNull(GraphQLString)},
+		title: {type: new GraphQLNonNull(GraphQLString)},
+		description: {type: GraphQLString},
+		createdAt: {type: new GraphQLNonNull(GraphQLString)},
+		tags: {
+			type: new GraphQLNonNull(new GraphQLList(new GraphQLNonNull(TagType))),
+			// Tags are already embedded in Story response from RPC, no resolver needed
+		},
+	}),
+});
+
+const {EdgeType: StoryEdgeType, ConnectionType: StoryConnectionType} = createConnectionTypes(
+	"Story",
+	StoryType,
+);
+
+const TagType = new GraphQLObjectType({
+	name: "Tag",
+	interfaces: [NodeInterface],
+	fields: () => ({
+		id: {type: new GraphQLNonNull(GraphQLID)},
+		name: {type: new GraphQLNonNull(GraphQLString)},
+		color: {type: new GraphQLNonNull(GraphQLString)},
+		stories: {
+			type: new GraphQLNonNull(StoryConnectionType),
+			args: {
+				first: {type: GraphQLInt},
+				after: {type: GraphQLString},
+			},
+			resolve: resolver(function* (tag: {id: string}, args: {first?: number; after?: string}) {
+				const client = yield* LibraryClient;
+				const result = yield* client.listStoriesByTag({
+					tagId: tag.id,
+					first: args.first,
+					after: args.after,
+				});
+				return toConnection(result);
+			}),
+		},
+	}),
+});
+
+const WebPageType = new GraphQLObjectType({
+	name: "WebPage",
+	fields: {
+		url: {type: new GraphQLNonNull(GraphQLString)},
+		title: {type: GraphQLString},
+		description: {type: GraphQLString},
+		error: {type: GraphQLString},
+	},
+});
+
+// =============================================================================
+// Library Namespace Type
+// =============================================================================
+
+const LibraryType: GraphQLObjectType = new GraphQLObjectType({
+	name: "Library",
+	interfaces: [NodeInterface],
+	fields: () => ({
+		id: {
+			type: new GraphQLNonNull(GraphQLID),
+			resolve: (source: {userId: string}) => `library_${source.userId}`,
+		},
+		story: {
+			type: StoryType,
+			args: {
+				id: {type: new GraphQLNonNull(GraphQLID)},
+			},
+			resolve: resolver(function* (_source: unknown, args: {id: string}) {
+				return yield* loadStory(args.id);
+			}),
+		},
+		stories: {
+			type: new GraphQLNonNull(StoryConnectionType),
+			args: {
+				first: {type: GraphQLInt},
+				after: {type: GraphQLString},
+			},
+			resolve: resolver(function* (_source: unknown, args: {first?: number; after?: string}) {
+				const client = yield* LibraryClient;
+				const result = yield* client.listStories({first: args.first, after: args.after});
+				return toConnection(result);
+			}),
+		},
+		storiesByTag: {
+			type: new GraphQLNonNull(StoryConnectionType),
+			args: {
+				tagName: {type: new GraphQLNonNull(GraphQLString)},
+				first: {type: GraphQLInt},
+				after: {type: GraphQLString},
+			},
+			resolve: resolver(function* (
+				_source: unknown,
+				args: {tagName: string; first?: number; after?: string},
+			) {
+				const client = yield* LibraryClient;
+				// First get all tags to find the one with matching name
+				const tags = yield* client.listTags();
+				const tag = tags.find((t) => t.name === args.tagName);
+				if (!tag) {
+					return {edges: [], pageInfo: {hasNextPage: false, endCursor: null}, totalCount: 0};
+				}
+				const result = yield* client.listStoriesByTag({
+					tagId: tag.id,
+					first: args.first,
+					after: args.after,
+				});
+				return toConnection(result);
+			}),
+		},
+		tags: {
+			type: new GraphQLNonNull(new GraphQLList(new GraphQLNonNull(TagType))),
+			resolve: resolver(function* () {
+				const client = yield* LibraryClient;
+				return yield* client.listTags();
+			}),
+		},
+		webPage: {
+			type: WebPageType,
+			args: {
+				url: {type: new GraphQLNonNull(GraphQLString)},
+			},
+			resolve: resolver(function* (_source: unknown, args: {url: string}) {
+				const env = yield* CloudflareEnv;
+
+				let parsedUrl: URL;
+				try {
+					parsedUrl = new URL(args.url);
+				} catch {
+					return {url: args.url, title: null, description: null, error: "Invalid URL format"};
+				}
+
+				if (!["http:", "https:"].includes(parsedUrl.protocol)) {
+					return {url: args.url, title: null, description: null, error: "Only HTTP/HTTPS URLs are allowed"};
+				}
+
+				return yield* Effect.gen(function* () {
+					const client = yield* WebPageParserClient.make(env, args.url);
+					const metadata = yield* client.getMetadata();
+					return {url: args.url, title: metadata.title, description: metadata.description, error: null};
+				}).pipe(
+					Effect.orElseSucceed(() => ({url: args.url, title: null, description: null, error: "Failed to fetch metadata"})),
+				);
+			}),
+		},
+	}),
+});
+
+const UserType = new GraphQLObjectType({
+	name: "User",
+	fields: () => ({
+		id: {type: new GraphQLNonNull(GraphQLString)},
+		email: {type: new GraphQLNonNull(GraphQLString)},
+		name: {type: GraphQLString},
+		library: {
+			type: new GraphQLNonNull(LibraryType),
+			resolve: (source: {id: string}) => ({userId: source.id}),
+		},
+	}),
+});
+
+// =============================================================================
+// Mutation Payload Types
+// =============================================================================
+
+const CreateStoryPayload = new GraphQLObjectType({
+	name: "CreateStoryPayload",
+	fields: {
+		story: {type: StoryType},
+		storyEdge: {type: StoryEdgeType},
+	},
+});
+
+const StoryNotFoundError = new GraphQLObjectType({
+	name: "StoryNotFoundError",
+	fields: {
+		code: {type: new GraphQLNonNull(GraphQLString)},
+		message: {type: new GraphQLNonNull(GraphQLString)},
+		storyId: {type: new GraphQLNonNull(GraphQLString)},
+	},
+});
+
+const UpdateStoryPayload = new GraphQLObjectType({
+	name: "UpdateStoryPayload",
+	fields: {
+		story: {type: StoryType},
+		error: {type: StoryNotFoundError},
+	},
+});
+
+const DeleteStoryPayload = new GraphQLObjectType({
+	name: "DeleteStoryPayload",
+	fields: {
+		deletedStoryId: {type: GraphQLID},
+		success: {type: new GraphQLNonNull(GraphQLBoolean)},
+		error: {type: StoryNotFoundError},
+	},
+});
+
+const InvalidTagNameError = new GraphQLObjectType({
+	name: "InvalidTagNameError",
+	fields: {
+		code: {type: new GraphQLNonNull(GraphQLString)},
+		message: {type: new GraphQLNonNull(GraphQLString)},
+		tagName: {type: new GraphQLNonNull(GraphQLString)},
+	},
+});
+
+const TagNameExistsError = new GraphQLObjectType({
+	name: "TagNameExistsError",
+	fields: {
+		code: {type: new GraphQLNonNull(GraphQLString)},
+		message: {type: new GraphQLNonNull(GraphQLString)},
+		tagName: {type: new GraphQLNonNull(GraphQLString)},
+	},
+});
+
+const TagNotFoundError = new GraphQLObjectType({
+	name: "TagNotFoundError",
+	fields: {
+		code: {type: new GraphQLNonNull(GraphQLString)},
+		message: {type: new GraphQLNonNull(GraphQLString)},
+		tagId: {type: new GraphQLNonNull(GraphQLString)},
+	},
+});
+
+const TagError = new GraphQLUnionType({
+	name: "TagError",
+	types: [InvalidTagNameError, TagNameExistsError],
+	resolveType: (obj) => {
+		if (obj.code === "INVALID_TAG_NAME") return "InvalidTagNameError";
+		if (obj.code === "TAG_NAME_EXISTS") return "TagNameExistsError";
+		return undefined;
+	},
+});
+
+const CreateTagPayload = new GraphQLObjectType({
+	name: "CreateTagPayload",
+	fields: {
+		tag: {type: TagType},
+		error: {type: TagError},
+	},
+});
+
+const UpdateTagError = new GraphQLUnionType({
+	name: "UpdateTagError",
+	types: [InvalidTagNameError, TagNameExistsError, TagNotFoundError],
+	resolveType: (obj) => {
+		if (obj.code === "INVALID_TAG_NAME") return "InvalidTagNameError";
+		if (obj.code === "TAG_NAME_EXISTS") return "TagNameExistsError";
+		if (obj.code === "TAG_NOT_FOUND") return "TagNotFoundError";
+		return undefined;
+	},
+});
+
+const UpdateTagPayload = new GraphQLObjectType({
+	name: "UpdateTagPayload",
+	fields: {
+		tag: {type: TagType},
+		error: {type: UpdateTagError},
+	},
+});
+
+const DeleteTagPayload = new GraphQLObjectType({
+	name: "DeleteTagPayload",
+	fields: {
+		deletedTagId: {type: GraphQLID},
+		success: {type: new GraphQLNonNull(GraphQLBoolean)},
+		error: {type: TagNotFoundError},
+	},
+});
+
+// =============================================================================
+// Mutation Input Types
+// =============================================================================
+
+const CreateStoryInput = new GraphQLInputObjectType({
+	name: "CreateStoryInput",
+	fields: {
+		url: {type: new GraphQLNonNull(GraphQLString)},
+		title: {type: new GraphQLNonNull(GraphQLString)},
+		description: {type: GraphQLString},
+		tagIds: {type: new GraphQLList(new GraphQLNonNull(GraphQLID))},
+	},
+});
+
+const UpdateStoryInput = new GraphQLInputObjectType({
+	name: "UpdateStoryInput",
+	fields: {
+		id: {type: new GraphQLNonNull(GraphQLID)},
+		title: {type: GraphQLString},
+		description: {type: GraphQLString},
+		tagIds: {type: new GraphQLList(new GraphQLNonNull(GraphQLID))},
+	},
+});
+
+const DeleteStoryInput = new GraphQLInputObjectType({
+	name: "DeleteStoryInput",
+	fields: {
+		id: {type: new GraphQLNonNull(GraphQLID)},
+	},
+});
+
+const CreateTagInput = new GraphQLInputObjectType({
+	name: "CreateTagInput",
+	fields: {
+		name: {type: new GraphQLNonNull(GraphQLString)},
+		color: {type: new GraphQLNonNull(GraphQLString)},
+	},
+});
+
+const UpdateTagInput = new GraphQLInputObjectType({
+	name: "UpdateTagInput",
+	fields: {
+		id: {type: new GraphQLNonNull(GraphQLID)},
+		name: {type: GraphQLString},
+		color: {type: GraphQLString},
+	},
+});
+
+const DeleteTagInput = new GraphQLInputObjectType({
+	name: "DeleteTagInput",
+	fields: {
+		id: {type: new GraphQLNonNull(GraphQLID)},
 	},
 });
 
@@ -76,7 +432,6 @@ const QueryType = new GraphQLObjectType({
 			resolve: resolver(function* (_source: unknown, args: {url: string}) {
 				const env = yield* CloudflareEnv;
 
-				// Validate URL format
 				let parsedUrl: URL;
 				try {
 					parsedUrl = new URL(args.url);
@@ -84,35 +439,41 @@ const QueryType = new GraphQLObjectType({
 					return {title: null, description: null, error: "Invalid URL format"};
 				}
 
-				// Only allow http/https (SSRF prevention)
 				if (!["http:", "https:"].includes(parsedUrl.protocol)) {
 					return {title: null, description: null, error: "Only HTTP/HTTPS URLs are allowed"};
 				}
 
-				try {
-					// Use normalized URL as DO key for deduplication
-					const normalizedUrl = getNormalizedUrl(args.url);
-					const parserId = env.WEB_PAGE_PARSER.idFromName(normalizedUrl);
-					const stub = env.WEB_PAGE_PARSER.get(parserId);
-
-					// Use Effect RPC client to call WebPageParser
-					const client = makeWebPageParserClient((req) => stub.fetch(req));
-					try {
-						yield* Effect.promise(() => client.init(args.url));
-						const metadata = yield* Effect.promise(() => client.getMetadata());
-
-						return {
-							title: metadata.title || null,
-							description: metadata.description || null,
-							error: null,
-						};
-					} finally {
-						yield* Effect.promise(() => client.dispose());
-					}
-				} catch (err) {
-					const message = err instanceof Error ? err.message : "Failed to fetch metadata";
-					return {title: null, description: null, error: message};
+				return yield* Effect.gen(function* () {
+					const client = yield* WebPageParserClient.make(env, args.url);
+					const metadata = yield* client.getMetadata();
+					return {title: metadata.title, description: metadata.description, error: null};
+				}).pipe(
+					Effect.orElseSucceed(() => ({title: null, description: null, error: "Failed to fetch metadata"})),
+				);
+			}),
+		},
+		node: {
+			type: NodeInterface,
+			args: {
+				// Use GraphQLString instead of GraphQLID to match Relay's generated pagination queries
+				id: {type: new GraphQLNonNull(GraphQLString)},
+			},
+			resolve: resolver(function* (_source: unknown, args: {id: string}) {
+				// Determine type by ID prefix
+				if (args.id.startsWith("library_")) {
+					const {user} = yield* Auth.required;
+					const userId = args.id.replace("library_", "");
+					// Only allow access to own library
+					if (userId !== user.id) return null;
+					return {userId};
 				}
+				if (args.id.startsWith("story_")) {
+					return yield* loadStory(args.id);
+				}
+				if (args.id.startsWith("tag_")) {
+					return yield* loadTag(args.id);
+				}
+				return null;
 			}),
 		},
 	},
@@ -208,6 +569,156 @@ const MutationType = new GraphQLObjectType({
 				};
 			}),
 		},
+		createStory: {
+			type: new GraphQLNonNull(CreateStoryPayload),
+			args: {
+				input: {type: new GraphQLNonNull(CreateStoryInput)},
+			},
+			resolve: resolver(function* (
+				_source: unknown,
+				args: {
+					input: {
+						url: string;
+						title: string;
+						description?: string | null;
+						tagIds?: string[] | null;
+					};
+				},
+			) {
+				yield* Auth.required;
+				const client = yield* LibraryClient;
+				const story = yield* client.createStory({
+					url: args.input.url,
+					title: args.input.title,
+					description: args.input.description ?? undefined,
+					tagIds: args.input.tagIds ?? undefined,
+				});
+				return {story};
+			}),
+		},
+		updateStory: {
+			type: new GraphQLNonNull(UpdateStoryPayload),
+			args: {
+				input: {type: new GraphQLNonNull(UpdateStoryInput)},
+			},
+			resolve: resolver(function* (
+				_source: unknown,
+				args: {
+					input: {
+						id: string;
+						title?: string | null;
+						description?: string | null;
+						tagIds?: string[] | null;
+					};
+				},
+			) {
+				yield* Auth.required;
+				const client = yield* LibraryClient;
+				const story = yield* client.updateStory({
+					id: args.input.id,
+					title: args.input.title ?? undefined,
+					description: args.input.description ?? undefined,
+					tagIds: args.input.tagIds ?? undefined,
+				});
+				if (!story) {
+					return {
+						story: null,
+						error: {
+							code: "STORY_NOT_FOUND",
+							message: `Story with id "${args.input.id}" was not found`,
+							storyId: args.input.id,
+						},
+					};
+				}
+				return {story, error: null};
+			}),
+		},
+		deleteStory: {
+			type: new GraphQLNonNull(DeleteStoryPayload),
+			args: {
+				input: {type: new GraphQLNonNull(DeleteStoryInput)},
+			},
+			resolve: resolver(function* (_source: unknown, args: {input: {id: string}}) {
+				yield* Auth.required;
+				const client = yield* LibraryClient;
+				const result = yield* client.deleteStory({id: args.input.id});
+				if (result.deleted) {
+					return {
+						deletedStoryId: args.input.id,
+						success: true,
+						error: null,
+					};
+				}
+				return {
+					deletedStoryId: null,
+					success: false,
+					error: {
+						code: "STORY_NOT_FOUND",
+						message: `Story with id "${args.input.id}" was not found`,
+						storyId: args.input.id,
+					},
+				};
+			}),
+		},
+		createTag: {
+			type: new GraphQLNonNull(CreateTagPayload),
+			args: {
+				input: {type: new GraphQLNonNull(CreateTagInput)},
+			},
+			resolve: resolver(function* (_source: unknown, args: {input: {name: string; color: string}}) {
+				yield* Auth.required;
+				const client = yield* LibraryClient;
+				const tag = yield* client.createTag({
+					name: args.input.name,
+					color: args.input.color,
+				});
+				return {tag, error: null};
+			}),
+		},
+		updateTag: {
+			type: new GraphQLNonNull(UpdateTagPayload),
+			args: {
+				input: {type: new GraphQLNonNull(UpdateTagInput)},
+			},
+			resolve: resolver(function* (
+				_source: unknown,
+				args: {input: {id: string; name?: string | null; color?: string | null}},
+			) {
+				yield* Auth.required;
+				const client = yield* LibraryClient;
+				const result = yield* client.updateTag({
+					id: args.input.id,
+					name: args.input.name ?? undefined,
+					color: args.input.color ?? undefined,
+				});
+				if (!result) {
+					return {
+						tag: null,
+						error: {code: "TAG_NOT_FOUND", message: "Tag not found", tagId: args.input.id},
+					};
+				}
+				return {tag: result, error: null};
+			}),
+		},
+		deleteTag: {
+			type: new GraphQLNonNull(DeleteTagPayload),
+			args: {
+				input: {type: new GraphQLNonNull(DeleteTagInput)},
+			},
+			resolve: resolver(function* (_source: unknown, args: {input: {id: string}}) {
+				yield* Auth.required;
+				const client = yield* LibraryClient;
+				const result = yield* client.deleteTag({id: args.input.id});
+				if (result.deleted) {
+					return {deletedTagId: args.input.id, success: true, error: null};
+				}
+				return {
+					deletedTagId: null,
+					success: false,
+					error: {code: "TAG_NOT_FOUND", message: "Tag not found", tagId: args.input.id},
+				};
+			}),
+		},
 	},
 });
 
@@ -218,6 +729,7 @@ const MutationType = new GraphQLObjectType({
 export const schema = new GraphQLSchema({
 	query: QueryType,
 	mutation: MutationType,
+	types: [StoryType, TagType, LibraryType],
 });
 
 export function printSchemaSDL(): string {

@@ -1,11 +1,12 @@
 import {Layer, ManagedRuntime} from "effect";
 import type {Session} from "../features/pasaport/auth";
 import {Auth, CloudflareEnv, RequestContext} from "../services";
+import {LibraryClient} from "./resolvers/LibraryClient";
 
 /**
  * The requirements for a GraphQL request runtime.
  */
-export type GraphQLContext = CloudflareEnv | Auth | RequestContext;
+export type GraphQLContext = CloudflareEnv | Auth | RequestContext | LibraryClient;
 
 /**
  * GraphQL runtime factory following Effect-idiomatic patterns.
@@ -22,8 +23,8 @@ export namespace GraphQLRuntime {
 		env: Env,
 		sessionData: {user?: Session["user"]; session?: Session["session"]} | null,
 		request: Request,
-	): Layer.Layer<GraphQLContext> =>
-		Layer.mergeAll(
+	): Layer.Layer<GraphQLContext> => {
+		const baseLayers = Layer.mergeAll(
 			Layer.succeed(CloudflareEnv, env),
 			Layer.succeed(Auth, {
 				user: sessionData?.user,
@@ -35,6 +36,14 @@ export namespace GraphQLRuntime {
 				method: request.method,
 			}),
 		);
+
+		// Add LibraryClient layer only when user is authenticated
+		if (sessionData?.user?.id) {
+			return Layer.merge(baseLayers, LibraryClient.layer(env, sessionData.user.id));
+		}
+
+		return baseLayers as Layer.Layer<GraphQLContext>;
+	};
 
 	/**
 	 * Create a ManagedRuntime for a GraphQL request.
