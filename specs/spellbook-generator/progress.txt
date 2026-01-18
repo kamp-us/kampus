@@ -1,0 +1,15 @@
+# Spellbook Generator Progress
+
+## Completed
+- [x] FR-1.1: CLI accepts `kampus generate spellbook <feature-name>` command
+
+## Phase 1: Command Wiring
+- [x] Create generate parent command
+- [x] Create spellbook command stub
+- [x] Wire generate into kampus-effect.tsx
+- [ ] Add jsonc-parser dependency
+- [x] Verify `kampus generate spellbook --help` works
+
+## Notes
+- Removed alias support (`g` for `generate`) - only one way to invoke commands
+- FR-1.2 (alias) removed from requirements, renumbered subsequent items
