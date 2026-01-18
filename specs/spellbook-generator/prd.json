@@ -36,7 +36,7 @@
         "Should detect that packages/library/ already exists",
         "Should show error: 'Feature library already exists at packages/library/'"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FR-2.1",

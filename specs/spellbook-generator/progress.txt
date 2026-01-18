@@ -3,6 +3,7 @@
 ## Completed
 - [x] FR-1.1: CLI accepts `kampus generate spellbook <feature-name>` command
 - [x] FR-1.2: Feature name validated as kebab-case
+- [x] FR-1.3: Duplicate feature detection (package/worker folder exists)
 
 ## Phase 1: Command Wiring
 - [x] Create generate parent command
@@ -15,7 +16,7 @@
 - [x] Create shared types (Column, Naming, GeneratorOptions)
 - [x] Implement deriveNaming function
 - [x] Implement validateFeatureName (kebab-case check)
-- [ ] Implement checkFeatureExists
+- [x] Implement checkFeatureExists
 - [ ] Add tests for naming utils
 
 ## Notes
@@ -36,3 +37,18 @@
 - Used `Data.TaggedError` for typed errors (InvalidFeatureNameError, FeatureExistsError)
 - Regex `/^[a-z][a-z0-9]*(-[a-z0-9]+)*$/` validates kebab-case
 - Error handling via `Effect.catchAll` + `Match.tag` pattern
+
+---
+
+## 2026-01-17: Duplicate Feature Detection (FR-1.3)
+
+**Files changed:**
+- `apps/cli/generators/spellbook/validation.ts` (modified)
+- `apps/cli/commands/generate/spellbook/spellbook.ts` (modified)
+
+**Key decisions:**
+- Added `findMonorepoRoot()` helper to locate project root from any subdirectory
+- Uses `pnpm-workspace.yaml` as marker file for monorepo root
+- Checks both `packages/<feature>` and `apps/worker/src/features/<feature>`
+- Uses `@effect/platform` FileSystem service for file existence checks
+- Error message shows relative path for clarity

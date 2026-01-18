@@ -26,18 +26,38 @@ export const validateFeatureName = (name: string) =>
 		return name;
 	});
 
+const findMonorepoRoot = (fs: FileSystem.FileSystem) =>
+	Effect.gen(function* () {
+		let dir = process.cwd();
+		// eslint-disable-next-line no-constant-condition
+		while (true) {
+			const markerPath = `${dir}/pnpm-workspace.yaml`;
+			const exists = yield* fs.exists(markerPath);
+			if (exists) return dir;
+
+			const parent = dir.substring(0, dir.lastIndexOf("/"));
+			if (parent === dir || parent === "") {
+				return yield* Effect.fail(
+					new Error("Could not find monorepo root (pnpm-workspace.yaml)"),
+				);
+			}
+			dir = parent;
+		}
+	});
+
 export const checkFeatureExists = (featureName: string) =>
 	Effect.gen(function* () {
 		const fs = yield* FileSystem.FileSystem;
-		const packagePath = `packages/${featureName}`;
-		const workerPath = `apps/worker/src/features/${featureName}`;
+		const root = yield* findMonorepoRoot(fs);
+		const packagePath = `${root}/packages/${featureName}`;
+		const workerPath = `${root}/apps/worker/src/features/${featureName}`;
 
 		const packageExists = yield* fs.exists(packagePath);
 		if (packageExists) {
 			return yield* Effect.fail(
 				new FeatureExistsError({
 					featureName,
-					existingPath: packagePath,
+					existingPath: `packages/${featureName}`,
 				}),
 			);
 		}
@@ -47,7 +67,7 @@ export const checkFeatureExists = (featureName: string) =>
 			return yield* Effect.fail(
 				new FeatureExistsError({
 					featureName,
-					existingPath: workerPath,
+					existingPath: `apps/worker/src/features/${featureName}`,
 				}),
 			);
 		}
