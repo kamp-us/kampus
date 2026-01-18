@@ -77,7 +77,13 @@ const runGenerator = (
 						}
 					} else if (event.type === "complete") {
 						if (args.dryRun) {
-							yield* Console.log("\n[Dry Run] No files were written.");
+							yield* Console.log("\n[Dry Run] Files that would be created:\n");
+							for (const file of event.files) {
+								yield* Console.log(`━━━ ${file.path} ━━━`);
+								yield* Console.log(file.content);
+								yield* Console.log("");
+							}
+							yield* Console.log("No files were written (dry run mode).");
 						} else {
 							yield* Console.log(`\nSpellbook "${event.naming.className}" created successfully!`);
 						}

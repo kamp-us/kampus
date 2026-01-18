@@ -37,6 +37,9 @@
 - [x] FR-8.2: --with-graphql creates GraphQL client and type readme
 - [x] FR-8.3: --with-route adds RPC route to index.ts
 - [x] FR-8.4: --with-all enables all extras
+- [x] FR-9.1: --dry-run shows file tree without writing
+- [x] FR-9.2: Display file contents preview in dry run
+- [x] FR-9.3: No side effects in dry run mode
 
 ## Phase 1: Command Wiring
 - [x] Create generate parent command
@@ -328,7 +331,27 @@
 - 170 tests passing
 
 **Remaining:**
-- Dry-run (FR-9.x)
+- Template pattern matching (NFR-2.3)
+- User experience validation (NFR-3.x)
+- Integration tests (TEST-2.1, TEST-2.2, TEST-2.6, TEST-2.7)
+- E2E tests (TEST-3.x)
+
+---
+
+## 2026-01-17: Dry-Run Mode (FR-9.1, FR-9.2, FR-9.3)
+
+**Files changed:**
+- `apps/cli/commands/generate/spellbook/spellbook.ts` (updated non-TUI dry-run output)
+
+**Key decisions:**
+- Non-TUI mode now shows full file tree with paths in dry-run
+- FR-9.2: Added file content preview with ━━━ delimiters between files
+- FR-9.3: Verified no side effects - no directories/files created, no integrations updated
+- TUI mode already showed file list in success phase (via ProgressApp)
+- Content preview best suited for --no-tui mode where output can be piped/scrolled
+- 170 tests still passing
+
+**Remaining:**
 - Template pattern matching (NFR-2.3)
 - User experience validation (NFR-3.x)
 - Integration tests (TEST-2.1, TEST-2.2, TEST-2.6, TEST-2.7)

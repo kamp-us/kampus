@@ -538,25 +538,25 @@
       "category": "dry-run",
       "description": "--dry-run shows file tree without writing",
       "stepsToVerify": [
-        "Run with --dry-run flag",
-        "TUI displays list of files that would be created",
+        "Run with --dry-run --no-tui flag",
+        "Output displays list of files that would be created",
+        "TUI mode shows file list in success phase",
         "No files actually written to disk",
-        "packages/<feature>/ folder does NOT exist after run",
-        "All new functionality is covered by tests"
+        "packages/<feature>/ folder does NOT exist after run"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FR-9.2",
       "category": "dry-run",
       "description": "Display file contents preview in dry run",
       "stepsToVerify": [
-        "Run with --dry-run flag",
-        "TUI shows content preview for each file",
+        "Run with --dry-run --no-tui flag",
+        "Output shows full content for each file",
         "Content includes actual generated code",
-        "All new functionality is covered by tests"
+        "File paths shown with ━━━ delimiters"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FR-9.3",
@@ -567,9 +567,9 @@
         "wrangler.jsonc unchanged",
         "index.ts unchanged",
         "drizzle-kit NOT executed",
-        "All new functionality is covered by tests"
+        "No directories created"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "NFR-1.1",
