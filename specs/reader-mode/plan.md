@@ -21,78 +21,71 @@ pnpm --filter worker add -D @types/mozilla__readability
 
 - Add `ReaderContent` schema (title, content, textContent, excerpt, byline, siteName, wordCount, readingTimeMinutes)
 - Add `ReaderResult` schema (readable, content, error)
-- Export types
 
-### Step 3: Add RPC Definition
+### Step 3: Add TaggedErrors
 
-**File:** `packages/web-page-parser/src/rpc.ts`
+**File:** `packages/web-page-parser/src/errors.ts` (NEW)
+
+- `FetchTimeoutError` - url field
+- `FetchHttpError` - url, status fields
+- `FetchNetworkError` - url, message fields
+- `NotReadableError` - url field
+- `ParseError` - url, message fields
+- `InvalidProtocolError` - url, protocol fields
+- Use `Schema.TaggedError` pattern
+
+### Step 4: Add RPC Definition + Exports
+
+**Files:** `packages/web-page-parser/src/rpc.ts`, `index.ts`
 
 - Add `getReaderContent` RPC with `{ forceFetch?: boolean }` payload
-- Returns `ReaderResult`
+- Export `ReaderContent`, `ReaderResult` types and all errors
 
-### Step 4: Export New Types
-
-**File:** `packages/web-page-parser/src/index.ts`
-
-- Export `ReaderContent`, `ReaderResult` types
-
-### Step 5: Add Database Schema
+### Step 5: Add Database Schema + Migration
 
 **File:** `apps/worker/src/features/web-page-parser/drizzle/drizzle.schema.ts`
 
 - Add `readerContent` table definition
+- Run `pnpm exec drizzle-kit generate`
 
-### Step 6: Generate Migration
-
-```bash
-cd apps/worker
-pnpm exec drizzle-kit generate
-```
-
-- Creates `0001_add_reader_content.sql`
-
-### Step 7: Create fetchReaderContent
+### Step 6: Create fetchReaderContent (Effect + HttpClient)
 
 **File:** `apps/worker/src/features/web-page-parser/fetchReaderContent.ts`
 
-- Fetch URL with 15s timeout
-- Parse with `linkedom/worker`
-- Extract with `Readability`
+- Use `HttpClient` from `@effect/platform`
+- Use `HttpClientRequest.get` with headers
+- Apply `Effect.timeout(Duration.seconds(15))`
+- Map HttpClient errors to domain TaggedErrors via `Effect.catchTag`
+- Parse with `linkedom/worker`, extract with `Readability`
 - Rewrite image URLs to proxy
-- Calculate word count / reading time
-- Return `ReaderResult`
+- Return `Effect<ReaderContent, ...errors, HttpClient>`
+- Tests: happy path, error types, image rewriting
 
-### Step 8: Create Image Proxy
+### Step 7: Create Image Proxy
 
 **File:** `apps/worker/src/features/web-page-parser/proxyImage.ts`
 
 - Validate URL protocol
 - Fetch with 10s timeout
 - Pass through with cache headers
+- Tests: validation, headers, errors
 
-### Step 9: Add Handler
+### Step 8: Add Handler
 
 **File:** `apps/worker/src/features/web-page-parser/handlers.ts`
 
 - Add `getReaderContent` handler
-- Check cache (24h TTL)
-- Fetch if needed
-- Store result
+- Convert TaggedErrors to `ReaderResult` using `Match.value` + `Match.tag`
+- Provide `FetchHttpClient.layer`
+- Cache pattern (24h TTL)
+- Tests: cache behavior, error conversion
 
-### Step 10: Add Route
+### Step 9: Add Route
 
 **File:** `apps/worker/src/index.ts`
 
 - Add `/api/proxy-image` GET route
-- Import and call `proxyImage`
-
-### Step 11: Tests
-
-**File:** `apps/worker/test/web-page-parser-handlers.spec.ts`
-
-- Test `getReaderContent` returns cached data
-- Test `forceFetch` bypasses cache
-- Test error state handling
+- Tests: param validation, proxying
 
 ## Verification
 
@@ -107,27 +100,25 @@ pnpm exec drizzle-kit generate
 |------|--------|
 | `apps/worker/package.json` | add deps |
 | `packages/web-page-parser/src/schema.ts` | add schemas |
+| `packages/web-page-parser/src/errors.ts` | NEW - TaggedErrors |
 | `packages/web-page-parser/src/rpc.ts` | add RPC |
-| `packages/web-page-parser/src/index.ts` | export types |
+| `packages/web-page-parser/src/index.ts` | export types + errors |
 | `apps/worker/.../drizzle/drizzle.schema.ts` | add table |
 | `apps/worker/.../drizzle/migrations/0001_*.sql` | generated |
-| `apps/worker/.../fetchReaderContent.ts` | new |
-| `apps/worker/.../proxyImage.ts` | new |
+| `apps/worker/.../fetchReaderContent.ts` | NEW - Effect + HttpClient |
+| `apps/worker/.../proxyImage.ts` | NEW |
 | `apps/worker/.../handlers.ts` | add handler |
 | `apps/worker/src/index.ts` | add route |
-| `apps/worker/test/web-page-parser-handlers.spec.ts` | add tests |
 
 ## Progress
 
 - [ ] Step 1: Add dependencies
 - [ ] Step 2: Add Effect schemas
-- [ ] Step 3: Add RPC definition
-- [ ] Step 4: Export new types
-- [ ] Step 5: Add database schema
-- [ ] Step 6: Generate migration
-- [ ] Step 7: Create fetchReaderContent
-- [ ] Step 8: Create image proxy
-- [ ] Step 9: Add handler
-- [ ] Step 10: Add route
-- [ ] Step 11: Tests
+- [ ] Step 3: Add TaggedErrors
+- [ ] Step 4: Add RPC + exports
+- [ ] Step 5: Add database schema + migration
+- [ ] Step 6: Create fetchReaderContent with tests
+- [ ] Step 7: Create image proxy with tests
+- [ ] Step 8: Add handler with tests
+- [ ] Step 9: Add route with tests
 - [ ] Verification

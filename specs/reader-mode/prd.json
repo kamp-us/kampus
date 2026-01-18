@@ -25,17 +25,35 @@
         "Edit packages/web-page-parser/src/schema.ts",
         "Add ReaderContent schema with: title, content, textContent, excerpt, byline, siteName, wordCount, readingTimeMinutes",
         "Add ReaderResult schema with: readable, content, error",
-        "Export types",
-        "Add schema encode/decode tests in packages/web-page-parser/test/"
+        "Export types"
       ],
       "verification": [
-        "turbo run typecheck passes",
-        "schema tests pass"
+        "turbo run typecheck passes"
       ],
       "passes": false
     },
     {
       "id": "3",
+      "category": "errors",
+      "description": "Add TaggedErrors for fetch and parse failures",
+      "steps": [
+        "Create packages/web-page-parser/src/errors.ts",
+        "Add FetchTimeoutError with url field",
+        "Add FetchHttpError with url and status fields",
+        "Add FetchNetworkError with url and message fields",
+        "Add NotReadableError with url field",
+        "Add ParseError with url and message fields",
+        "Add InvalidProtocolError with url and protocol fields",
+        "Use Schema.TaggedError pattern from @kampus/library"
+      ],
+      "verification": [
+        "turbo run typecheck passes",
+        "errors importable from @kampus/web-page-parser"
+      ],
+      "passes": false
+    },
+    {
+      "id": "4",
       "category": "rpc",
       "description": "Add getReaderContent RPC definition and export types",
       "steps": [
@@ -43,16 +61,16 @@
         "Add getReaderContent RPC with payload { forceFetch?: boolean }",
         "Set success type to ReaderResult",
         "Edit packages/web-page-parser/src/index.ts",
-        "Export ReaderContent and ReaderResult types"
+        "Export ReaderContent, ReaderResult types and all errors"
       ],
       "verification": [
         "turbo run typecheck passes",
-        "types importable from @kampus/web-page-parser"
+        "types and errors importable from @kampus/web-page-parser"
       ],
       "passes": false
     },
     {
-      "id": "4",
+      "id": "5",
       "category": "database",
       "description": "Add readerContent table and generate migration",
       "steps": [
@@ -68,32 +86,38 @@
       "passes": false
     },
     {
-      "id": "5",
+      "id": "6",
       "category": "implementation",
-      "description": "Create fetchReaderContent.ts with tests",
+      "description": "Create fetchReaderContent.ts with Effect + HttpClient",
       "steps": [
         "Create apps/worker/src/features/web-page-parser/fetchReaderContent.ts",
-        "Implement URL fetch with 15s timeout",
+        "Use HttpClient from @effect/platform for fetch",
+        "Use HttpClientRequest.get with custom headers",
+        "Apply Effect.timeout with Duration.seconds(15)",
+        "Map HttpClient errors to domain TaggedErrors using Effect.catchTag",
         "Parse HTML with linkedom/worker",
         "Extract content with Readability",
         "Implement rewriteImageUrls to proxy images",
         "Calculate wordCount and readingTimeMinutes",
-        "Return ReaderResult object",
+        "Return Effect<ReaderContent, ...errors, HttpClient>",
         "Add tests in apps/worker/test/fetchReaderContent.spec.ts",
         "Test: successful extraction from article HTML",
-        "Test: returns readable:false for non-article HTML",
+        "Test: returns NotReadableError for non-article HTML",
         "Test: image URLs are rewritten to proxy",
-        "Test: word count and reading time calculation"
+        "Test: word count and reading time calculation",
+        "Test: FetchTimeoutError on timeout",
+        "Test: FetchHttpError on 404/500",
+        "Test: InvalidProtocolError on file:// URL"
       ],
       "verification": [
         "turbo run typecheck passes",
         "pnpm --filter worker run test passes",
-        "fetchReaderContent tests cover happy path and edge cases"
+        "fetchReaderContent tests cover happy path and all error types"
       ],
       "passes": false
     },
     {
-      "id": "6",
+      "id": "7",
       "category": "implementation",
       "description": "Create proxyImage.ts with tests",
       "steps": [
@@ -114,7 +138,7 @@
       "passes": false
     },
     {
-      "id": "7",
+      "id": "8",
       "category": "implementation",
       "description": "Add getReaderContent handler with tests",
       "steps": [
@@ -123,7 +147,9 @@
         "Add getReaderContent handler using Effect.gen",
         "Check cache with 24h TTL",
         "Fetch if cache miss or forceFetch",
-        "Store result in database",
+        "Convert TaggedErrors to ReaderResult using Match.value + Match.tag",
+        "Provide FetchHttpClient.layer",
+        "Store result (including error state) in database",
         "Add tests in apps/worker/test/web-page-parser-handlers.spec.ts",
         "Test: returns cached data when recent",
         "Test: forceFetch bypasses cache",
@@ -132,12 +158,12 @@
       "verification": [
         "turbo run typecheck passes",
         "pnpm --filter worker run test passes",
-        "handler tests cover cache behavior"
+        "handler tests cover cache behavior and error conversion"
       ],
       "passes": false
     },
     {
-      "id": "8",
+      "id": "9",
       "category": "routing",
       "description": "Add /api/proxy-image route with tests",
       "steps": [
@@ -157,7 +183,7 @@
       "passes": false
     },
     {
-      "id": "9",
+      "id": "10",
       "category": "verification",
       "description": "Final verification",
       "steps": [

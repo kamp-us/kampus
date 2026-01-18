@@ -39,8 +39,9 @@
 ```
 packages/web-page-parser/src/
 ├── schema.ts          # + ReaderContent, ReaderResult
+├── errors.ts          # NEW: TaggedErrors for fetch/parse failures
 ├── rpc.ts             # + getReaderContent RPC
-└── index.ts           # + export new types
+└── index.ts           # + export new types and errors
 
 apps/worker/src/
 ├── index.ts           # + /api/proxy-image route
@@ -83,6 +84,42 @@ export const ReaderResult = Schema.Struct({
 export type ReaderResult = typeof ReaderResult.Type;
 ```
 
+### Tagged Errors (`packages/web-page-parser/src/errors.ts`)
+
+```typescript
+import {Schema} from "effect";
+
+export class FetchTimeoutError extends Schema.TaggedError<FetchTimeoutError>()(
+  "FetchTimeoutError",
+  {url: Schema.String},
+) {}
+
+export class FetchHttpError extends Schema.TaggedError<FetchHttpError>()(
+  "FetchHttpError",
+  {url: Schema.String, status: Schema.Number},
+) {}
+
+export class FetchNetworkError extends Schema.TaggedError<FetchNetworkError>()(
+  "FetchNetworkError",
+  {url: Schema.String, message: Schema.String},
+) {}
+
+export class NotReadableError extends Schema.TaggedError<NotReadableError>()(
+  "NotReadableError",
+  {url: Schema.String},
+) {}
+
+export class ParseError extends Schema.TaggedError<ParseError>()(
+  "ParseError",
+  {url: Schema.String, message: Schema.String},
+) {}
+
+export class InvalidProtocolError extends Schema.TaggedError<InvalidProtocolError>()(
+  "InvalidProtocolError",
+  {url: Schema.String, protocol: Schema.String},
+) {}
+```
+
 ### RPC Definition (`packages/web-page-parser/src/rpc.ts`)
 
 ```typescript
@@ -121,16 +158,40 @@ export const readerContent = sqliteTable("reader_content", {
 
 ## Implementation Details
 
-### fetchReaderContent.ts
+### fetchReaderContent.ts (Effect + @effect/platform HttpClient)
 
 ```typescript
+import {HttpClient, HttpClientRequest, HttpClientError} from "@effect/platform";
 import {parseHTML} from "linkedom/worker";
 import {Readability} from "@mozilla/readability";
+import {Effect, Duration} from "effect";
+import type {ReaderContent} from "@kampus/web-page-parser";
+import {
+  FetchTimeoutError,
+  FetchHttpError,
+  FetchNetworkError,
+  NotReadableError,
+  ParseError,
+  InvalidProtocolError,
+} from "@kampus/web-page-parser";
 
 const IMAGE_PROXY_BASE = "/api/proxy-image?url=";
 
-function rewriteImageUrls(html: string, baseUrl: string): string {
-  // Parse, find all img tags, rewrite src to proxy URL
+// --- Pure helpers ---
+
+const validateUrl = (url: string) =>
+  Effect.try({
+    try: () => {
+      const parsed = new URL(url);
+      if (!["http:", "https:"].includes(parsed.protocol)) {
+        throw parsed.protocol;
+      }
+      return parsed;
+    },
+    catch: (e) => new InvalidProtocolError({url, protocol: String(e)}),
+  });
+
+const rewriteImageUrls = (html: string, baseUrl: string): string => {
   const {document} = parseHTML(html);
   for (const img of document.querySelectorAll("img[src]")) {
     const src = img.getAttribute("src");
@@ -140,75 +201,108 @@ function rewriteImageUrls(html: string, baseUrl: string): string {
     }
   }
   return document.toString();
-}
+};
 
-export async function fetchReaderContent(url: string): Promise<ReaderResultType> {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 15000);
+const calculateReadingStats = (textContent: string) => {
+  const wordCount = textContent.split(/\s+/).filter(Boolean).length;
+  return {wordCount, readingTimeMinutes: Math.ceil(wordCount / 200)};
+};
 
-  try {
-    const res = await fetch(url, {
-      signal: controller.signal,
-      headers: {
+// --- Main Effect ---
+
+export const fetchReaderContent = (url: string) =>
+  Effect.gen(function* () {
+    yield* validateUrl(url);
+
+    const client = yield* HttpClient.HttpClient;
+
+    // Build request with headers
+    const request = HttpClientRequest.get(url).pipe(
+      HttpClientRequest.setHeaders({
         "User-Agent": "Mozilla/5.0 (compatible; KampusBot/1.0)",
         "Accept": "text/html,application/xhtml+xml",
-      },
+      }),
+    );
+
+    // Execute with timeout, map errors to domain errors
+    const response = yield* client.execute(request).pipe(
+      Effect.timeout(Duration.seconds(15)),
+      Effect.catchTag("TimeoutException", () => Effect.fail(new FetchTimeoutError({url}))),
+      Effect.catchTag("RequestError", (e) => Effect.fail(new FetchNetworkError({url, message: e.message}))),
+      Effect.catchTag("ResponseError", (e) => Effect.fail(new FetchHttpError({url, status: e.response.status}))),
+    );
+
+    // Get HTML text
+    const html = yield* response.text.pipe(
+      Effect.catchTag("ResponseError", () => Effect.fail(new FetchNetworkError({url, message: "Failed to read body"}))),
+    );
+
+    // Parse with linkedom
+    const {document} = yield* Effect.try({
+      try: () => parseHTML(html),
+      catch: (e) => new ParseError({url, message: String(e)}),
     });
-    clearTimeout(timeoutId);
 
-    if (!res.ok) {
-      return {readable: false, content: null, error: `HTTP ${res.status}`};
-    }
-
-    const html = await res.text();
-    const {document} = parseHTML(html);
-
-    // Check if page is readable
+    // Check if readable
     if (!Readability.isProbablyReadable(document)) {
-      return {readable: false, content: null, error: "Page is not article content"};
+      return yield* Effect.fail(new NotReadableError({url}));
     }
 
-    const reader = new Readability(document.cloneNode(true), {
-      charThreshold: 100,
+    // Extract with Readability
+    const article = yield* Effect.try({
+      try: () => new Readability(document.cloneNode(true) as Document, {charThreshold: 100}).parse(),
+      catch: (e) => new ParseError({url, message: String(e)}),
     });
-    const article = reader.parse();
 
     if (!article) {
-      return {readable: false, content: null, error: "Failed to extract content"};
+      return yield* Effect.fail(new ParseError({url, message: "Readability returned null"}));
     }
 
-    // Rewrite image URLs in extracted content
+    // Build result
     const contentWithProxiedImages = rewriteImageUrls(article.content, url);
-
-    const wordCount = article.textContent.split(/\s+/).filter(Boolean).length;
+    const {wordCount, readingTimeMinutes} = calculateReadingStats(article.textContent);
 
     return {
-      readable: true,
-      content: {
-        title: article.title,
-        content: contentWithProxiedImages,
-        textContent: article.textContent,
-        excerpt: article.excerpt || null,
-        byline: article.byline || null,
-        siteName: article.siteName || null,
-        wordCount,
-        readingTimeMinutes: Math.ceil(wordCount / 200),
-      },
-      error: null,
-    };
-  } catch (err) {
-    clearTimeout(timeoutId);
-    if (err instanceof Error && err.name === "AbortError") {
-      return {readable: false, content: null, error: "Request timed out"};
-    }
-    return {readable: false, content: null, error: String(err)};
-  }
-}
+      title: article.title,
+      content: contentWithProxiedImages,
+      textContent: article.textContent,
+      excerpt: article.excerpt || null,
+      byline: article.byline || null,
+      siteName: article.siteName || null,
+      wordCount,
+      readingTimeMinutes,
+    } satisfies ReaderContent;
+  });
+
+// Type: Effect<ReaderContent, FetchTimeoutError | FetchHttpError | FetchNetworkError | NotReadableError | ParseError | InvalidProtocolError, HttpClient.HttpClient>
+// Note: Requires HttpClient service - provide via FetchHttpClient.layer in Cloudflare Workers
 ```
 
 ### Handler (`handlers.ts`)
 
 ```typescript
+import {FetchHttpClient} from "@effect/platform";
+import {fetchReaderContent} from "./fetchReaderContent";
+import type {ReaderResult} from "@kampus/web-page-parser";
+
+// Helper to convert domain errors to ReaderResult
+const errorToResult = (url: string) =>
+  Effect.catchAll((error: FetchTimeoutError | FetchHttpError | FetchNetworkError | NotReadableError | ParseError | InvalidProtocolError) =>
+    Effect.succeed({
+      readable: false,
+      content: null,
+      error: Match.value(error).pipe(
+        Match.tag("FetchTimeoutError", () => "Request timed out"),
+        Match.tag("FetchHttpError", (e) => `HTTP ${e.status}`),
+        Match.tag("FetchNetworkError", (e) => e.message),
+        Match.tag("NotReadableError", () => "Page is not article content"),
+        Match.tag("ParseError", (e) => e.message),
+        Match.tag("InvalidProtocolError", (e) => `Invalid protocol: ${e.protocol}`),
+        Match.exhaustive,
+      ),
+    } satisfies ReaderResult)
+  );
+
 export const handlers = {
   init: ...,        // existing
   getMetadata: ..., // existing
@@ -234,10 +328,14 @@ export const handlers = {
         return mapDbRowToResult(cached);
       }
 
-      // Fetch fresh
-      const result = yield* Effect.promise(() => fetchReaderContent(url));
+      // Fetch fresh - errors converted to ReaderResult
+      const result = yield* fetchReaderContent(url).pipe(
+        Effect.map((content) => ({readable: true, content, error: null} satisfies ReaderResult)),
+        errorToResult(url),
+        Effect.provide(FetchHttpClient.layer),
+      );
 
-      // Store result
+      // Store result (including error state)
       yield* db.insert(schema.readerContent).values(mapResultToDbRow(result));
 
       return result;
