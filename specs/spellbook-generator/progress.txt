@@ -40,6 +40,10 @@
 - [x] FR-9.1: --dry-run shows file tree without writing
 - [x] FR-9.2: Display file contents preview in dry run
 - [x] FR-9.3: No side effects in dry run mode
+- [x] NFR-2.3: Templates match existing library/web-page-parser patterns
+- [x] NFR-3.1: Clear error messages for validation failures
+- [x] NFR-3.2: Colored output for status
+- [x] NFR-3.3: Non-blocking TUI
 
 ## Phase 1: Command Wiring
 - [x] Create generate parent command
@@ -331,8 +335,6 @@
 - 170 tests passing
 
 **Remaining:**
-- Template pattern matching (NFR-2.3)
-- User experience validation (NFR-3.x)
 - Integration tests (TEST-2.1, TEST-2.2, TEST-2.6, TEST-2.7)
 - E2E tests (TEST-3.x)
 
@@ -352,7 +354,35 @@
 - 170 tests still passing
 
 **Remaining:**
-- Template pattern matching (NFR-2.3)
-- User experience validation (NFR-3.x)
+- Integration tests (TEST-2.1, TEST-2.2, TEST-2.6, TEST-2.7)
+- E2E tests (TEST-3.x)
+
+---
+
+## 2026-01-17: Template and UX Verification (NFR-2.3, NFR-3.1, NFR-3.2, NFR-3.3)
+
+**Files changed:**
+- `specs/spellbook-generator/prd.json` (marked items as passing)
+
+**Verification performed:**
+- NFR-2.3: Compared generated templates with library/Library.ts, handlers.ts, rpc.ts
+  - DO class: Same Spellbook.make() structure
+  - handlers: Same Effect.gen + SqliteDrizzle pattern
+  - rpc: Same RpcGroup.make structure
+  - Templates follow patterns correctly; complexity differs as expected for scaffolds
+- NFR-3.1: Error messages verified in spellbook.ts:152-164
+  - InvalidFeatureNameError shows reason + received value
+  - FeatureExistsError shows feature name + existing path
+- NFR-3.2: Colors verified in renderApp.tsx
+  - Green (#00aa00): success messages (lines 133, 145, 152, 162)
+  - Red (#ff0000): error messages (lines 170-171)
+  - Yellow (#ffaa00): dry-run/warning (lines 145, 159, 162)
+- NFR-3.3: Non-blocking TUI verified
+  - React + @opentui/react inherently non-blocking
+  - useKeyboard hook for responsive input
+  - Ctrl+C cancellation in SpellbookApp.tsx:19-24
+  - File generation runs in Fiber (spellbook.ts:95)
+
+**Remaining:**
 - Integration tests (TEST-2.1, TEST-2.2, TEST-2.6, TEST-2.7)
 - E2E tests (TEST-3.x)
