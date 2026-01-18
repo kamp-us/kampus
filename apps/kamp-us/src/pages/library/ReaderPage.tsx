@@ -3,7 +3,7 @@ import {graphql, useLazyLoadQuery} from "react-relay";
 import {Link, Navigate, useParams} from "react-router";
 import type {ReaderPageQuery as ReaderPageQueryType} from "../../__generated__/ReaderPageQuery.graphql";
 import {useAuth} from "../../auth/AuthContext";
-import {highlightCodeBlocks} from "../../utils/highlightCode";
+import {highlightHtmlCodeBlocks} from "../../utils/highlightCode";
 import styles from "./ReaderPage.module.css";
 
 const ReaderPageQuery = graphql`
@@ -47,6 +47,7 @@ function NotReadable({url, error}: {url: string; error: string | null | undefine
 		<div className={styles.error}>
 			<h1>Couldn't extract article</h1>
 			<p>{error || "This page couldn't be parsed as an article."}</p>
+			<Link to="/me/library">← Back to Library</Link>
 			<a href={url} target="_blank" rel="noopener noreferrer">
 				View original →
 			</a>
@@ -73,15 +74,21 @@ function ReaderPageContentInner({storyId}: {storyId: string}) {
 	const data = useLazyLoadQuery<ReaderPageQueryType>(ReaderPageQuery, {
 		storyId,
 	});
-	const [highlightedContent, setHighlightedContent] = useState<string | null>(null);
 
 	const story = data.me?.library?.story;
 	const content = story?.readerContent?.content?.content;
 
+	const [highlightedContent, setHighlightedContent] = useState<string | null>(null);
+
 	useEffect(() => {
-		if (content) {
-			highlightCodeBlocks(content).then(setHighlightedContent);
-		}
+		if (!content) return;
+		let cancelled = false;
+		highlightHtmlCodeBlocks(content).then((result) => {
+			if (!cancelled) setHighlightedContent(result);
+		});
+		return () => {
+			cancelled = true;
+		};
 	}, [content]);
 
 	if (!story) return <NotFound />;
@@ -108,10 +115,7 @@ function ReaderPageContentInner({storyId}: {storyId: string}) {
 				</div>
 			</header>
 			{/* biome-ignore lint/security/noDangerouslySetInnerHtml: Reader content is sanitized HTML from Readability */}
-			<div
-				className={styles.content}
-				dangerouslySetInnerHTML={{__html: highlightedContent ?? c.content}}
-			/>
+			<div className={styles.content} dangerouslySetInnerHTML={{__html: highlightedContent ?? c.content}} />
 		</article>
 	);
 }
