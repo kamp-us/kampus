@@ -23,3 +23,16 @@ Changes:
 
 Verified:
 - turbo run typecheck passes
+
+## 2026-01-18: Add readerContent field to Story GraphQL type (task-3)
+
+Files changed:
+- apps/worker/src/graphql/schema.ts
+
+Changes:
+- Added readerContent field to StoryType
+- Resolver uses CloudflareEnv, WebPageParserClient.make(env, story.url)
+- Returns ReaderResultType (non-null)
+
+Verified:
+- turbo run typecheck passes

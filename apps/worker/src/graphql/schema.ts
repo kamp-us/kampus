@@ -112,6 +112,14 @@ const StoryType: GraphQLObjectType = new GraphQLObjectType({
 			type: new GraphQLNonNull(new GraphQLList(new GraphQLNonNull(TagType))),
 			// Tags are already embedded in Story response from RPC, no resolver needed
 		},
+		readerContent: {
+			type: new GraphQLNonNull(ReaderResultType),
+			resolve: resolver(function* (story: {url: string}) {
+				const env = yield* CloudflareEnv;
+				const client = yield* WebPageParserClient.make(env, story.url);
+				return yield* client.getReaderContent();
+			}),
+		},
 	}),
 });
 

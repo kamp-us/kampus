@@ -34,7 +34,7 @@
       "Returns ReaderResultType",
       "turbo run typecheck passes"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "id": "task-4",
