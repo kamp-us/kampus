@@ -30,7 +30,7 @@
       "verification": [
         "turbo run typecheck passes"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "3",

@@ -1,2 +1,2 @@
 export {WebPageParserRpcs} from "./rpc.js";
-export {PageMetadata} from "./schema.js";
+export {PageMetadata, ReaderContent, ReaderResult} from "./schema.js";

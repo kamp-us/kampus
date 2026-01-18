@@ -38,3 +38,12 @@
 - `pnpm install` ✓
 - `turbo run typecheck` ✓
 - Packages in `apps/worker/package.json` ✓
+
+## 2026-01-18: Task 2 - Schema
+
+**Files changed:**
+- `packages/web-page-parser/src/schema.ts` - added ReaderContent, ReaderResult
+- `packages/web-page-parser/src/index.ts` - export new types
+
+**Verification:**
+- `turbo run typecheck` ✓
