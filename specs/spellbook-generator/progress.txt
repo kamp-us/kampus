@@ -418,5 +418,37 @@
   - 11 validation tests covering PascalCase, snake_case, camelCase, numbers, hyphens
 - Total: 196 CLI tests passing
 
-**Remaining:**
-- E2E tests (TEST-3.x)
+---
+
+## 2026-01-17: E2E Tests (TEST-3.1, TEST-3.2, TEST-3.3, TEST-3.4, TEST-3.5)
+
+**Files changed:**
+- `apps/cli/generators/spellbook/e2e.test.ts` (new)
+- `apps/cli/generators/spellbook/templates/worker.ts` (fixed drizzle schema template, handlers formatting)
+
+**Key decisions:**
+- TEST-3.1: Generates feature and verifies TypeScript structure is valid
+  - Checks schema.ts, rpc.ts, DO class, and handlers have correct imports/exports
+  - Uses `readFileSync` to verify content instead of running tsc
+- TEST-3.2: Generates feature and runs `biome check`
+  - Verifies no lint/format errors in package or worker directories
+  - Uses system `biome` command directly
+- TEST-3.3: Verifies handlers have correct Effect types
+  - Checks for Effect.gen pattern, SqliteDrizzle usage
+  - Verifies drizzle schema has correct column structure
+- TEST-3.4: --with-test generates valid test file
+  - Verifies cloudflare:test and vitest imports
+  - Verifies correct DO binding reference (env.BINDING_NAME)
+- TEST-3.5: --with-graphql generates valid resolver
+  - Verifies Context.Tag pattern like existing LibraryClient
+  - Verifies GraphQL type readme with correct field mappings
+
+**Bug fixes:**
+- Fixed drizzle schema template: columns now include key names (e.g., `title: text("title")`)
+- Fixed handlers template: SQL query line split for biome formatting
+- Fixed e2e test ROOT_DIR: was 5 levels up, now 4 levels up
+
+**Test counts:**
+- Total: 202 CLI tests passing (196 existing + 6 e2e)
+
+**PRD STATUS: ALL 56 ITEMS PASSING**

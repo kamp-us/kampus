@@ -44,7 +44,10 @@ import * as schema from "./drizzle/drizzle.schema";
 export const get${naming.className} = ({id}: {id: string}) =>
 	Effect.gen(function* () {
 		const db = yield* SqliteDrizzle;
-		const [row] = yield* db.select().from(schema.${naming.tableName}).where(eq(schema.${naming.tableName}.id, id));
+		const [row] = yield* db
+			.select()
+			.from(schema.${naming.tableName})
+			.where(eq(schema.${naming.tableName}.id, id));
 		if (!row) return null;
 		return {
 			...row,
@@ -67,7 +70,7 @@ export const list${naming.className}s = () =>
 
 export const drizzleSchemaTs = (naming: Naming, columns: Column[]): string => {
 	const columnDefs = columns
-		.map((col) => `\t\t${columnTypeToDrizzle(col.name, col.type, col.nullable)},`)
+		.map((col) => `\t\t${col.name}: ${columnTypeToDrizzle(col.name, col.type, col.nullable)},`)
 		.join("\n");
 
 	return `import {id} from "@usirin/forge";
