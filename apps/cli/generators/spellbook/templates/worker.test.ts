@@ -5,6 +5,7 @@ import {
 	doClassTs,
 	drizzleConfigTs,
 	drizzleSchemaTs,
+	graphqlClientTs,
 	handlersTs,
 	journalJson,
 	migrationsJs,
@@ -276,5 +277,60 @@ describe("testSpecTs template", () => {
 		expect(result).toContain('it("initializes correctly"');
 		expect(result).toContain('getBookShelf("test-instance")');
 		expect(result).toContain("expect(stub).toBeDefined()");
+	});
+});
+
+describe("graphqlClientTs template", () => {
+	test("imports RpcClient from @effect/rpc", () => {
+		const result = graphqlClientTs(mockNaming);
+		expect(result).toContain('import type {RpcClient} from "@effect/rpc"');
+	});
+
+	test("imports Rpcs from package", () => {
+		const result = graphqlClientTs(mockNaming);
+		expect(result).toContain('import {BookShelfRpcs} from "@kampus/book-shelf"');
+	});
+
+	test("imports Context and Layer from effect", () => {
+		const result = graphqlClientTs(mockNaming);
+		expect(result).toContain('import {Context, Layer} from "effect"');
+	});
+
+	test("imports Spellcaster from shared", () => {
+		const result = graphqlClientTs(mockNaming);
+		expect(result).toContain('import * as Spellcaster from "../../shared/Spellcaster"');
+	});
+
+	test("exports client class with Context.Tag", () => {
+		const result = graphqlClientTs(mockNaming);
+		expect(result).toContain("export class BookShelfClient extends Context.Tag");
+		expect(result).toContain('"@kampus/worker/BookShelfClient"');
+	});
+
+	test("uses correct RpcClient type", () => {
+		const result = graphqlClientTs(mockNaming);
+		expect(result).toContain("RpcClient.FromGroup<typeof BookShelfRpcs>");
+	});
+
+	test("includes static layer method", () => {
+		const result = graphqlClientTs(mockNaming);
+		expect(result).toContain("static layer(env: Env, name: string): Layer.Layer<BookShelfClient>");
+	});
+
+	test("layer uses correct binding name", () => {
+		const result = graphqlClientTs(mockNaming);
+		expect(result).toContain("env.BOOK_SHELF.get(env.BOOK_SHELF.idFromName(name))");
+	});
+
+	test("layer uses Spellcaster.make", () => {
+		const result = graphqlClientTs(mockNaming);
+		expect(result).toContain("Spellcaster.make({");
+		expect(result).toContain("rpcs: BookShelfRpcs,");
+	});
+
+	test("includes example usage in JSDoc", () => {
+		const result = graphqlClientTs(mockNaming);
+		expect(result).toContain("yield* BookShelfClient");
+		expect(result).toContain("client.getBookShelf({id:");
 	});
 });

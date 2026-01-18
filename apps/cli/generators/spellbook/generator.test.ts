@@ -354,4 +354,114 @@ describe("generateFiles", () => {
 			expect(testFile?.content).toContain("env.BOOK_SHELF.idFromName");
 		});
 	});
+
+	describe("FR-8.2: --with-graphql creates GraphQL files", () => {
+		test("GraphQL files not included by default", () => {
+			const naming = deriveNaming("book-shelf");
+			const files = generateFiles(naming, columns);
+
+			const clientFile = files.find((f) => f.path.includes("Client.ts"));
+			expect(clientFile).toBeUndefined();
+		});
+
+		test("GraphQL client file included when withGraphql is true", () => {
+			const naming = deriveNaming("book-shelf");
+			const files = generateFiles(naming, columns, {
+				featureName: "book-shelf",
+				withTest: false,
+				withGraphql: true,
+				withRoute: false,
+				withAll: false,
+				dryRun: false,
+				skipWrangler: false,
+				skipIndex: false,
+				skipDrizzle: false,
+			});
+
+			const clientFile = files.find((f) => f.path.includes("BookShelfClient.ts"));
+			expect(clientFile).toBeDefined();
+			expect(clientFile?.path).toBe("apps/worker/src/graphql/resolvers/BookShelfClient.ts");
+		});
+
+		test("GraphQL type readme included when withGraphql is true", () => {
+			const naming = deriveNaming("book-shelf");
+			const files = generateFiles(naming, columns, {
+				featureName: "book-shelf",
+				withTest: false,
+				withGraphql: true,
+				withRoute: false,
+				withAll: false,
+				dryRun: false,
+				skipWrangler: false,
+				skipIndex: false,
+				skipDrizzle: false,
+			});
+
+			const typeFile = files.find((f) => f.path.includes(".graphql-type.md"));
+			expect(typeFile).toBeDefined();
+			expect(typeFile?.path).toBe(
+				"apps/worker/src/graphql/resolvers/BookShelfClient.graphql-type.md",
+			);
+		});
+
+		test("GraphQL files included when withAll is true", () => {
+			const naming = deriveNaming("book-shelf");
+			const files = generateFiles(naming, columns, {
+				featureName: "book-shelf",
+				withTest: false,
+				withGraphql: false,
+				withRoute: false,
+				withAll: true,
+				dryRun: false,
+				skipWrangler: false,
+				skipIndex: false,
+				skipDrizzle: false,
+			});
+
+			const clientFile = files.find((f) => f.path.includes("BookShelfClient.ts"));
+			expect(clientFile).toBeDefined();
+		});
+
+		test("GraphQL client has correct content structure", () => {
+			const naming = deriveNaming("book-shelf");
+			const files = generateFiles(naming, columns, {
+				featureName: "book-shelf",
+				withTest: false,
+				withGraphql: true,
+				withRoute: false,
+				withAll: false,
+				dryRun: false,
+				skipWrangler: false,
+				skipIndex: false,
+				skipDrizzle: false,
+			});
+
+			const clientFile = files.find((f) => f.path.includes("BookShelfClient.ts"));
+			expect(clientFile?.content).toContain('import type {RpcClient} from "@effect/rpc"');
+			expect(clientFile?.content).toContain('import {BookShelfRpcs} from "@kampus/book-shelf"');
+			expect(clientFile?.content).toContain("export class BookShelfClient extends Context.Tag");
+			expect(clientFile?.content).toContain("static layer(env: Env, name: string)");
+			expect(clientFile?.content).toContain("env.BOOK_SHELF.get(env.BOOK_SHELF.idFromName(name))");
+		});
+
+		test("GraphQL type readme has correct content", () => {
+			const naming = deriveNaming("book-shelf");
+			const files = generateFiles(naming, columns, {
+				featureName: "book-shelf",
+				withTest: false,
+				withGraphql: true,
+				withRoute: false,
+				withAll: false,
+				dryRun: false,
+				skipWrangler: false,
+				skipIndex: false,
+				skipDrizzle: false,
+			});
+
+			const typeFile = files.find((f) => f.path.includes(".graphql-type.md"));
+			expect(typeFile?.content).toContain('name: "BookShelf"');
+			expect(typeFile?.content).toContain("new GraphQLNonNull(GraphQLID)");
+			expect(typeFile?.content).toContain("title: {type: new GraphQLNonNull(GraphQLString)}");
+		});
+	});
 });

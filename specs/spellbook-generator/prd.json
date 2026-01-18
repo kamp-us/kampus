@@ -499,12 +499,13 @@
       "description": "--with-graphql creates resolver and updates schema",
       "stepsToVerify": [
         "Run with --with-graphql flag",
-        "File created at apps/worker/src/graphql/resolvers/<Feature>Resolver.ts",
-        "GraphQL schema.ts updated with new type",
-        "Resolver follows existing pattern",
+        "File created at apps/worker/src/graphql/resolvers/<Feature>Client.ts",
+        "GraphQL type readme created with code to add to schema.ts",
+        "Client follows existing LibraryClient pattern",
+        "graphql/resolvers/index.ts updated with export",
         "All new functionality is covered by tests"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FR-8.3",

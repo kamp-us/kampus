@@ -1,5 +1,5 @@
 import {applyEdits, modify, parseTree} from "jsonc-parser";
-import type {Naming} from "./types";
+import type {Column, Naming} from "./types";
 
 /**
  * Updates worker's package.json to add the new package as a dependency.
@@ -124,4 +124,81 @@ export const updateWranglerJsonc = (naming: Naming, content: string): string => 
 	content = applyEdits(content, edits);
 
 	return content;
+};
+
+/**
+ * Updates graphql/resolvers/index.ts to export the new client.
+ * Returns the updated file content.
+ */
+export const updateGraphqlResolversIndex = (naming: Naming, content: string): string => {
+	const exportLine = `export {${naming.className}Client} from "./${naming.className}Client";`;
+
+	// Check if export already exists
+	if (content.includes(exportLine)) {
+		return content;
+	}
+
+	const lines = content.split("\n");
+
+	// Find last export line
+	let lastExportIndex = -1;
+	for (let i = 0; i < lines.length; i++) {
+		const line = lines[i];
+		if (line?.match(/^export \{.+\} from ".+";$/)) {
+			lastExportIndex = i;
+		}
+	}
+
+	if (lastExportIndex === -1) {
+		// No existing exports, append at end
+		lines.push(exportLine);
+	} else {
+		// Insert after the last export
+		lines.splice(lastExportIndex + 1, 0, exportLine);
+	}
+
+	return lines.join("\n");
+};
+
+/**
+ * Maps a column type to a GraphQL type string.
+ */
+const columnTypeToGraphQL = (type: Column["type"], nullable: boolean): string => {
+	const graphQLType = {
+		text: "GraphQLString",
+		integer: "GraphQLInt",
+		boolean: "GraphQLBoolean",
+		timestamp: "GraphQLString",
+	}[type];
+
+	return nullable ? graphQLType : `new GraphQLNonNull(${graphQLType})`;
+};
+
+/**
+ * Generates the GraphQL type definition code for a feature.
+ * This is meant to be manually added to schema.ts.
+ */
+export const generateGraphQLTypeCode = (naming: Naming, columns: Column[]): string => {
+	const fieldDefs = columns
+		.map((col) => {
+			const graphQLType = columnTypeToGraphQL(col.type, col.nullable);
+			return `		${col.name}: {type: ${graphQLType}},`;
+		})
+		.join("\n");
+
+	return `// TODO: Add this to apps/worker/src/graphql/schema.ts
+
+const ${naming.className}Type = new GraphQLObjectType({
+	name: "${naming.className}",
+	fields: () => ({
+		id: {type: new GraphQLNonNull(GraphQLID)},
+${fieldDefs}
+		createdAt: {type: new GraphQLNonNull(GraphQLString)},
+		updatedAt: {type: GraphQLString},
+	}),
+});
+
+// Add to schema types array:
+// types: [..., ${naming.className}Type]
+`;
 };

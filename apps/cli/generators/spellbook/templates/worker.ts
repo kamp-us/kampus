@@ -119,9 +119,7 @@ export const journalJson = (): string => `{
 }
 `;
 
-export const testSpecTs = (
-	naming: Naming,
-): string => `import {env} from "cloudflare:test";
+export const testSpecTs = (naming: Naming): string => `import {env} from "cloudflare:test";
 import {describe, expect, it} from "vitest";
 
 describe("${naming.className}", () => {
@@ -137,4 +135,55 @@ describe("${naming.className}", () => {
 		});
 	});
 });
+`;
+
+/**
+ * Generates the GraphQL client service file for the feature.
+ * This provides a typed RPC client for use in GraphQL resolvers.
+ */
+export const graphqlClientTs = (
+	naming: Naming,
+): string => `import type {RpcClient} from "@effect/rpc";
+import {${naming.className}Rpcs} from "${naming.packageName}";
+import {Context, Layer} from "effect";
+import * as Spellcaster from "../../shared/Spellcaster";
+
+/**
+ * Service that provides a typed ${naming.className} RPC client.
+ *
+ * The client is scoped to a specific ${naming.className} Durable Object,
+ * enabling batched and typed RPC calls from GraphQL resolvers.
+ *
+ * @example
+ * \`\`\`ts
+ * const program = Effect.gen(function* () {
+ *   const client = yield* ${naming.className}Client;
+ *   const item = yield* client.get${naming.className}({id: "${naming.idPrefix}_123"});
+ *   return item;
+ * });
+ *
+ * // Provide the layer for a specific instance
+ * await Effect.runPromise(program.pipe(Effect.provide(${naming.className}Client.layer(env, instanceName))));
+ * \`\`\`
+ */
+export class ${naming.className}Client extends Context.Tag("@kampus/worker/${naming.className}Client")<
+	${naming.className}Client,
+	RpcClient.FromGroup<typeof ${naming.className}Rpcs>
+>() {
+	/**
+	 * Creates a Layer that provides ${naming.className}Client for the specified instance.
+	 *
+	 * @param env - Cloudflare environment with ${naming.bindingName} binding
+	 * @param name - Instance name for DO routing
+	 */
+	static layer(env: Env, name: string): Layer.Layer<${naming.className}Client> {
+		return Layer.effect(
+			${naming.className}Client,
+			Spellcaster.make({
+				rpcs: ${naming.className}Rpcs,
+				stub: env.${naming.bindingName}.get(env.${naming.bindingName}.idFromName(name)),
+			}),
+		);
+	}
+}
 `;

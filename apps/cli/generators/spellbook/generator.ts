@@ -1,7 +1,13 @@
-import {Command, CommandExecutor, FileSystem, Path} from "@effect/platform";
+import {Command, type CommandExecutor, FileSystem, Path} from "@effect/platform";
 import type {PlatformError} from "@effect/platform/Error";
 import {Effect, Stream} from "effect";
-import {updateWorkerIndex, updateWorkerPackageJson, updateWranglerJsonc} from "./integrations";
+import {
+	generateGraphQLTypeCode,
+	updateGraphqlResolversIndex,
+	updateWorkerIndex,
+	updateWorkerPackageJson,
+	updateWranglerJsonc,
+} from "./integrations";
 import {deriveNaming} from "./naming";
 import * as packageTemplates from "./templates/package";
 import * as workerTemplates from "./templates/worker";
@@ -24,7 +30,11 @@ export type ProgressEvent =
  * Generates all file contents for a spellbook feature.
  * Pure function - no side effects.
  */
-export const generateFiles = (naming: Naming, columns: Column[], options?: GeneratorOptions): GeneratedFile[] => {
+export const generateFiles = (
+	naming: Naming,
+	columns: Column[],
+	options?: GeneratorOptions,
+): GeneratedFile[] => {
 	const packageDir = `packages/${naming.featureName}`;
 	const workerDir = `apps/worker/src/features/${naming.featureName}`;
 
@@ -62,6 +72,19 @@ export const generateFiles = (naming: Naming, columns: Column[], options?: Gener
 		files.push({
 			path: `apps/worker/test/${naming.featureName}.spec.ts`,
 			content: workerTemplates.testSpecTs(naming),
+		});
+	}
+
+	// Optional GraphQL files
+	if (options?.withGraphql || options?.withAll) {
+		files.push({
+			path: `apps/worker/src/graphql/resolvers/${naming.className}Client.ts`,
+			content: workerTemplates.graphqlClientTs(naming),
+		});
+		// Generate a README with the GraphQL type code to add manually
+		files.push({
+			path: `apps/worker/src/graphql/resolvers/${naming.className}Client.graphql-type.md`,
+			content: generateGraphQLTypeCode(naming, columns),
 		});
 	}
 
@@ -192,7 +215,11 @@ export const generateWithProgress = (
 	options: GeneratorOptions,
 	columns: Column[],
 ) =>
-	Stream.asyncEffect<ProgressEvent, PlatformError, FileSystem.FileSystem | Path.Path | CommandExecutor.CommandExecutor>((emit) =>
+	Stream.asyncEffect<
+		ProgressEvent,
+		PlatformError,
+		FileSystem.FileSystem | Path.Path | CommandExecutor.CommandExecutor
+	>((emit) =>
 		Effect.gen(function* () {
 			const naming = deriveNaming(options.featureName, options.table, options.idPrefix);
 			const files = generateFiles(naming, columns, options);
@@ -238,15 +265,31 @@ export const generateWithProgress = (
 				emit.single({type: "integration_updated", name: "apps/worker/package.json"});
 			}
 
+			// Update GraphQL resolvers index when using --with-graphql
+			if (options.withGraphql || options.withAll) {
+				const graphqlResolversIndexPath = path.join(
+					rootDir,
+					"apps/worker/src/graphql/resolvers/index.ts",
+				);
+				const graphqlResolversIndexContent = yield* fs.readFileString(graphqlResolversIndexPath);
+				const updatedGraphqlResolversIndex = updateGraphqlResolversIndex(
+					naming,
+					graphqlResolversIndexContent,
+				);
+				yield* fs.writeFileString(graphqlResolversIndexPath, updatedGraphqlResolversIndex);
+				emit.single({
+					type: "integration_updated",
+					name: "apps/worker/src/graphql/resolvers/index.ts",
+				});
+			}
+
 			// Run drizzle-kit generate (unless skipped)
 			if (!options.skipDrizzle) {
 				emit.single({type: "drizzle_start"});
 
 				const drizzleResult = yield* runDrizzleKit(rootDir, naming).pipe(
 					Effect.map((output) => ({success: true, output})),
-					Effect.catchAll((error) =>
-						Effect.succeed({success: false, output: String(error)}),
-					),
+					Effect.catchAll((error) => Effect.succeed({success: false, output: String(error)})),
 				);
 
 				// Emit each line of output

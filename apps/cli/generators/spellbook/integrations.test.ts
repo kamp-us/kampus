@@ -1,6 +1,12 @@
 import {describe, expect, test} from "bun:test";
-import {updateWorkerIndex, updateWorkerPackageJson, updateWranglerJsonc} from "./integrations";
-import type {Naming} from "./types";
+import {
+	generateGraphQLTypeCode,
+	updateGraphqlResolversIndex,
+	updateWorkerIndex,
+	updateWorkerPackageJson,
+	updateWranglerJsonc,
+} from "./integrations";
+import type {Column, Naming} from "./types";
 
 const bookShelfNaming: Naming = {
 	featureName: "book-shelf",
@@ -197,5 +203,88 @@ describe("updateWorkerPackageJson", () => {
 		// Should return unchanged (or at least not duplicate)
 		const pkg = JSON.parse(result);
 		expect(Object.keys(pkg.dependencies).filter((k) => k === "@kampus/book-shelf").length).toBe(1);
+	});
+});
+
+describe("updateGraphqlResolversIndex", () => {
+	test("inserts export after last export line", () => {
+		const content = `export {LibraryClient} from "./LibraryClient";
+export {loadStory, StoryResolver} from "./StoryResolver";
+export {loadTag, TagResolver} from "./TagResolver";
+export {WebPageParserClient} from "./WebPageParserClient";
+`;
+
+		const result = updateGraphqlResolversIndex(bookShelfNaming, content);
+
+		expect(result).toContain('export {BookShelfClient} from "./BookShelfClient";');
+		// Should be after WebPageParserClient
+		const lines = result.split("\n");
+		const webParserIndex = lines.findIndex((l) => l.includes("WebPageParserClient"));
+		const bookShelfIndex = lines.findIndex((l) => l.includes("BookShelfClient"));
+		expect(bookShelfIndex).toBe(webParserIndex + 1);
+	});
+
+	test("handles empty file", () => {
+		const content = "";
+
+		const result = updateGraphqlResolversIndex(bookShelfNaming, content);
+
+		expect(result).toContain('export {BookShelfClient} from "./BookShelfClient";');
+	});
+
+	test("does not duplicate existing export", () => {
+		const content = `export {LibraryClient} from "./LibraryClient";
+export {BookShelfClient} from "./BookShelfClient";
+`;
+
+		const result = updateGraphqlResolversIndex(bookShelfNaming, content);
+
+		const matches = result.match(/export \{BookShelfClient\}/g);
+		expect(matches?.length).toBe(1);
+	});
+});
+
+describe("generateGraphQLTypeCode", () => {
+	test("generates type with id field", () => {
+		const result = generateGraphQLTypeCode(bookShelfNaming, []);
+		expect(result).toContain('name: "BookShelf"');
+		expect(result).toContain("id: {type: new GraphQLNonNull(GraphQLID)}");
+	});
+
+	test("generates timestamp fields", () => {
+		const result = generateGraphQLTypeCode(bookShelfNaming, []);
+		expect(result).toContain("createdAt: {type: new GraphQLNonNull(GraphQLString)}");
+		expect(result).toContain("updatedAt: {type: GraphQLString}");
+	});
+
+	test("maps text columns to GraphQLString", () => {
+		const columns: Column[] = [{name: "title", type: "text", nullable: false}];
+		const result = generateGraphQLTypeCode(bookShelfNaming, columns);
+		expect(result).toContain("title: {type: new GraphQLNonNull(GraphQLString)}");
+	});
+
+	test("maps integer columns to GraphQLInt", () => {
+		const columns: Column[] = [{name: "count", type: "integer", nullable: false}];
+		const result = generateGraphQLTypeCode(bookShelfNaming, columns);
+		expect(result).toContain("count: {type: new GraphQLNonNull(GraphQLInt)}");
+	});
+
+	test("maps boolean columns to GraphQLBoolean", () => {
+		const columns: Column[] = [{name: "active", type: "boolean", nullable: false}];
+		const result = generateGraphQLTypeCode(bookShelfNaming, columns);
+		expect(result).toContain("active: {type: new GraphQLNonNull(GraphQLBoolean)}");
+	});
+
+	test("handles nullable columns without GraphQLNonNull", () => {
+		const columns: Column[] = [{name: "description", type: "text", nullable: true}];
+		const result = generateGraphQLTypeCode(bookShelfNaming, columns);
+		expect(result).toContain("description: {type: GraphQLString}");
+		expect(result).not.toContain("description: {type: new GraphQLNonNull");
+	});
+
+	test("includes TODO comment for manual schema update", () => {
+		const result = generateGraphQLTypeCode(bookShelfNaming, []);
+		expect(result).toContain("// TODO: Add this to apps/worker/src/graphql/schema.ts");
+		expect(result).toContain("// Add to schema types array:");
 	});
 });
