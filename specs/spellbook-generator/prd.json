@@ -3,6 +3,20 @@
   "version": "1.1.0",
   "items": [
     {
+      "id": "FR-0.1",
+      "category": "testing-infrastructure",
+      "description": "Set up bun test with initial test files for existing modules",
+      "stepsToVerify": [
+        "Add test script to apps/cli/package.json",
+        "Create naming.test.ts with deriveNaming tests (PascalCase, snake_case, SCREAMING_SNAKE, idPrefix, overrides)",
+        "Create validation.test.ts with validateFeatureName tests (kebab-case, PascalCase, snake_case, numbers)",
+        "Create validation.test.ts with checkFeatureExists tests using FileSystem.layerNoop",
+        "Run `pnpm --filter cli exec bun test` - all tests pass",
+        "All new functionality is covered by tests"
+      ],
+      "passes": false
+    },
+    {
       "id": "FR-1.1",
       "category": "command-interface",
       "description": "CLI accepts `kampus generate spellbook <feature-name>` command",
@@ -750,36 +764,6 @@
         "integrations.ts exists in generators/spellbook/",
         "updateWorkerIndex, updateWranglerJsonc functions here",
         "Integration logic not mixed with templates",
-        "All new functionality is covered by tests"
-      ],
-      "passes": false
-    },
-    {
-      "id": "TEST-1.1",
-      "category": "testing-unit",
-      "description": "Unit tests for deriveNaming function",
-      "stepsToVerify": [
-        "Test file exists: generators/spellbook/naming.test.ts",
-        "Tests kebab-case to PascalCase conversion",
-        "Tests kebab-case to snake_case conversion",
-        "Tests kebab-case to SCREAMING_SNAKE conversion",
-        "Tests ID prefix derivation",
-        "Tests override parameters",
-        "All new functionality is covered by tests"
-      ],
-      "passes": false
-    },
-    {
-      "id": "TEST-1.2",
-      "category": "testing-unit",
-      "description": "Unit tests for feature name validation",
-      "stepsToVerify": [
-        "Test file exists: generators/spellbook/validation.test.ts",
-        "Tests valid kebab-case names pass",
-        "Tests PascalCase rejected",
-        "Tests snake_case rejected",
-        "Tests names with numbers",
-        "Tests empty string rejected",
         "All new functionality is covered by tests"
       ],
       "passes": false

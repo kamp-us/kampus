@@ -658,6 +658,215 @@ export const runDrizzleKit = (naming: Naming) =>
 
 ## Testing Strategy
 
-1. **Unit tests**: Naming utils, template functions (pure)
-2. **Integration tests**: Full generator run with temp directory
-3. **Manual testing**: `kampus generate spellbook test-feature --dry-run`
+### Framework & Conventions
+
+- **Framework**: `bun test` (native to CLI runtime)
+- **Location**: Colocated with source files (`naming.test.ts` next to `naming.ts`)
+- **Naming**: `*.test.ts`
+- **Run**: `pnpm --filter cli exec bun test`
+
+### Test Categories
+
+| Category | What | How |
+|----------|------|-----|
+| Unit | Pure functions (naming, templates) | Direct function calls |
+| Unit | Effect functions (validation) | `Effect.runPromiseExit` |
+| Integration | FileSystem-dependent code | `FileSystem.layerNoop` mock |
+
+### Testing Pure Functions
+
+```typescript
+// generators/spellbook/naming.test.ts
+import {describe, expect, test} from "bun:test";
+import {deriveNaming} from "./naming";
+
+describe("deriveNaming", () => {
+  test("converts kebab-case to PascalCase for className", () => {
+    expect(deriveNaming("book-shelf").className).toBe("BookShelf");
+  });
+
+  test("converts kebab-case to snake_case for tableName", () => {
+    expect(deriveNaming("book-shelf").tableName).toBe("book_shelf");
+  });
+
+  test("converts to SCREAMING_SNAKE for bindingName", () => {
+    expect(deriveNaming("book-shelf").bindingName).toBe("BOOK_SHELF");
+  });
+
+  test("derives idPrefix from first chars of words", () => {
+    expect(deriveNaming("book-shelf").idPrefix).toBe("bs");
+    expect(deriveNaming("user-profile-settings").idPrefix).toBe("ups");
+  });
+
+  test("respects tableOverride", () => {
+    expect(deriveNaming("book-shelf", "custom_table").tableName).toBe("custom_table");
+  });
+
+  test("respects idPrefixOverride", () => {
+    expect(deriveNaming("book-shelf", undefined, "bk").idPrefix).toBe("bk");
+  });
+});
+```
+
+### Testing Effect Functions
+
+```typescript
+// generators/spellbook/validation.test.ts
+import {describe, expect, test} from "bun:test";
+import {Effect, Exit} from "effect";
+import {InvalidFeatureNameError, validateFeatureName} from "./validation";
+
+describe("validateFeatureName", () => {
+  test("accepts valid kebab-case", async () => {
+    const exit = await Effect.runPromiseExit(validateFeatureName("book-shelf"));
+    expect(Exit.isSuccess(exit)).toBe(true);
+  });
+
+  test("rejects PascalCase", async () => {
+    const exit = await Effect.runPromiseExit(validateFeatureName("BookShelf"));
+    expect(Exit.isFailure(exit)).toBe(true);
+    if (Exit.isFailure(exit)) {
+      const error = exit.cause.failures[0];
+      expect(error).toBeInstanceOf(InvalidFeatureNameError);
+    }
+  });
+
+  test("rejects snake_case", async () => {
+    const exit = await Effect.runPromiseExit(validateFeatureName("book_shelf"));
+    expect(Exit.isFailure(exit)).toBe(true);
+  });
+
+  test("accepts kebab-case with numbers", async () => {
+    const exit = await Effect.runPromiseExit(validateFeatureName("feature2"));
+    expect(Exit.isSuccess(exit)).toBe(true);
+  });
+});
+```
+
+### Testing FileSystem-Dependent Code
+
+Use `FileSystem.layerNoop` from `@effect/platform` - creates a noop layer where all methods fail by default, override only what you need:
+
+```typescript
+// generators/spellbook/validation.test.ts
+import {describe, expect, test} from "bun:test";
+import {FileSystem} from "@effect/platform";
+import {Effect, Exit} from "effect";
+import {checkFeatureExists, FeatureExistsError} from "./validation";
+
+describe("checkFeatureExists", () => {
+  test("passes when feature does not exist", async () => {
+    const testLayer = FileSystem.layerNoop({
+      exists: () => Effect.succeed(false),
+    });
+
+    const exit = await Effect.runPromiseExit(
+      checkFeatureExists("new-feature").pipe(Effect.provide(testLayer))
+    );
+    expect(Exit.isSuccess(exit)).toBe(true);
+  });
+
+  test("fails when package path exists", async () => {
+    const testLayer = FileSystem.layerNoop({
+      exists: (path) => Effect.succeed(path.includes("packages/existing")),
+    });
+
+    const exit = await Effect.runPromiseExit(
+      checkFeatureExists("existing").pipe(Effect.provide(testLayer))
+    );
+    expect(Exit.isFailure(exit)).toBe(true);
+    if (Exit.isFailure(exit)) {
+      const error = exit.cause.failures[0];
+      expect(error).toBeInstanceOf(FeatureExistsError);
+      expect((error as FeatureExistsError).existingPath).toContain("packages/");
+    }
+  });
+
+  test("fails when worker path exists", async () => {
+    const testLayer = FileSystem.layerNoop({
+      exists: (path) => Effect.succeed(path.includes("apps/worker/src/features/existing")),
+    });
+
+    const exit = await Effect.runPromiseExit(
+      checkFeatureExists("existing").pipe(Effect.provide(testLayer))
+    );
+    expect(Exit.isFailure(exit)).toBe(true);
+  });
+});
+```
+
+### Testing Templates
+
+Templates are pure functions returning strings - straightforward to test:
+
+```typescript
+// generators/spellbook/templates/package.test.ts
+import {describe, expect, test} from "bun:test";
+import {packageJson, schemaTs} from "./package";
+import type {Column, Naming} from "../types";
+
+const mockNaming: Naming = {
+  featureName: "book-shelf",
+  className: "BookShelf",
+  tableName: "book_shelf",
+  bindingName: "BOOK_SHELF",
+  idPrefix: "bs",
+  packageName: "@kampus/book-shelf",
+};
+
+describe("packageJson template", () => {
+  test("includes correct package name", () => {
+    const result = packageJson(mockNaming);
+    expect(result).toContain('"name": "@kampus/book-shelf"');
+  });
+
+  test("includes effect dependencies", () => {
+    const result = packageJson(mockNaming);
+    expect(result).toContain('"@effect/rpc"');
+    expect(result).toContain('"effect"');
+  });
+});
+
+describe("schemaTs template", () => {
+  test("generates Schema.String for text columns", () => {
+    const columns: Column[] = [{name: "title", type: "text", nullable: false}];
+    const result = schemaTs(mockNaming, columns);
+    expect(result).toContain("title: Schema.String");
+  });
+
+  test("generates Schema.NullOr for nullable columns", () => {
+    const columns: Column[] = [{name: "description", type: "text", nullable: true}];
+    const result = schemaTs(mockNaming, columns);
+    expect(result).toContain("Schema.NullOr");
+  });
+});
+```
+
+### File Structure
+
+```
+apps/cli/generators/spellbook/
+├── naming.ts
+├── naming.test.ts          # Unit tests for deriveNaming
+├── validation.ts
+├── validation.test.ts      # Unit + integration tests for validation
+├── types.ts
+└── templates/
+    ├── package.ts
+    ├── package.test.ts     # Template output tests
+    ├── worker.ts
+    └── worker.test.ts      # Template output tests
+```
+
+### Running Tests
+
+```bash
+# Run all CLI tests
+pnpm --filter cli exec bun test
+
+# Run specific test file
+pnpm --filter cli exec bun test generators/spellbook/naming.test.ts
+
+# Run with watch mode
+pnpm --filter cli exec bun test --watch
+```
