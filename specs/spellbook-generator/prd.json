@@ -437,7 +437,7 @@
         "File structure and formatting preserved",
         "All new functionality is covered by tests"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FR-7.1",
@@ -632,7 +632,7 @@
         "No custom regex for comment handling",
         "All new functionality is covered by tests"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "NFR-2.1",
@@ -766,7 +766,7 @@
         "Integration logic not mixed with templates",
         "All new functionality is covered by tests"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "TEST-1.3",
@@ -863,7 +863,7 @@
         "Verifies new export added in correct location",
         "All new functionality is covered by tests"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "TEST-2.4",
@@ -876,7 +876,7 @@
         "Verifies migration added with correct tag",
         "All new functionality is covered by tests"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "TEST-2.5",
@@ -889,7 +889,7 @@
         "Verifies file is still valid JSONC",
         "All new functionality is covered by tests"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "TEST-2.6",
