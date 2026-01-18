@@ -1,4 +1,3 @@
-import {WebPageParserRpcs} from "@kampus/web-page-parser";
 import {Effect} from "effect";
 import {
 	GraphQLBoolean,
@@ -15,14 +14,13 @@ import {
 	lexicographicSortSchema,
 	printSchema,
 } from "graphql";
-import {getNormalizedUrl} from "../features/library/getNormalizedUrl";
 import {Auth, CloudflareEnv, RequestContext} from "../services";
-import * as Spellcaster from "../shared/Spellcaster";
 import {createConnectionTypes, toConnection} from "./connections";
 import {resolver} from "./resolver";
 import {LibraryClient} from "./resolvers/LibraryClient";
 import {loadStory} from "./resolvers/StoryResolver";
 import {loadTag} from "./resolvers/TagResolver";
+import {WebPageParserClient} from "./resolvers/WebPageParserClient";
 
 // =============================================================================
 // GraphQL Types
@@ -214,33 +212,16 @@ const LibraryType: GraphQLObjectType = new GraphQLObjectType({
 				}
 
 				if (!["http:", "https:"].includes(parsedUrl.protocol)) {
-					return {
-						url: args.url,
-						title: null,
-						description: null,
-						error: "Only HTTP/HTTPS URLs are allowed",
-					};
+					return {url: args.url, title: null, description: null, error: "Only HTTP/HTTPS URLs are allowed"};
 				}
 
-				try {
-					const normalizedUrl = getNormalizedUrl(args.url);
-					const parserId = env.WEB_PAGE_PARSER.idFromName(normalizedUrl);
-					const stub = env.WEB_PAGE_PARSER.get(parserId);
-
-					const client = yield* Spellcaster.make({rpcs: WebPageParserRpcs, stub});
-					yield* client.init({url: args.url});
-					const metadata = yield* client.getMetadata({});
-
-					return {
-						url: args.url,
-						title: metadata.title || null,
-						description: metadata.description || null,
-						error: null,
-					};
-				} catch (err) {
-					const message = err instanceof Error ? err.message : "Failed to fetch metadata";
-					return {url: args.url, title: null, description: null, error: message};
-				}
+				return yield* Effect.gen(function* () {
+					const client = yield* WebPageParserClient.make(env, args.url);
+					const metadata = yield* client.getMetadata();
+					return {url: args.url, title: metadata.title, description: metadata.description, error: null};
+				}).pipe(
+					Effect.orElseSucceed(() => ({url: args.url, title: null, description: null, error: "Failed to fetch metadata"})),
+				);
 			}),
 		},
 	}),
@@ -451,7 +432,6 @@ const QueryType = new GraphQLObjectType({
 			resolve: resolver(function* (_source: unknown, args: {url: string}) {
 				const env = yield* CloudflareEnv;
 
-				// Validate URL format
 				let parsedUrl: URL;
 				try {
 					parsedUrl = new URL(args.url);
@@ -459,30 +439,17 @@ const QueryType = new GraphQLObjectType({
 					return {title: null, description: null, error: "Invalid URL format"};
 				}
 
-				// Only allow http/https (SSRF prevention)
 				if (!["http:", "https:"].includes(parsedUrl.protocol)) {
 					return {title: null, description: null, error: "Only HTTP/HTTPS URLs are allowed"};
 				}
 
-				try {
-					// Use normalized URL as DO key for deduplication
-					const normalizedUrl = getNormalizedUrl(args.url);
-					const parserId = env.WEB_PAGE_PARSER.idFromName(normalizedUrl);
-					const stub = env.WEB_PAGE_PARSER.get(parserId);
-
-					const client = yield* Spellcaster.make({rpcs: WebPageParserRpcs, stub});
-					yield* client.init({url: args.url});
-					const metadata = yield* client.getMetadata({});
-
-					return {
-						title: metadata.title || null,
-						description: metadata.description || null,
-						error: null,
-					};
-				} catch (err) {
-					const message = err instanceof Error ? err.message : "Failed to fetch metadata";
-					return {title: null, description: null, error: message};
-				}
+				return yield* Effect.gen(function* () {
+					const client = yield* WebPageParserClient.make(env, args.url);
+					const metadata = yield* client.getMetadata();
+					return {title: metadata.title, description: metadata.description, error: null};
+				}).pipe(
+					Effect.orElseSucceed(() => ({title: null, description: null, error: "Failed to fetch metadata"})),
+				);
 			}),
 		},
 		node: {

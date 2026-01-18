@@ -1,3 +1,4 @@
 export {LibraryClient} from "./LibraryClient";
-export {StoryResolver, loadStory} from "./StoryResolver";
-export {TagResolver, loadTag} from "./TagResolver";
+export {loadStory, StoryResolver} from "./StoryResolver";
+export {loadTag, TagResolver} from "./TagResolver";
+export {WebPageParserClient} from "./WebPageParserClient";
