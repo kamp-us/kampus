@@ -1,0 +1,52 @@
+# Reader Mode Progress
+
+## Completed
+
+- [x] Phase 1: instructions.md - initial requirements capture
+- [x] Phase 2: requirements.md - structured functional/non-functional requirements
+- [x] Phase 3: design.md - technical architecture and implementation details
+- [x] Phase 4: plan.md - implementation roadmap with 9 tasks
+- [x] Phase 5: prd.json - structured task list with verification steps
+
+## In Progress
+
+- [ ] Task 1: Add dependencies (linkedom, @mozilla/readability)
+- [ ] Task 2: Add Effect schemas
+- [ ] Task 3: Add RPC definition
+- [ ] Task 4: Add database schema + migration
+- [ ] Task 5: Create fetchReaderContent.ts with tests
+- [ ] Task 6: Create proxyImage.ts with tests
+- [ ] Task 7: Add getReaderContent handler with tests
+- [ ] Task 8: Add /api/proxy-image route with tests
+- [ ] Task 9: Final verification
+
+---
+
+## 2026-01-17: Spec Creation
+
+**Files created:**
+- `specs/reader-mode/instructions.md`
+- `specs/reader-mode/requirements.md`
+- `specs/reader-mode/design.md`
+- `specs/reader-mode/plan.md`
+- `specs/reader-mode/prd.json`
+- `specs/README.md` (updated with reader-mode entry)
+
+**Key decisions:**
+- Extend existing WebPageParser DO (not create new DO)
+- Use `@mozilla/readability` + `linkedom/worker` for content extraction
+- Keep `fetchlog` and `reader_content` as separate tables (simpler, no migration)
+- Images proxied via `/api/proxy-image?url=...` to avoid CORS/tracking
+- Same 24h cache TTL as existing metadata
+- Tests integrated into each implementation task (not separate final step)
+
+**Architecture:**
+- New RPC: `getReaderContent({ forceFetch?: boolean })` → `ReaderResult`
+- New table: `reader_content` with extracted article data
+- New route: `GET /api/proxy-image?url=<encoded>` for image proxying
+- New files: `fetchReaderContent.ts`, `proxyImage.ts`
+
+**Requirements summary:**
+- 15 functional requirements (FR-1 to FR-5)
+- 11 non-functional requirements (NFR-1 to NFR-4)
+- 7 acceptance tests

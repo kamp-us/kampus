@@ -1,0 +1,178 @@
+{
+  "feature": "reader-mode",
+  "description": "Instapaper-like clean content extraction for web pages",
+  "tasks": [
+    {
+      "id": "1",
+      "category": "dependencies",
+      "description": "Add linkedom and @mozilla/readability packages",
+      "steps": [
+        "Run: pnpm --filter worker add linkedom @mozilla/readability",
+        "Run: pnpm --filter worker add -D @types/mozilla__readability",
+        "Verify packages in apps/worker/package.json"
+      ],
+      "verification": [
+        "pnpm install completes without errors",
+        "packages listed in package.json dependencies"
+      ],
+      "passes": false
+    },
+    {
+      "id": "2",
+      "category": "schema",
+      "description": "Add ReaderContent and ReaderResult Effect schemas",
+      "steps": [
+        "Edit packages/web-page-parser/src/schema.ts",
+        "Add ReaderContent schema with: title, content, textContent, excerpt, byline, siteName, wordCount, readingTimeMinutes",
+        "Add ReaderResult schema with: readable, content, error",
+        "Export types",
+        "Add schema encode/decode tests in packages/web-page-parser/test/"
+      ],
+      "verification": [
+        "turbo run typecheck passes",
+        "schema tests pass"
+      ],
+      "passes": false
+    },
+    {
+      "id": "3",
+      "category": "rpc",
+      "description": "Add getReaderContent RPC definition and export types",
+      "steps": [
+        "Edit packages/web-page-parser/src/rpc.ts",
+        "Add getReaderContent RPC with payload { forceFetch?: boolean }",
+        "Set success type to ReaderResult",
+        "Edit packages/web-page-parser/src/index.ts",
+        "Export ReaderContent and ReaderResult types"
+      ],
+      "verification": [
+        "turbo run typecheck passes",
+        "types importable from @kampus/web-page-parser"
+      ],
+      "passes": false
+    },
+    {
+      "id": "4",
+      "category": "database",
+      "description": "Add readerContent table and generate migration",
+      "steps": [
+        "Edit apps/worker/src/features/web-page-parser/drizzle/drizzle.schema.ts",
+        "Add readerContent table with columns: id, readable, title, content, textContent, excerpt, byline, siteName, wordCount, readingTimeMinutes, error, createdAt",
+        "Run: cd apps/worker && pnpm exec drizzle-kit generate",
+        "Verify migration file created"
+      ],
+      "verification": [
+        "turbo run typecheck passes",
+        "migration SQL file exists with CREATE TABLE reader_content"
+      ],
+      "passes": false
+    },
+    {
+      "id": "5",
+      "category": "implementation",
+      "description": "Create fetchReaderContent.ts with tests",
+      "steps": [
+        "Create apps/worker/src/features/web-page-parser/fetchReaderContent.ts",
+        "Implement URL fetch with 15s timeout",
+        "Parse HTML with linkedom/worker",
+        "Extract content with Readability",
+        "Implement rewriteImageUrls to proxy images",
+        "Calculate wordCount and readingTimeMinutes",
+        "Return ReaderResult object",
+        "Add tests in apps/worker/test/fetchReaderContent.spec.ts",
+        "Test: successful extraction from article HTML",
+        "Test: returns readable:false for non-article HTML",
+        "Test: image URLs are rewritten to proxy",
+        "Test: word count and reading time calculation"
+      ],
+      "verification": [
+        "turbo run typecheck passes",
+        "pnpm --filter worker run test passes",
+        "fetchReaderContent tests cover happy path and edge cases"
+      ],
+      "passes": false
+    },
+    {
+      "id": "6",
+      "category": "implementation",
+      "description": "Create proxyImage.ts with tests",
+      "steps": [
+        "Create apps/worker/src/features/web-page-parser/proxyImage.ts",
+        "Validate URL protocol (http/https only)",
+        "Fetch image with 10s timeout",
+        "Return response with Cache-Control header",
+        "Add tests in apps/worker/test/proxyImage.spec.ts",
+        "Test: rejects non-http protocols",
+        "Test: returns correct cache headers",
+        "Test: handles fetch errors gracefully"
+      ],
+      "verification": [
+        "turbo run typecheck passes",
+        "pnpm --filter worker run test passes",
+        "proxyImage tests cover validation and error cases"
+      ],
+      "passes": false
+    },
+    {
+      "id": "7",
+      "category": "implementation",
+      "description": "Add getReaderContent handler with tests",
+      "steps": [
+        "Edit apps/worker/src/features/web-page-parser/handlers.ts",
+        "Import fetchReaderContent and readerContent schema",
+        "Add getReaderContent handler using Effect.gen",
+        "Check cache with 24h TTL",
+        "Fetch if cache miss or forceFetch",
+        "Store result in database",
+        "Add tests in apps/worker/test/web-page-parser-handlers.spec.ts",
+        "Test: returns cached data when recent",
+        "Test: forceFetch bypasses cache",
+        "Test: stores and returns error state for non-readable pages"
+      ],
+      "verification": [
+        "turbo run typecheck passes",
+        "pnpm --filter worker run test passes",
+        "handler tests cover cache behavior"
+      ],
+      "passes": false
+    },
+    {
+      "id": "8",
+      "category": "routing",
+      "description": "Add /api/proxy-image route with tests",
+      "steps": [
+        "Edit apps/worker/src/index.ts",
+        "Import proxyImage function",
+        "Add GET /api/proxy-image route",
+        "Extract url query param, call proxyImage",
+        "Add integration test in apps/worker/test/proxy-image-route.spec.ts",
+        "Test: returns 400 for missing url param",
+        "Test: proxies valid image URL"
+      ],
+      "verification": [
+        "turbo run typecheck passes",
+        "pnpm --filter worker run test passes",
+        "route tests cover param validation"
+      ],
+      "passes": false
+    },
+    {
+      "id": "9",
+      "category": "verification",
+      "description": "Final verification",
+      "steps": [
+        "Run: turbo run typecheck",
+        "Run: turbo run lint",
+        "Run: pnpm --filter worker run test",
+        "Manual: test getReaderContent on real article URL",
+        "Manual: verify images load through proxy"
+      ],
+      "verification": [
+        "all checks pass",
+        "reader content extracts correctly",
+        "images display via proxy"
+      ],
+      "passes": false
+    }
+  ]
+}
