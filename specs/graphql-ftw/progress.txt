@@ -506,3 +506,25 @@ Simple `make()` function, not Context.Tag + Layer pattern. Rationale:
 **Verified:**
 - `turbo run typecheck --filter=worker` passes
 - `pnpm --filter worker run test` passes (82 tests)
+
+## 2026-01-17: Fix Tag List Not Auto-Updating (BUG-2)
+
+**Problem:**
+When creating a new tag inline (while adding/editing a story), the tag filter bar didn't update. User had to refresh to see the new tag.
+
+**Root Cause:**
+`CreateTagMutation` added new tag to local React state (`selectedTags`/`editTags`) but didn't update the Relay store's `library.tags` list.
+
+**Files:**
+- apps/kamp-us/src/pages/Library.tsx - added updater to CreateTagMutation in both locations
+
+**Fix:**
+Added `updater` to `CreateTagMutation` that traverses `root.me.library.tags` and appends the new tag.
+
+Applied in:
+- `CreateStoryForm.handleCreateTag`
+- `StoryRow.handleCreateTag`
+
+**Verified:**
+- `turbo run typecheck --filter=kamp-us` passes
+- Playwright E2E: created tag "NewTestTag", immediately appeared in filter bar
