@@ -65,3 +65,26 @@ Verified:
 - turbo run typecheck passes
 - biome check passes
 - Playwright tests: library links work, reader page loads, not-found/not-readable states work, back navigation works
+
+## 2026-01-18: Shiki syntax highlighting (task-8, task-9, task-10, task-11)
+
+Files changed:
+- apps/kamp-us/package.json (shiki dependency added)
+- apps/kamp-us/src/utils/highlightCode.ts (new)
+- apps/kamp-us/src/pages/library/ReaderPage.tsx (updated)
+
+Changes:
+- Installed shiki for syntax highlighting
+- Created highlightCodeBlocks utility that parses HTML, finds pre>code elements, and applies Shiki highlighting
+- Integrated highlighting in ReaderPage via useState + useEffect pattern
+- Renders highlightedContent when ready, falls back to original content
+
+Decisions:
+- No default language: skip highlighting if no language class/attr detected (wrong colors worse than no colors)
+- Theme: github-dark for contrast with light reader background
+- Check both class="language-*" and data-lang attribute
+
+Verified:
+- turbo run typecheck passes
+- biome check passes
+- Playwright: code blocks render with syntax highlighting (colors visible for keywords, functions, JSX tags)

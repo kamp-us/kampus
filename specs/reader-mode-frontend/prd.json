@@ -103,7 +103,7 @@
       "shiki listed in dependencies",
       "pnpm install completes"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "id": "task-9",
@@ -118,7 +118,7 @@
       "Returns modified HTML string",
       "turbo run typecheck passes"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "id": "task-10",
@@ -133,7 +133,7 @@
       "turbo run typecheck passes",
       "biome check passes"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "id": "task-11",
@@ -150,6 +150,6 @@
       "Non-readable URL shows error UI with 'View original' link",
       "Invalid storyId shows 'not found' UI"
     ],
-    "passes": false
+    "passes": true
   }
 ]

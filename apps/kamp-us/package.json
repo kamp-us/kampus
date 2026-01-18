@@ -17,10 +17,10 @@
   },
   "dependencies": {
     "@base-ui/react": "catalog:",
-    "@effect/platform": "catalog:",
-    "@effect/rpc": "catalog:",
     "@effect-atom/atom": "catalog:",
     "@effect-atom/atom-react": "catalog:",
+    "@effect/platform": "catalog:",
+    "@effect/rpc": "catalog:",
     "@kampus/library": "workspace:*",
     "@radix-ui/colors": "catalog:",
     "effect": "catalog:",
@@ -28,7 +28,8 @@
     "react-dom": "^19.1.1",
     "react-relay": "catalog:",
     "react-router": "catalog:",
-    "relay-runtime": "catalog:"
+    "relay-runtime": "catalog:",
+    "shiki": "catalog:"
   },
   "devDependencies": {
     "@cloudflare/vite-plugin": "catalog:",
