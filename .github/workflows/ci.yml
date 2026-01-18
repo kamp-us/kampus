@@ -20,7 +20,11 @@ jobs:
         with:
           node-version-file: 'package.json'
           cache: 'pnpm'
-      - uses: rharkor/caching-for-turbo@v1
+      - uses: actions/cache@v4
+        with:
+          path: .turbo
+          key: turbo-${{ runner.os }}-${{ github.sha }}
+          restore-keys: turbo-${{ runner.os }}-
       - run: pnpm install --frozen-lockfile
       - run: pnpm turbo run test --filter=worker
 
@@ -33,7 +37,11 @@ jobs:
         with:
           node-version-file: 'package.json'
           cache: 'pnpm'
-      - uses: rharkor/caching-for-turbo@v1
+      - uses: actions/cache@v4
+        with:
+          path: .turbo
+          key: turbo-${{ runner.os }}-${{ github.sha }}
+          restore-keys: turbo-${{ runner.os }}-
       - run: pnpm install --frozen-lockfile
       - run: pnpm turbo run typecheck
 
@@ -46,6 +54,10 @@ jobs:
         with:
           node-version-file: 'package.json'
           cache: 'pnpm'
-      - uses: rharkor/caching-for-turbo@v1
+      - uses: actions/cache@v4
+        with:
+          path: .turbo
+          key: turbo-${{ runner.os }}-${{ github.sha }}
+          restore-keys: turbo-${{ runner.os }}-
       - run: pnpm install --frozen-lockfile
       - run: pnpm turbo run lint
