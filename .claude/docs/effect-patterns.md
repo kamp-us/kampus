@@ -25,13 +25,3 @@ class UserNotFound extends Schema.TaggedError<UserNotFound>()("UserNotFound", {
   userId: Schema.String
 }) {}
 ```
-
-## Schema
-
-Use `Schema.Struct()` for data (DOs can't return class instances):
-```typescript
-const User = Schema.Struct({
-  id: Schema.String,
-  email: Schema.String,
-})
-```

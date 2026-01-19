@@ -1,9 +1,5 @@
 # Gotchas
 
-## Durable Objects
-
-- **Can't return class instances** - Use `Schema.Struct()`, not `Schema.Class()`
-
 ## Effect
 
 - **Effect.promise swallows error types** - Use `Effect.gen` + `Effect.fail` for typed RPC errors
