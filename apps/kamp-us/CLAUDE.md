@@ -61,6 +61,11 @@ Components in `src/design/`:
 
 React Context + localStorage. Use `useAuth()` hook, `getStoredToken()` for headers.
 
-## RPC
+## Data Strategy: Relay vs Effect RPC
 
-Optional `@effect/rpc` client in `src/rpc/`. Wrap pages needing it with `<RpcProvider>`.
+| Use Case | Tool |
+|----------|------|
+| UI data fetching, pagination, optimistic updates | **Relay** |
+| Non-UI operations (tag management, admin actions) | **Effect RPC** |
+
+Relay is the primary data layer. Effect RPC exists for edge cases where GraphQL doesn't fit.

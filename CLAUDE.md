@@ -12,7 +12,13 @@ biome check --write --staged  # before commit
 
 ## Docs
 
-See [.claude/docs/](.claude/docs/) for architecture, patterns, workflows.
+| Task | Read |
+|------|------|
+| Backend feature / DO | `apps/worker/CLAUDE.md` |
+| Frontend UI / Relay | `apps/kamp-us/CLAUDE.md` |
+| Effect services, errors | `.claude/docs/effect-patterns.md` |
+| New feature spec | `.claude/docs/spec-workflow.md` |
+| Something not working | `.claude/docs/gotchas.md` |
 
 ## External Sources
 
