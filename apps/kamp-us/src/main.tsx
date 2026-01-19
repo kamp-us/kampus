@@ -11,6 +11,7 @@ import {AuthProvider} from "./auth/AuthContext";
 import {Me} from "./components/Me";
 import {Library} from "./pages/Library";
 import {Login} from "./pages/Login";
+import {ReaderPage} from "./pages/library/ReaderPage";
 import {TagManagement} from "./pages/library/TagManagement";
 import {environment} from "./relay/environment";
 import {RpcProvider} from "./rpc/Provider";
@@ -39,6 +40,10 @@ const router = createBrowserRouter([
 				<TagManagement />
 			</RpcProvider>
 		),
+	},
+	{
+		path: "/me/library/:storyId",
+		element: <ReaderPage />,
 	},
 ]);
 

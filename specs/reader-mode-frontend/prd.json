@@ -1,0 +1,155 @@
+[
+  {
+    "id": "task-1",
+    "category": "backend",
+    "description": "Add ReaderContent and ReaderResult GraphQL types",
+    "files": ["apps/worker/src/graphql/schema.ts"],
+    "steps_to_verify": [
+      "ReaderContentType defined with fields: title, content, byline, siteName, wordCount, readingTimeMinutes, excerpt",
+      "ReaderResultType defined with fields: readable, content, error",
+      "turbo run typecheck passes"
+    ],
+    "passes": true
+  },
+  {
+    "id": "task-2",
+    "category": "backend",
+    "description": "Extend WebPageParserClient with getReaderContent method",
+    "files": ["apps/worker/src/graphql/resolvers/WebPageParserClient.ts"],
+    "steps_to_verify": [
+      "getReaderContent() method added to client return object",
+      "Method calls client.getReaderContent({}) RPC",
+      "turbo run typecheck passes"
+    ],
+    "passes": true
+  },
+  {
+    "id": "task-3",
+    "category": "backend",
+    "description": "Add readerContent field to Story GraphQL type",
+    "files": ["apps/worker/src/graphql/schema.ts"],
+    "steps_to_verify": [
+      "readerContent field added to StoryType",
+      "Resolver uses WebPageParserClient.make() with story.url",
+      "Returns ReaderResultType",
+      "turbo run typecheck passes"
+    ],
+    "passes": true
+  },
+  {
+    "id": "task-4",
+    "category": "frontend",
+    "description": "Create ReaderPage component with GraphQL query",
+    "files": [
+      "apps/kamp-us/src/pages/library/ReaderPage.tsx",
+      "apps/kamp-us/src/pages/library/ReaderPage.module.css"
+    ],
+    "steps_to_verify": [
+      "ReaderPageQuery GraphQL query defined",
+      "ReaderPageContentInner uses useLazyLoadQuery",
+      "NotFound component renders for missing story",
+      "NotReadable component renders when readable: false",
+      "ReaderSkeleton component for loading state",
+      "Article renders with dangerouslySetInnerHTML (with biome-ignore comment)",
+      "CSS uses ch/rem units, 75ch max-width"
+    ],
+    "passes": true
+  },
+  {
+    "id": "task-5",
+    "category": "frontend",
+    "description": "Add /me/library/:storyId route",
+    "files": ["apps/kamp-us/src/main.tsx"],
+    "steps_to_verify": [
+      "ReaderPage imported",
+      "Route { path: '/me/library/:storyId', element: <ReaderPage /> } added",
+      "Route placed after /me/library/tags (react-router v6 ranking handles conflicts)"
+    ],
+    "passes": true
+  },
+  {
+    "id": "task-6",
+    "category": "frontend",
+    "description": "Generate Relay artifacts",
+    "files": ["apps/kamp-us/src/__generated__/ReaderPageQuery.graphql.ts"],
+    "steps_to_verify": [
+      "pnpm --filter kamp-us run relay completes",
+      "ReaderPageQuery.graphql.ts generated",
+      "turbo run typecheck passes"
+    ],
+    "passes": true
+  },
+  {
+    "id": "task-7",
+    "category": "frontend",
+    "description": "Update StoryRow to link to reader view",
+    "files": ["apps/kamp-us/src/pages/Library.tsx"],
+    "steps_to_verify": [
+      "Story title uses <Link to={`/me/library/${story.id}`}>",
+      "Menu includes 'View original' item",
+      "'View original' opens story.url in new tab",
+      "turbo run typecheck passes",
+      "biome check passes"
+    ],
+    "passes": true
+  },
+  {
+    "id": "task-8",
+    "category": "frontend",
+    "description": "Install highlight.js dependency",
+    "files": ["apps/kamp-us/package.json"],
+    "steps_to_verify": [
+      "pnpm --filter kamp-us add highlight.js",
+      "highlight.js listed in dependencies",
+      "pnpm install completes"
+    ],
+    "passes": true
+  },
+  {
+    "id": "task-9",
+    "category": "frontend",
+    "description": "Create highlightCode utility with auto-detection",
+    "files": ["apps/kamp-us/src/utils/highlightCode.ts"],
+    "steps_to_verify": [
+      "highlightCodeBlocks function exported",
+      "Uses DOMParser to find pre>code elements",
+      "Uses hljs.highlightAuto() when no language specified",
+      "Uses hljs.highlight() when language class present",
+      "Returns modified HTML string",
+      "turbo run typecheck passes"
+    ],
+    "passes": true
+  },
+  {
+    "id": "task-10",
+    "category": "frontend",
+    "description": "Integrate highlight.js in ReaderPage",
+    "files": ["apps/kamp-us/src/pages/library/ReaderPage.tsx"],
+    "steps_to_verify": [
+      "Import highlightCodeBlocks utility",
+      "Import github-dark.css theme",
+      "useMemo for highlightedContent (synchronous)",
+      "Render highlightedContent ?? original content",
+      "turbo run typecheck passes",
+      "biome check passes"
+    ],
+    "passes": true
+  },
+  {
+    "id": "task-11",
+    "category": "verification",
+    "description": "Manual end-to-end testing",
+    "files": [],
+    "steps_to_verify": [
+      "turbo run dev starts without errors",
+      "Click story in library navigates to /me/library/{id}",
+      "Reader page displays title, byline, reading time, content",
+      "Code blocks render with syntax highlighting",
+      "Back button returns to /me/library",
+      "'View original' in library menu opens URL in new tab",
+      "Non-readable URL shows error UI with 'View original' link",
+      "Invalid storyId shows 'not found' UI"
+    ],
+    "passes": true
+  }
+]

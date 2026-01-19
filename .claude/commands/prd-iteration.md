@@ -9,9 +9,10 @@ Work on a single feature from a PRD file, following a structured workflow.
 
 1. **Read PRD, spec and Progress**
    - Read the PRD file at `$ARGUMENTS`
-   - read the spec files in that directory
    - Read the corresponding `progress.txt` in the same directory
+   - read the spec files in that directory
    - Identify the highest-priority incomplete item (your judgment, not just first in list)
+   - Work on ONLY that single feature
 
 2. **Implement Feature**
    - Work on ONLY that single feature
@@ -19,6 +20,7 @@ Work on a single feature from a PRD file, following a structured workflow.
    - Run `turbo run test` to verify tests pass
    - Use playwright mcp to verify ui changes if applicable
    - Do not try to run the dev servers, they are already running in a tmux pane, figure it out and read the output from that
+   - When done with that single feature, proceed to step 3 without attempting to do any other features
 
 3. **Update PRD**
    - Set `passes: true` for completed items

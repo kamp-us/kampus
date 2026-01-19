@@ -1,0 +1,174 @@
+.reader {
+	max-width: 75ch;
+	margin: 0 auto;
+	padding: 5rem 1.5rem;
+}
+
+.nav {
+	margin-bottom: 2rem;
+}
+
+.nav a {
+	color: var(--gray-11);
+	text-decoration: none;
+}
+
+.nav a:hover {
+	color: var(--gray-12);
+}
+
+.header {
+	margin-bottom: 2rem;
+}
+
+.siteName {
+	font-size: 0.875rem;
+	text-transform: uppercase;
+	letter-spacing: 0.05em;
+	color: var(--gray-11);
+	margin-bottom: 0.5rem;
+}
+
+.title {
+	font-size: 2rem;
+	font-weight: var(--font-weight-medium);
+	line-height: 1.2;
+	margin-bottom: 1rem;
+}
+
+.meta {
+	font-size: 0.875rem;
+	color: var(--gray-11);
+}
+
+.content {
+	font-size: 1.125rem;
+	line-height: 1.65;
+	color: var(--gray-12);
+}
+
+.content p {
+	margin-bottom: 1.5em;
+}
+
+.content h2,
+.content h3 {
+	margin-top: 2em;
+	margin-bottom: 0.5em;
+}
+
+.content img {
+	max-width: 100%;
+	height: auto;
+	margin: 1.5em 0;
+}
+
+.content blockquote {
+	border-left: 3px solid var(--gray-6);
+	padding-left: 1rem;
+	margin: 1.5em 0;
+	color: var(--gray-11);
+}
+
+.content pre {
+	background: var(--gray-3);
+	padding: 1rem;
+	overflow-x: auto;
+	border-radius: var(--radius-2);
+}
+
+.content a {
+	color: var(--sky-11);
+}
+
+/* Error states */
+.error {
+	max-width: 75ch;
+	margin: 0 auto;
+	padding: 5rem 1.5rem;
+	text-align: center;
+}
+
+.error h1 {
+	font-size: 1.5rem;
+	font-weight: var(--font-weight-medium);
+	margin-bottom: 1rem;
+	color: var(--gray-12);
+}
+
+.error p {
+	color: var(--gray-11);
+	margin-bottom: 1.5rem;
+}
+
+.error a {
+	color: var(--sky-11);
+	text-decoration: none;
+}
+
+.error a:hover {
+	text-decoration: underline;
+}
+
+/* Skeleton loader */
+.skeleton {
+	animation: pulse 1.5s ease-in-out infinite;
+}
+
+.skeletonNav {
+	height: 1rem;
+	width: 6rem;
+	background: var(--gray-4);
+	border-radius: var(--radius-2);
+	margin-bottom: 2rem;
+}
+
+.skeletonTitle {
+	height: 2.5rem;
+	width: 80%;
+	background: var(--gray-4);
+	border-radius: var(--radius-2);
+	margin-bottom: 1rem;
+}
+
+.skeletonMeta {
+	height: 1rem;
+	width: 12rem;
+	background: var(--gray-4);
+	border-radius: var(--radius-2);
+	margin-bottom: 2rem;
+}
+
+.skeletonParagraph {
+	height: 1rem;
+	width: 100%;
+	background: var(--gray-4);
+	border-radius: var(--radius-2);
+	margin-bottom: 0.75rem;
+}
+
+.skeletonParagraph:nth-child(5) {
+	width: 90%;
+}
+
+.skeletonParagraph:nth-child(6) {
+	width: 75%;
+}
+
+@keyframes pulse {
+	0%,
+	100% {
+		opacity: 1;
+	}
+	50% {
+		opacity: 0.5;
+	}
+}
+
+.loading {
+	max-width: 75ch;
+	margin: 0 auto;
+	padding: 5rem 1.5rem;
+	color: var(--gray-11);
+	text-align: center;
+}

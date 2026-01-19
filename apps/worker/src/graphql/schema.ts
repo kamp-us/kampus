@@ -52,6 +52,32 @@ const UrlMetadataType = new GraphQLObjectType({
 });
 
 // =============================================================================
+// Reader Mode Types
+// =============================================================================
+
+const ReaderContentType = new GraphQLObjectType({
+	name: "ReaderContent",
+	fields: {
+		title: {type: new GraphQLNonNull(GraphQLString)},
+		content: {type: new GraphQLNonNull(GraphQLString)},
+		byline: {type: GraphQLString},
+		siteName: {type: GraphQLString},
+		wordCount: {type: new GraphQLNonNull(GraphQLInt)},
+		readingTimeMinutes: {type: new GraphQLNonNull(GraphQLInt)},
+		excerpt: {type: GraphQLString},
+	},
+});
+
+const ReaderResultType = new GraphQLObjectType({
+	name: "ReaderResult",
+	fields: {
+		readable: {type: new GraphQLNonNull(GraphQLBoolean)},
+		content: {type: ReaderContentType},
+		error: {type: GraphQLString},
+	},
+});
+
+// =============================================================================
 // Node Interface (Relay)
 // =============================================================================
 
@@ -85,6 +111,17 @@ const StoryType: GraphQLObjectType = new GraphQLObjectType({
 		tags: {
 			type: new GraphQLNonNull(new GraphQLList(new GraphQLNonNull(TagType))),
 			// Tags are already embedded in Story response from RPC, no resolver needed
+		},
+		readerContent: {
+			type: new GraphQLNonNull(ReaderResultType),
+			args: {
+				forceFetch: {type: GraphQLBoolean},
+			},
+			resolve: resolver(function* (story: {url: string}, args: {forceFetch?: boolean}) {
+				const env = yield* CloudflareEnv;
+				const client = yield* WebPageParserClient.make(env, story.url);
+				return yield* client.getReaderContent({forceFetch: args.forceFetch ?? false});
+			}),
 		},
 	}),
 });

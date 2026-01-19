@@ -89,6 +89,22 @@ type Query {
   node(id: String!): Node
 }
 
+type ReaderContent {
+  byline: String
+  content: String!
+  excerpt: String
+  readingTimeMinutes: Int!
+  siteName: String
+  title: String!
+  wordCount: Int!
+}
+
+type ReaderResult {
+  content: ReaderContent
+  error: String
+  readable: Boolean!
+}
+
 type SignInResponse {
   token: String!
   user: User!
@@ -98,6 +114,7 @@ type Story implements Node {
   createdAt: String!
   description: String
   id: ID!
+  readerContent(forceFetch: Boolean): ReaderResult!
   tags: [Tag!]!
   title: String!
   url: String!
