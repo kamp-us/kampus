@@ -6,6 +6,7 @@ React 19 frontend with Effect-based state management.
 
 - **React 19** - UI framework
 - **Vite** - Build tool
+- **Relay** - GraphQL data fetching with fragments
 - **effect-atom** - Reactive state with Effect integration
 - **@effect/rpc** - Type-safe RPC client
 - **react-router** - Client-side routing
@@ -34,6 +35,12 @@ Components in `src/design/` follow these patterns:
 - Never apply custom styles via `className` or inline
 - Add new variants to components, not one-off styles
 - Use compound component pattern for complex components
+
+## Relay
+
+- Colocate fragments with components
+- Generated types in `__generated__/` directories (excluded from biome)
+- Run `pnpm relay` to regenerate after schema/query changes
 
 ## RPC
 
