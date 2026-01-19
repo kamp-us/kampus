@@ -1,47 +1,66 @@
 # kamp-us
 
-React 19 frontend with Effect-based state management.
+React 19 frontend with Relay for data fetching.
 
 ## Stack
 
 - **React 19** - UI framework
 - **Vite** - Build tool
-- **Relay** - GraphQL data fetching with fragments
-- **effect-atom** - Reactive state with Effect integration
-- **@effect/rpc** - Type-safe RPC client
-- **react-router** - Client-side routing
-- **CSS Modules** - Scoped styling (`.module.css`)
+- **Relay** - GraphQL data fetching
+- **effect-atom** - URL search param sync
+- **react-router** - Routing (import from `react-router`, not `react-router-dom`)
 - **Base UI** - Unstyled component primitives
+- **CSS Modules** - Scoped styling
 
-## Important
+## Relay
 
-Import from `react-router`, not `react-router-dom`:
+Primary data layer. Colocate fragments with components.
+
 ```typescript
-import {Link, useSearchParams, useNavigate} from "react-router"
+const LibraryStoriesFragment = graphql`
+  fragment Library_stories on Library
+  @argumentDefinitions(first: {type: "Int", defaultValue: 10})
+  @refetchable(queryName: "LibraryStoriesPaginationQuery") {
+    stories(first: $first) @connection(key: "Library_stories") {
+      edges { node { id } }
+    }
+  }
+`;
+```
+
+- `useLazyLoadQuery` for root queries
+- `useFragment` / `usePaginationFragment` for children
+- Optimistic responses + store updaters for mutations
+- Run `pnpm relay` after schema/query changes
+- Generated types in `__generated__/` (excluded from biome)
+
+## Search Params
+
+Use `Atom.searchParam()` from effect-atom, inline in page components:
+
+```typescript
+const tagFilterAtom = Atom.searchParam("tag");
+
+function useTagFilter() {
+  const [tagId, setTagId] = useAtom(tagFilterAtom);
+  return {tagId: tagId || null, setTagFilter: (id) => setTagId(id ?? "")};
+}
 ```
 
 ## Design System
 
-Components in `src/design/` follow these patterns:
+Components in `src/design/`:
 
-- `.tsx` file paired with `.module.css`
-- Extend **Base UI** primitives (`@base-ui/react/*`)
-- Props **omit `className`** to prevent style overrides (intentional)
+- `.tsx` paired with `.module.css`
+- Extend Base UI primitives (`@base-ui/react/*`)
+- Props **omit `className`** - intentional, don't override
 - State styling via data attributes: `[data-focused]`, `[data-invalid]`
-- Tokens in `phoenix.ts` (types) and `phoenix.css` (CSS variables)
+- Tokens in `phoenix.ts` / `phoenix.css`
 
-### Rules
+## Auth
 
-- Never apply custom styles via `className` or inline
-- Add new variants to components, not one-off styles
-- Use compound component pattern for complex components
-
-## Relay
-
-- Colocate fragments with components
-- Generated types in `__generated__/` directories (excluded from biome)
-- Run `pnpm relay` to regenerate after schema/query changes
+React Context + localStorage. Use `useAuth()` hook, `getStoredToken()` for headers.
 
 ## RPC
 
-Client setup in `src/rpc/client.ts`, atoms in `src/rpc/atoms.ts`.
+Optional `@effect/rpc` client in `src/rpc/`. Wrap pages needing it with `<RpcProvider>`.
