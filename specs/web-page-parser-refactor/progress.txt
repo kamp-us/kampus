@@ -46,3 +46,23 @@ Changes:
 
 Notes:
 - handlers.ts type errors still present - expected, fixed in handlers-update item
+
+## 2026-01-24: Extract Content (extract-content)
+
+Files changed:
+- apps/worker/src/features/web-page-parser/extractContent.ts (new)
+
+Changes:
+- Pure function extractContent(doc, url, options?) => ContentResult
+- Tries Readability first with isProbablyReaderable check
+- Falls back to selector-based extraction (article, main, [role="main"], etc.)
+- MIN_CONTENT_LENGTH = 500 for selector fallback
+- Image URLs rewritten via regex for both strategies
+- Exports ContentResult type
+
+Decisions:
+- Regex-based image rewriting (vs linkedom reparsing) for simplicity
+- preserveCodeBlockNewlines ported from fetchReaderContent.ts
+
+Notes:
+- handlers.ts type errors still present - expected, fixed in handlers-update item

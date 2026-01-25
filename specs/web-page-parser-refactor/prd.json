@@ -59,7 +59,7 @@
         "Selector fallback uses 500 char minimum",
         "Image URLs rewritten for both strategies"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "extract-page",
