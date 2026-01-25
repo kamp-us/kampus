@@ -66,3 +66,17 @@ Decisions:
 
 Notes:
 - handlers.ts type errors still present - expected, fixed in handlers-update item
+
+## 2026-01-24: Extract Page (extract-page)
+
+Files changed:
+- apps/worker/src/features/web-page-parser/extractPage.ts (new)
+
+Changes:
+- Pure function extractPage(html, baseUrl) => ExtractedPage
+- Uses linkedom parseHTML internally
+- Composes extractMetadata + extractContent
+- Returns { metadata, content, strategy }
+
+Notes:
+- handlers.ts type errors still present - expected, fixed in handlers-update item

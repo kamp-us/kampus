@@ -71,7 +71,7 @@
         "Uses linkedom parseHTML internally",
         "Returns { metadata, content, strategy }"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "fetch-html",
