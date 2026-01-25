@@ -1,0 +1,18 @@
+## 2026-01-24: Schema Updates (schema-strategy, schema-reader-result)
+
+Files changed:
+- packages/web-page-parser/src/schema.ts
+- packages/web-page-parser/src/index.ts
+
+Changes:
+- Added ExtractionStrategy schema: Schema.NullOr(Schema.Literal("readability", "selector"))
+- Updated ReaderResult to include metadata (nullable) and strategy fields
+- Exported ExtractionStrategy from index.ts
+
+Decisions:
+- ReaderResult.metadata is NullOr(PageMetadata) - null when fetch fails, present when fetch succeeds
+- ExtractionStrategy uses NullOr pattern - null means no extraction strategy succeeded
+
+Notes:
+- handlers.ts now has type errors - expected, will be fixed in handlers-update item
+- web-page-parser package typechecks independently
