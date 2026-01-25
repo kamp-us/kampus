@@ -116,3 +116,21 @@ Changes:
 Decisions:
 - errorToReaderResult returns metadata: null when fetch fails
 - Cache includes metadata even when content extraction fails
+
+## 2026-01-24: Delete Old Files (delete-old-files)
+
+Files deleted:
+- apps/worker/src/features/web-page-parser/fetchPageMetadata.ts
+- apps/worker/src/features/web-page-parser/fetchReaderContent.ts
+- apps/worker/test/fetchReaderContent.spec.ts
+
+Files changed:
+- apps/worker/test/web-page-parser-handlers.spec.ts (updated comments)
+
+Changes:
+- Deleted old fetchPageMetadata.ts and fetchReaderContent.ts
+- Deleted fetchReaderContent.spec.ts (tested the deleted functions)
+- Updated comments in handlers test file to reference fetchHtml instead
+
+Decisions:
+- fetchReaderContent.spec.ts removed since it tested deleted code with NotReadableError

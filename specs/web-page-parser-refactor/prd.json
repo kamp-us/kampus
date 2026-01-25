@@ -106,9 +106,10 @@
       "stepsToVerify": [
         "fetchPageMetadata.ts no longer exists",
         "fetchReaderContent.ts no longer exists",
+        "fetchReaderContent.spec.ts no longer exists (tested deleted code)",
         "No import errors in codebase"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "remove-not-readable-error",
