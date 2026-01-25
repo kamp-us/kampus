@@ -1,0 +1,181 @@
+{
+  "feature": "web-page-parser-refactor",
+  "rfc": "https://github.com/kamp-us/kampus/issues/30",
+  "items": [
+    {
+      "id": "schema-strategy",
+      "category": "schema",
+      "description": "Add ExtractionStrategy schema type ('readability' | 'selector' | null)",
+      "stepsToVerify": [
+        "ExtractionStrategy exported from @kampus/web-page-parser",
+        "Type is Schema.NullOr(Schema.Literal('readability', 'selector'))"
+      ],
+      "passes": true
+    },
+    {
+      "id": "schema-reader-result",
+      "category": "schema",
+      "description": "Update ReaderResult to include metadata (nullable) and strategy fields",
+      "stepsToVerify": [
+        "ReaderResult has 'metadata: Schema.NullOr(PageMetadata)' field",
+        "ReaderResult has 'strategy: ExtractionStrategy' field",
+        "web-page-parser package typechecks (downstream handlers will need updates)"
+      ],
+      "passes": true
+    },
+    {
+      "id": "db-schema",
+      "category": "database",
+      "description": "Add strategy, meta_title, meta_description columns to reader_content table",
+      "stepsToVerify": [
+        "drizzle.schema.ts has strategy text column",
+        "drizzle.schema.ts has meta_title text column",
+        "drizzle.schema.ts has meta_description text column",
+        "Migration generated via drizzle-kit generate"
+      ],
+      "passes": true
+    },
+    {
+      "id": "extract-metadata",
+      "category": "extraction",
+      "description": "Create pure extractMetadata function that extracts title and description from Document",
+      "stepsToVerify": [
+        "extractMetadata.ts exists in web-page-parser feature",
+        "Function signature: (doc: Document) => PageMetadata",
+        "Extracts og:title > title tag, fallback to 'Untitled'",
+        "Extracts og:description > meta description"
+      ],
+      "passes": true
+    },
+    {
+      "id": "extract-content",
+      "category": "extraction",
+      "description": "Create pure extractContent function with Readability primary and selector fallback",
+      "stepsToVerify": [
+        "extractContent.ts exists in web-page-parser feature",
+        "Function signature: (doc: Document, baseUrl: string, options?) => ContentResult",
+        "Tries Readability first with isProbablyReaderable check",
+        "Falls back to selector-based extraction (article, main, etc.)",
+        "Selector fallback uses 500 char minimum",
+        "Image URLs rewritten for both strategies"
+      ],
+      "passes": true
+    },
+    {
+      "id": "extract-page",
+      "category": "extraction",
+      "description": "Create pure extractPage function composing metadata and content extraction",
+      "stepsToVerify": [
+        "extractPage.ts exists in web-page-parser feature",
+        "Function signature: (html: string, baseUrl: string) => ExtractedPage",
+        "Uses linkedom parseHTML internally",
+        "Returns { metadata, content, strategy }"
+      ],
+      "passes": true
+    },
+    {
+      "id": "fetch-html",
+      "category": "retrieval",
+      "description": "Create fetchHtml Effect function for HTML retrieval",
+      "stepsToVerify": [
+        "fetchHtml.ts exists in web-page-parser feature",
+        "Uses Effect HttpClient",
+        "Validates URL protocol (http/https only)",
+        "15 second timeout",
+        "Maps errors to FetchTimeoutError, FetchHttpError, FetchNetworkError"
+      ],
+      "passes": true
+    },
+    {
+      "id": "handlers-update",
+      "category": "handlers",
+      "description": "Update handlers to compose fetchHtml + extractPage",
+      "stepsToVerify": [
+        "fetchAndExtract helper composes fetch + extract",
+        "getMetadata uses fetchAndExtract, returns metadata",
+        "getReaderContent uses fetchAndExtract, maps to ReaderResult",
+        "Cache helpers updated for new fields (strategy, meta_title, meta_description)",
+        "pnpm turbo run typecheck passes"
+      ],
+      "passes": true
+    },
+    {
+      "id": "delete-old-files",
+      "category": "cleanup",
+      "description": "Delete fetchPageMetadata.ts and fetchReaderContent.ts",
+      "stepsToVerify": [
+        "fetchPageMetadata.ts no longer exists",
+        "fetchReaderContent.ts no longer exists",
+        "fetchReaderContent.spec.ts no longer exists (tested deleted code)",
+        "No import errors in codebase"
+      ],
+      "passes": true
+    },
+    {
+      "id": "remove-not-readable-error",
+      "category": "cleanup",
+      "description": "Remove NotReadableError (no longer needed with fallback)",
+      "stepsToVerify": [
+        "NotReadableError class removed from errors.ts",
+        "NotReadableError removed from index.ts exports",
+        "No references to NotReadableError in codebase (except spec docs)"
+      ],
+      "passes": true
+    },
+    {
+      "id": "e2e-readability-strategy",
+      "category": "e2e",
+      "description": "Readability-friendly URLs return strategy: 'readability'",
+      "stepsToVerify": [
+        "extractPage with article HTML returns strategy: 'readability'",
+        "Response has content with extracted article",
+        "Test: web-page-parser-extraction.spec.ts e2e-readability-strategy tests"
+      ],
+      "passes": true
+    },
+    {
+      "id": "e2e-selector-strategy",
+      "category": "e2e",
+      "description": "Non-readable URLs fall back to selector strategy",
+      "stepsToVerify": [
+        "extractPage with non-readable HTML returns strategy: 'selector'",
+        "Response has content extracted from main/article element",
+        "Test: web-page-parser-extraction.spec.ts e2e-selector-strategy tests"
+      ],
+      "passes": true
+    },
+    {
+      "id": "e2e-metadata-always-present",
+      "category": "e2e",
+      "description": "Metadata always present when fetch succeeds, even if content extraction fails",
+      "stepsToVerify": [
+        "extractPage with no-content HTML returns metadata with title/description",
+        "Response has content: null and strategy: null",
+        "Test: web-page-parser-extraction.spec.ts e2e-metadata-always-present tests"
+      ],
+      "passes": true
+    },
+    {
+      "id": "e2e-fetch-error",
+      "category": "e2e",
+      "description": "Fetch errors return metadata: null with error message",
+      "stepsToVerify": [
+        "FetchTimeoutError, FetchHttpError, FetchNetworkError return metadata: null",
+        "Each error type returns meaningful error message",
+        "Test: web-page-parser-extraction.spec.ts e2e-fetch-error tests"
+      ],
+      "passes": true
+    },
+    {
+      "id": "backward-compat",
+      "category": "e2e",
+      "description": "Existing RPC interface remains backward compatible",
+      "stepsToVerify": [
+        "extractPage returns shape compatible with ReaderResult mapping",
+        "Strategy field has correct type ('readability' | 'selector' | null)",
+        "Test: web-page-parser-extraction.spec.ts backward-compat tests"
+      ],
+      "passes": true
+    }
+  ]
+}

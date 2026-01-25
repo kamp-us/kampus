@@ -10,7 +10,7 @@ import {DurableObjectCtx} from "../src/services";
  * Tests handler logic in isolation without DO infrastructure.
  *
  * Note: Tests for fetch scenarios (stale cache, forceFetch, no cache) require
- * mocking fetchPageMetadata which makes real HTTP calls. These scenarios are
+ * mocking fetchHtml which makes real HTTP calls. These scenarios are
  * covered by integration tests in web-page-parser.spec.ts instead.
  */
 
@@ -149,7 +149,7 @@ describe("WebPageParser Handlers Unit Tests", () => {
 
 			const _drizzleLayer = makeMockSqliteDrizzle([staleRow]);
 
-			// Can't complete the test without mocking fetchPageMetadata,
+			// Can't complete the test without mocking fetchHtml,
 			// but we verify the logic is correct via integration tests.
 			// The handler will try to fetch when cache is stale.
 		});
@@ -303,7 +303,7 @@ describe("WebPageParser Handlers Unit Tests", () => {
 
 			const _drizzleLayer = makeMockSqliteDrizzle([], [staleRow]);
 
-			// Can't complete the test without mocking fetchReaderContent,
+			// Can't complete the test without mocking fetchHtml,
 			// but we verify the logic is correct via integration tests.
 			// The handler will try to fetch when cache is stale.
 		});

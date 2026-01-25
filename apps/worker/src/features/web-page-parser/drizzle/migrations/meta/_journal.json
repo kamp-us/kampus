@@ -15,6 +15,13 @@
       "when": 1768725210682,
       "tag": "0001_orange_marvel_boy",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1769318533169,
+      "tag": "0002_round_hobgoblin",
+      "breakpoints": true
     }
   ]
 }

@@ -20,9 +20,17 @@ export const ReaderContent = Schema.Struct({
 
 export type ReaderContent = typeof ReaderContent.Type;
 
+export const ExtractionStrategy = Schema.NullOr(
+	Schema.Literal("readability", "selector"),
+);
+
+export type ExtractionStrategy = typeof ExtractionStrategy.Type;
+
 export const ReaderResult = Schema.Struct({
 	readable: Schema.Boolean,
+	metadata: Schema.NullOr(PageMetadata),
 	content: Schema.NullOr(ReaderContent),
+	strategy: ExtractionStrategy,
 	error: Schema.NullOr(Schema.String),
 });
 

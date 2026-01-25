@@ -1,8 +1,14 @@
-import {FetchHttpClient} from "@effect/platform";
+import {FetchHttpClient, type HttpClient} from "@effect/platform";
 import {SqliteDrizzle} from "@effect/sql-drizzle/Sqlite";
 import {
+	type ExtractionStrategy,
+	type FetchHttpError,
+	type FetchNetworkError,
+	type FetchTimeoutError,
+	type InvalidProtocolError,
 	type PageMetadata,
 	PageMetadata as PageMetadataSchema,
+	ParseError,
 	type ReaderContent,
 	type ReaderResult,
 } from "@kampus/web-page-parser";
@@ -10,13 +16,83 @@ import {desc} from "drizzle-orm";
 import {Effect, Match, Schema} from "effect";
 import {DurableObjectCtx} from "../../services";
 import * as schema from "./drizzle/drizzle.schema";
-import {fetchPageMetadata} from "./fetchPageMetadata";
-import {fetchReaderContent} from "./fetchReaderContent";
+import {extractPage} from "./extractPage";
+import {fetchHtml} from "./fetchHtml";
 
 const ONE_DAY_MS = 1000 * 60 * 60 * 24;
 
 const isRecent = (createdAt: Date | null) =>
 	createdAt && createdAt.getTime() > Date.now() - ONE_DAY_MS;
+
+// Compose fetch + extract into an Effect
+const fetchAndExtract = (url: string) =>
+	Effect.gen(function* () {
+		const html = yield* fetchHtml(url);
+
+		// Wrap pure extraction in Effect.try to catch parse errors
+		return yield* Effect.try({
+			try: () => extractPage(html, url),
+			catch: (e) => new ParseError({url, message: String(e)}),
+		});
+	});
+
+// Convert errors to ReaderResult with error field
+const errorToReaderResult = (
+	error: ParseError | FetchTimeoutError | FetchHttpError | FetchNetworkError | InvalidProtocolError,
+): ReaderResult =>
+	Match.value(error).pipe(
+		Match.tag(
+			"FetchTimeoutError",
+			(): ReaderResult => ({
+				readable: false,
+				metadata: null,
+				content: null,
+				strategy: null,
+				error: "Request timed out",
+			}),
+		),
+		Match.tag(
+			"FetchHttpError",
+			(e): ReaderResult => ({
+				readable: false,
+				metadata: null,
+				content: null,
+				strategy: null,
+				error: `HTTP ${e.status}`,
+			}),
+		),
+		Match.tag(
+			"FetchNetworkError",
+			(e): ReaderResult => ({
+				readable: false,
+				metadata: null,
+				content: null,
+				strategy: null,
+				error: e.message,
+			}),
+		),
+		Match.tag(
+			"ParseError",
+			(e): ReaderResult => ({
+				readable: false,
+				metadata: null,
+				content: null,
+				strategy: null,
+				error: e.message,
+			}),
+		),
+		Match.tag(
+			"InvalidProtocolError",
+			(e): ReaderResult => ({
+				readable: false,
+				metadata: null,
+				content: null,
+				strategy: null,
+				error: `Invalid protocol: ${e.protocol}`,
+			}),
+		),
+		Match.exhaustive,
+	);
 
 export const handlers = {
 	init: ({url}: {url: string}) =>
@@ -29,7 +105,11 @@ export const handlers = {
 		forceFetch,
 	}: {
 		forceFetch?: boolean;
-	}): Effect.Effect<PageMetadata, never, SqliteDrizzle | DurableObjectCtx> =>
+	}): Effect.Effect<
+		PageMetadata,
+		never,
+		SqliteDrizzle | DurableObjectCtx | HttpClient.HttpClient
+	> =>
 		Effect.gen(function* () {
 			const ctx = yield* DurableObjectCtx;
 			const db = yield* SqliteDrizzle;
@@ -55,16 +135,16 @@ export const handlers = {
 				});
 			}
 
-			// Fetch fresh metadata
-			const metadata = yield* Effect.promise(() => fetchPageMetadata(url));
+			// Fetch + extract, then return just metadata
+			const extracted = yield* fetchAndExtract(url).pipe(Effect.provide(FetchHttpClient.layer));
 
 			// Save to database
 			yield* db.insert(schema.fetchlog).values({
-				title: metadata.title,
-				description: metadata.description,
+				title: extracted.metadata.title,
+				description: extracted.metadata.description,
 			});
 
-			return metadata;
+			return extracted.metadata;
 		}).pipe(Effect.orDie),
 
 	getReaderContent: ({
@@ -95,23 +175,17 @@ export const handlers = {
 			}
 
 			// Fetch fresh content - errors converted to ReaderResult
-			const result = yield* fetchReaderContent(url).pipe(
+			const result = yield* fetchAndExtract(url).pipe(
 				Effect.map(
-					(content): ReaderResult => ({readable: true, content, error: null}),
+					(extracted): ReaderResult => ({
+						readable: extracted.content !== null,
+						metadata: extracted.metadata,
+						content: extracted.content,
+						strategy: extracted.strategy,
+						error: extracted.content ? null : "No content could be extracted",
+					}),
 				),
-				Effect.catchAll((error) =>
-					Effect.succeed(
-						Match.value(error).pipe(
-							Match.tag("FetchTimeoutError", (): ReaderResult => ({readable: false, content: null, error: "Request timed out"})),
-							Match.tag("FetchHttpError", (e): ReaderResult => ({readable: false, content: null, error: `HTTP ${e.status}`})),
-							Match.tag("FetchNetworkError", (e): ReaderResult => ({readable: false, content: null, error: e.message})),
-							Match.tag("NotReadableError", (): ReaderResult => ({readable: false, content: null, error: "Page is not article content"})),
-							Match.tag("ParseError", (e): ReaderResult => ({readable: false, content: null, error: e.message})),
-							Match.tag("InvalidProtocolError", (e): ReaderResult => ({readable: false, content: null, error: `Invalid protocol: ${e.protocol}`})),
-							Match.exhaustive,
-						),
-					),
-				),
+				Effect.catchAll((error) => Effect.succeed(errorToReaderResult(error))),
 				Effect.provide(FetchHttpClient.layer),
 			);
 
@@ -124,8 +198,26 @@ export const handlers = {
 
 // Helper to map database row to ReaderResult
 const mapDbRowToReaderResult = (row: typeof schema.readerContent.$inferSelect): ReaderResult => {
+	// Build metadata if we have it
+	const metadata: PageMetadata | null =
+		row.metaTitle !== null
+			? {
+					title: row.metaTitle,
+					description: row.metaDescription ?? null,
+				}
+			: null;
+
+	// Cast strategy to the correct type
+	const strategy = row.strategy as ExtractionStrategy;
+
 	if (!row.readable) {
-		return {readable: false, content: null, error: row.error};
+		return {
+			readable: false,
+			metadata,
+			content: null,
+			strategy,
+			error: row.error,
+		};
 	}
 
 	const content: ReaderContent = {
@@ -139,19 +231,27 @@ const mapDbRowToReaderResult = (row: typeof schema.readerContent.$inferSelect): 
 		readingTimeMinutes: row.readingTimeMinutes ?? 0,
 	};
 
-	return {readable: true, content, error: null};
+	return {readable: true, metadata, content, strategy, error: null};
 };
 
 // Helper to map ReaderResult to database row values
 const mapReaderResultToDbRow = (result: ReaderResult): typeof schema.readerContent.$inferInsert => {
+	const base = {
+		strategy: result.strategy,
+		metaTitle: result.metadata?.title ?? null,
+		metaDescription: result.metadata?.description ?? null,
+	};
+
 	if (!result.readable || !result.content) {
 		return {
+			...base,
 			readable: 0,
 			error: result.error,
 		};
 	}
 
 	return {
+		...base,
 		readable: 1,
 		title: result.content.title,
 		content: result.content.content,

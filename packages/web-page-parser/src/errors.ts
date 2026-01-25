@@ -15,11 +15,6 @@ export class FetchNetworkError extends Schema.TaggedError<FetchNetworkError>()(
 	{url: Schema.String, message: Schema.String},
 ) {}
 
-export class NotReadableError extends Schema.TaggedError<NotReadableError>()(
-	"NotReadableError",
-	{url: Schema.String},
-) {}
-
 export class ParseError extends Schema.TaggedError<ParseError>()(
 	"ParseError",
 	{url: Schema.String, message: Schema.String},
