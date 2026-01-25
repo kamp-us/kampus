@@ -10,6 +10,11 @@ turbo run dev | build | typecheck | test
 biome check --write --staged  # before commit
 ```
 
+## pnpm over npm
+
+- all commands use `pnpm` instead of `npm` or `yarn`.
+- never use `npx ...` use `pnpm dlx ...` instead.
+
 ## Docs
 
 | Task | Read |
