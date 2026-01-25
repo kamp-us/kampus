@@ -9,7 +9,6 @@ export {
 	FetchTimeoutError,
 	FetchHttpError,
 	FetchNetworkError,
-	NotReadableError,
 	ParseError,
 	InvalidProtocolError,
 } from "./errors.js";

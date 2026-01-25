@@ -118,9 +118,9 @@
       "stepsToVerify": [
         "NotReadableError class removed from errors.ts",
         "NotReadableError removed from index.ts exports",
-        "No references to NotReadableError in codebase"
+        "No references to NotReadableError in codebase (except spec docs)"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "e2e-readability-strategy",

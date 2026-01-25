@@ -134,3 +134,17 @@ Changes:
 
 Decisions:
 - fetchReaderContent.spec.ts removed since it tested deleted code with NotReadableError
+
+## 2026-01-24: Remove NotReadableError (remove-not-readable-error)
+
+Files changed:
+- packages/web-page-parser/src/errors.ts
+- packages/web-page-parser/src/index.ts
+
+Changes:
+- Removed NotReadableError class from errors.ts
+- Removed NotReadableError from index.ts exports
+
+Notes:
+- References in spec files left as historical docs
+- No longer needed since selector fallback handles "not readable" case
