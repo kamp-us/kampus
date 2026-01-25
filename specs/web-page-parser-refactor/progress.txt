@@ -98,3 +98,21 @@ Decisions:
 
 Notes:
 - handlers.ts type errors still present - expected, fixed in handlers-update item
+
+## 2026-01-24: Handlers Update (handlers-update)
+
+Files changed:
+- apps/worker/src/features/web-page-parser/handlers.ts
+
+Changes:
+- Added fetchAndExtract helper composing fetchHtml + extractPage
+- Updated getMetadata to use fetchAndExtract
+- Updated getReaderContent to use fetchAndExtract with error handling
+- Updated mapDbRowToReaderResult to include metadata and strategy fields
+- Updated mapReaderResultToDbRow to include strategy, metaTitle, metaDescription
+- Removed imports of fetchPageMetadata, fetchReaderContent
+- Removed NotReadableError from Match (not needed with fallback strategy)
+
+Decisions:
+- errorToReaderResult returns metadata: null when fetch fails
+- Cache includes metadata even when content extraction fails

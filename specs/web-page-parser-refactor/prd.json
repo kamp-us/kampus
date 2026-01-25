@@ -97,7 +97,7 @@
         "Cache helpers updated for new fields (strategy, meta_title, meta_description)",
         "pnpm turbo run typecheck passes"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "delete-old-files",
