@@ -84,7 +84,7 @@
         "15 second timeout",
         "Maps errors to FetchTimeoutError, FetchHttpError, FetchNetworkError"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "handlers-update",

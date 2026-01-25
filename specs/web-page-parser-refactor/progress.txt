@@ -80,3 +80,21 @@ Changes:
 
 Notes:
 - handlers.ts type errors still present - expected, fixed in handlers-update item
+
+## 2026-01-24: Fetch HTML (fetch-html)
+
+Files changed:
+- apps/worker/src/features/web-page-parser/fetchHtml.ts (new)
+
+Changes:
+- Effect function fetchHtml(url) => Effect<string, FetchError, HttpClient>
+- Validates URL protocol (http/https only)
+- 15 second timeout via Effect.timeout
+- Error mapping: TimeoutException → FetchTimeoutError, RequestError → FetchNetworkError, ResponseError → FetchHttpError
+
+Decisions:
+- Extracted from fetchReaderContent.ts - same fetch logic, simpler signature
+- Returns raw HTML string for composability with extractPage
+
+Notes:
+- handlers.ts type errors still present - expected, fixed in handlers-update item
