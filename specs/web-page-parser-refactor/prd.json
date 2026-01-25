@@ -45,7 +45,7 @@
         "Extracts og:title > title tag, fallback to 'Untitled'",
         "Extracts og:description > meta description"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "extract-content",

@@ -32,3 +32,17 @@ Changes:
 
 Notes:
 - handlers.ts type errors still present - expected, fixed in handlers-update item
+
+## 2026-01-24: Extract Metadata (extract-metadata)
+
+Files changed:
+- apps/worker/src/features/web-page-parser/extractMetadata.ts (new)
+
+Changes:
+- Pure function extractMetadata(doc: Document) => PageMetadata
+- Uses getMetaContent helper with selector priority
+- Title: og:title > title tag, fallback "Untitled"
+- Description: og:description > meta[name="description"]
+
+Notes:
+- handlers.ts type errors still present - expected, fixed in handlers-update item
