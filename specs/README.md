@@ -20,3 +20,4 @@ Feature directory with completion status. Each feature follows the [spec-driven 
 - [x] **[spellbook-generator](./spellbook-generator/)** - Rails-style CLI generator for Spellbook scaffolding
 - [x] **[reader-mode](./reader-mode/)** - Instapaper-like clean content extraction for web pages
 - [x] **[reader-mode-frontend](./reader-mode-frontend/)** - Frontend reader view page with Shiki code highlighting
+- [x] **[web-page-parser-refactor](./web-page-parser-refactor/)** - Linkedom-centered parsing with Readability + selector fallback

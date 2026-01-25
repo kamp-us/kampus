@@ -148,3 +148,23 @@ Changes:
 Notes:
 - References in spec files left as historical docs
 - No longer needed since selector fallback handles "not readable" case
+
+## 2026-01-25: E2E Tests (e2e-readability-strategy, e2e-selector-strategy, e2e-metadata-always-present, e2e-fetch-error, backward-compat)
+
+Files created:
+- apps/worker/test/web-page-parser-extraction.spec.ts
+
+Changes:
+- Created 18 e2e tests for extraction strategies and error handling
+- Tests use HTML fixtures to verify extractPage behavior
+- Tests verify errorToReaderResult error mapping for all error types
+
+Test coverage:
+- Readability strategy: 3 tests (strategy detection, metadata extraction, content fields)
+- Selector strategy: 3 tests (fallback detection, content extraction, metadata)
+- Metadata always present: 4 tests (both strategies fail, null content, minimal HTML, no title)
+- Fetch errors: 5 tests (all error types return metadata: null with message)
+- Backward compat: 2 tests (ReaderResult shape, strategy types)
+- Image URL rewriting: 1 test
+
+All 121 tests pass, typecheck passes

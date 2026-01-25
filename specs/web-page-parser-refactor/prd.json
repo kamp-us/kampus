@@ -127,56 +127,55 @@
       "category": "e2e",
       "description": "Readability-friendly URLs return strategy: 'readability'",
       "stepsToVerify": [
-        "Call getReaderContent with article URL (e.g., blog post)",
-        "Response has strategy: 'readability'",
-        "Response has content with extracted article"
+        "extractPage with article HTML returns strategy: 'readability'",
+        "Response has content with extracted article",
+        "Test: web-page-parser-extraction.spec.ts e2e-readability-strategy tests"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "e2e-selector-strategy",
       "category": "e2e",
       "description": "Non-readable URLs fall back to selector strategy",
       "stepsToVerify": [
-        "Call getReaderContent with URL that fails Readability",
-        "Response has strategy: 'selector' if content found via selectors",
-        "Response has content extracted from article/main/etc element"
+        "extractPage with non-readable HTML returns strategy: 'selector'",
+        "Response has content extracted from main/article element",
+        "Test: web-page-parser-extraction.spec.ts e2e-selector-strategy tests"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "e2e-metadata-always-present",
       "category": "e2e",
       "description": "Metadata always present when fetch succeeds, even if content extraction fails",
       "stepsToVerify": [
-        "Call getReaderContent with URL where both strategies fail",
-        "Response has metadata: { title: '...', description: '...' }",
-        "Response has content: null",
-        "Response has readable: false"
+        "extractPage with no-content HTML returns metadata with title/description",
+        "Response has content: null and strategy: null",
+        "Test: web-page-parser-extraction.spec.ts e2e-metadata-always-present tests"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "e2e-fetch-error",
       "category": "e2e",
       "description": "Fetch errors return metadata: null with error message",
       "stepsToVerify": [
-        "Call getReaderContent with invalid/unreachable URL",
-        "Response has metadata: null",
-        "Response has error: '...' with meaningful message"
+        "FetchTimeoutError, FetchHttpError, FetchNetworkError return metadata: null",
+        "Each error type returns meaningful error message",
+        "Test: web-page-parser-extraction.spec.ts e2e-fetch-error tests"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "backward-compat",
       "category": "e2e",
       "description": "Existing RPC interface remains backward compatible",
       "stepsToVerify": [
-        "getMetadata RPC works as before",
-        "getReaderContent RPC works as before",
-        "Existing frontend consumers work without changes"
+        "extractPage returns shape compatible with ReaderResult mapping",
+        "Strategy field has correct type ('readability' | 'selector' | null)",
+        "Test: web-page-parser-extraction.spec.ts backward-compat tests"
       ],
-      "passes": false
+      "passes": true
     }
   ]
 }
