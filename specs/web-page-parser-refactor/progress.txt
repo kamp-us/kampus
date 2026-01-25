@@ -16,3 +16,19 @@ Decisions:
 Notes:
 - handlers.ts now has type errors - expected, will be fixed in handlers-update item
 - web-page-parser package typechecks independently
+
+## 2026-01-24: Database Schema (db-schema)
+
+Files changed:
+- apps/worker/src/features/web-page-parser/drizzle/drizzle.schema.ts
+- apps/worker/src/features/web-page-parser/drizzle/migrations/0002_round_hobgoblin.sql (new)
+- apps/worker/src/features/web-page-parser/drizzle/migrations/migrations.js (auto-updated)
+
+Changes:
+- Added `strategy` text column for 'readability' | 'selector' | null
+- Added `metaTitle` text column (snake_case: meta_title)
+- Added `metaDescription` text column (snake_case: meta_description)
+- Generated migration via drizzle-kit
+
+Notes:
+- handlers.ts type errors still present - expected, fixed in handlers-update item

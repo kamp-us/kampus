@@ -33,7 +33,7 @@
         "drizzle.schema.ts has meta_description text column",
         "Migration generated via drizzle-kit generate"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "extract-metadata",
