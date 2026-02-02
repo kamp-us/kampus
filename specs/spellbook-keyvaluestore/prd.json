@@ -1,0 +1,290 @@
+{
+  "feature": "spellbook-keyvaluestore",
+  "description": "DO-backed @effect/platform KeyValueStore implementation for Spellbook",
+  "items": [
+    {
+      "id": "deps-effect-vitest",
+      "category": "dependencies",
+      "description": "Add @effect/vitest as dev dependency to worker package",
+      "steps_to_verify": [
+        "Run: pnpm add -D @effect/vitest --filter @kampus/worker",
+        "Check apps/worker/package.json contains @effect/vitest in devDependencies",
+        "Run: pnpm install (should complete without errors)"
+      ],
+      "passes": false
+    },
+    {
+      "id": "create-keyvaluestore-file",
+      "category": "implementation",
+      "description": "Create SpellbookKeyValueStore.ts file at apps/worker/src/shared/SpellbookKeyValueStore.ts",
+      "steps_to_verify": [
+        "File exists at apps/worker/src/shared/SpellbookKeyValueStore.ts",
+        "File exports 'layer' as Layer.Layer<KeyValueStore.KeyValueStore, never, DurableObjectCtx>",
+        "File imports from @effect/platform, effect, and ../services"
+      ],
+      "passes": false
+    },
+    {
+      "id": "impl-get-method",
+      "category": "implementation",
+      "description": "Implement get(key) method that returns Effect<Option<string>>",
+      "steps_to_verify": [
+        "Method calls storage.get<string>(key)",
+        "Returns Option.fromNullable(value)",
+        "Wrapped in Effect.tryPromise with error mapping to PlatformError.SystemError"
+      ],
+      "passes": false
+    },
+    {
+      "id": "impl-getUint8Array-method",
+      "category": "implementation",
+      "description": "Implement getUint8Array(key) method that returns Effect<Option<Uint8Array>>",
+      "steps_to_verify": [
+        "Method calls storage.get<ArrayBuffer>(key)",
+        "Converts ArrayBuffer to Uint8Array via new Uint8Array(buffer)",
+        "Returns Option.fromNullable on the converted value",
+        "Wrapped in Effect.tryPromise with error mapping"
+      ],
+      "passes": false
+    },
+    {
+      "id": "impl-set-method",
+      "category": "implementation",
+      "description": "Implement set(key, value) method that stores string or Uint8Array",
+      "steps_to_verify": [
+        "Method calls storage.put(key, value)",
+        "Accepts both string and Uint8Array values",
+        "Returns Effect<void>",
+        "Wrapped in Effect.tryPromise with error mapping"
+      ],
+      "passes": false
+    },
+    {
+      "id": "impl-remove-method",
+      "category": "implementation",
+      "description": "Implement remove(key) method that deletes a key",
+      "steps_to_verify": [
+        "Method calls storage.delete(key)",
+        "Returns Effect<void>",
+        "Wrapped in Effect.tryPromise with error mapping"
+      ],
+      "passes": false
+    },
+    {
+      "id": "impl-clear-method",
+      "category": "implementation",
+      "description": "Implement clear property that deletes all storage",
+      "steps_to_verify": [
+        "Property calls storage.deleteAll()",
+        "Returns Effect<void>",
+        "Wrapped in Effect.tryPromise with error mapping"
+      ],
+      "passes": false
+    },
+    {
+      "id": "impl-size-method",
+      "category": "implementation",
+      "description": "Implement size property that returns count of all keys",
+      "steps_to_verify": [
+        "Property calls storage.list()",
+        "Returns the .size of the resulting Map",
+        "Returns Effect<number>",
+        "Wrapped in Effect.tryPromise with error mapping"
+      ],
+      "passes": false
+    },
+    {
+      "id": "impl-uses-keyvaluestore-make",
+      "category": "implementation",
+      "description": "Implementation uses KeyValueStore.make() to get auto-derived methods",
+      "steps_to_verify": [
+        "Code calls KeyValueStore.make({...}) with the 6 required methods",
+        "Does NOT manually implement has, isEmpty, modify, modifyUint8Array, forSchema",
+        "These methods are auto-derived by KeyValueStore.make()"
+      ],
+      "passes": false
+    },
+    {
+      "id": "impl-layer-effect-pattern",
+      "category": "implementation",
+      "description": "Layer uses Layer.effect pattern to access DurableObjectCtx",
+      "steps_to_verify": [
+        "Uses Layer.effect(KeyValueStore.KeyValueStore, Effect.gen(...))",
+        "Inside Effect.gen, yields DurableObjectCtx via: const ctx = yield* DurableObjectCtx",
+        "Accesses storage via ctx.storage"
+      ],
+      "passes": false
+    },
+    {
+      "id": "impl-error-mapping",
+      "category": "implementation",
+      "description": "All errors mapped to PlatformError.SystemError",
+      "steps_to_verify": [
+        "Has makeError helper function that creates PlatformError.SystemError",
+        "SystemError includes: reason='Unknown', module='KeyValueStore', method name, message",
+        "All Effect.tryPromise catch handlers use makeError"
+      ],
+      "passes": false
+    },
+    {
+      "id": "typecheck-passes",
+      "category": "verification",
+      "description": "TypeScript compilation passes with no errors",
+      "steps_to_verify": [
+        "Run: turbo run typecheck --filter @kampus/worker",
+        "Command exits with code 0",
+        "No type errors in SpellbookKeyValueStore.ts"
+      ],
+      "passes": false
+    },
+    {
+      "id": "create-test-file",
+      "category": "testing",
+      "description": "Create test file at apps/worker/test/spellbook-keyvaluestore.spec.ts",
+      "steps_to_verify": [
+        "File exists at apps/worker/test/spellbook-keyvaluestore.spec.ts",
+        "File imports from @effect/vitest (assert, it)",
+        "File imports layer from ../src/shared/SpellbookKeyValueStore"
+      ],
+      "passes": false
+    },
+    {
+      "id": "test-mock-storage",
+      "category": "testing",
+      "description": "Test file has mock DurableObjectCtx with in-memory storage",
+      "steps_to_verify": [
+        "Has makeTestLayer() function that creates fresh storage per test",
+        "Mock storage uses Map<string, unknown> internally",
+        "Mock implements: get, put, delete, deleteAll, list methods",
+        "Returns layer with mock provided to DurableObjectCtx"
+      ],
+      "passes": false
+    },
+    {
+      "id": "test-uses-it-layer",
+      "category": "testing",
+      "description": "Tests use @effect/vitest it.layer() pattern",
+      "steps_to_verify": [
+        "Uses it.layer(makeTestLayer)('SpellbookKeyValueStore', (it) => {...})",
+        "Individual tests use it.effect('name', () => Effect.gen(...))",
+        "No manual Effect.runPromise calls"
+      ],
+      "passes": false
+    },
+    {
+      "id": "test-get-missing",
+      "category": "testing",
+      "description": "Test: get returns None for missing key",
+      "steps_to_verify": [
+        "Test calls kv.get('missing') on empty store",
+        "Asserts result is Option.isNone(result) === true"
+      ],
+      "passes": false
+    },
+    {
+      "id": "test-set-get",
+      "category": "testing",
+      "description": "Test: set then get returns value",
+      "steps_to_verify": [
+        "Test calls kv.set('key', 'value')",
+        "Then calls kv.get('key')",
+        "Asserts Option.isSome(result) === true",
+        "Asserts result.value === 'value'"
+      ],
+      "passes": false
+    },
+    {
+      "id": "test-remove",
+      "category": "testing",
+      "description": "Test: remove deletes key",
+      "steps_to_verify": [
+        "Test calls kv.set('key', 'value')",
+        "Then calls kv.remove('key')",
+        "Then calls kv.get('key')",
+        "Asserts Option.isNone(result) === true"
+      ],
+      "passes": false
+    },
+    {
+      "id": "test-size",
+      "category": "testing",
+      "description": "Test: size returns count",
+      "steps_to_verify": [
+        "Test calls kv.set('a', '1') and kv.set('b', '2')",
+        "Then calls kv.size",
+        "Asserts size === 2"
+      ],
+      "passes": false
+    },
+    {
+      "id": "test-clear",
+      "category": "testing",
+      "description": "Test: clear removes all keys",
+      "steps_to_verify": [
+        "Test calls kv.set('a', '1') and kv.set('b', '2')",
+        "Then calls kv.clear",
+        "Then calls kv.size",
+        "Asserts size === 0"
+      ],
+      "passes": false
+    },
+    {
+      "id": "test-binary",
+      "category": "testing",
+      "description": "Test: binary data (Uint8Array) round-trips correctly",
+      "steps_to_verify": [
+        "Test creates Uint8Array([1, 2, 3, 4])",
+        "Calls kv.set('binary', input)",
+        "Calls kv.getUint8Array('binary')",
+        "Asserts Option.isSome(result) === true",
+        "Asserts Array.from(result.value) deep equals [1, 2, 3, 4]"
+      ],
+      "passes": false
+    },
+    {
+      "id": "test-forSchema",
+      "category": "testing",
+      "description": "Test: forSchema works with typed data",
+      "steps_to_verify": [
+        "Test creates Schema.Struct({name: Schema.String, count: Schema.Number})",
+        "Calls kv.forSchema(schema) to get typed store",
+        "Calls typed.set('data', {name: 'test', count: 42})",
+        "Calls typed.get('data')",
+        "Asserts result.value deep equals {name: 'test', count: 42}"
+      ],
+      "passes": false
+    },
+    {
+      "id": "test-has",
+      "category": "testing",
+      "description": "Test: has returns true for existing key (auto-derived)",
+      "steps_to_verify": [
+        "Test calls kv.set('key', 'value')",
+        "Then calls kv.has('key')",
+        "Asserts result === true"
+      ],
+      "passes": false
+    },
+    {
+      "id": "test-isEmpty",
+      "category": "testing",
+      "description": "Test: isEmpty returns true when empty (auto-derived)",
+      "steps_to_verify": [
+        "Test calls kv.isEmpty on fresh/empty store",
+        "Asserts result === true"
+      ],
+      "passes": false
+    },
+    {
+      "id": "all-tests-pass",
+      "category": "verification",
+      "description": "All tests pass",
+      "steps_to_verify": [
+        "Run: turbo run test --filter @kampus/worker",
+        "Command exits with code 0",
+        "All SpellbookKeyValueStore tests are green"
+      ],
+      "passes": false
+    }
+  ]
+}
