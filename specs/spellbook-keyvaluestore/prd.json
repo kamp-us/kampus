@@ -22,7 +22,7 @@
         "File exports 'layer' as Layer.Layer<KeyValueStore.KeyValueStore, never, DurableObjectCtx>",
         "File imports from @effect/platform, effect, and ../services"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "impl-get-method",
@@ -33,7 +33,7 @@
         "Returns Option.fromNullable(value)",
         "Wrapped in Effect.tryPromise with error mapping to PlatformError.SystemError"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "impl-getUint8Array-method",
@@ -45,7 +45,7 @@
         "Returns Option.fromNullable on the converted value",
         "Wrapped in Effect.tryPromise with error mapping"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "impl-set-method",
@@ -57,7 +57,7 @@
         "Returns Effect<void>",
         "Wrapped in Effect.tryPromise with error mapping"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "impl-remove-method",
@@ -68,7 +68,7 @@
         "Returns Effect<void>",
         "Wrapped in Effect.tryPromise with error mapping"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "impl-clear-method",
@@ -79,7 +79,7 @@
         "Returns Effect<void>",
         "Wrapped in Effect.tryPromise with error mapping"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "impl-size-method",
@@ -91,7 +91,7 @@
         "Returns Effect<number>",
         "Wrapped in Effect.tryPromise with error mapping"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "impl-uses-keyvaluestore-make",
@@ -102,7 +102,7 @@
         "Does NOT manually implement has, isEmpty, modify, modifyUint8Array, forSchema",
         "These methods are auto-derived by KeyValueStore.make()"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "impl-layer-effect-pattern",
@@ -113,7 +113,7 @@
         "Inside Effect.gen, yields DurableObjectCtx via: const ctx = yield* DurableObjectCtx",
         "Accesses storage via ctx.storage"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "impl-error-mapping",
@@ -121,21 +121,21 @@
       "description": "All errors mapped to PlatformError.SystemError",
       "steps_to_verify": [
         "Has makeError helper function that creates PlatformError.SystemError",
-        "SystemError includes: reason='Unknown', module='KeyValueStore', method name, message",
+        "SystemError includes: reason='Unknown', module='KeyValueStore', method name, description",
         "All Effect.tryPromise catch handlers use makeError"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "typecheck-passes",
       "category": "verification",
       "description": "TypeScript compilation passes with no errors",
       "steps_to_verify": [
-        "Run: turbo run typecheck --filter @kampus/worker",
+        "Run: turbo run typecheck --filter worker",
         "Command exits with code 0",
         "No type errors in SpellbookKeyValueStore.ts"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "create-test-file",
@@ -280,7 +280,7 @@
       "category": "verification",
       "description": "All tests pass",
       "steps_to_verify": [
-        "Run: turbo run test --filter @kampus/worker",
+        "Run: turbo run test --filter worker",
         "Command exits with code 0",
         "All SpellbookKeyValueStore tests are green"
       ],
