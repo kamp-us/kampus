@@ -11,7 +11,7 @@
         "Check apps/worker/package.json contains @effect/vitest in devDependencies",
         "Run: pnpm install (should complete without errors)"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "create-keyvaluestore-file",

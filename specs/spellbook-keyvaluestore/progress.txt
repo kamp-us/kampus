@@ -1,0 +1,18 @@
+## 2026-02-02: Dependencies (deps-effect-vitest)
+
+### Completed
+- deps-effect-vitest: Add @effect/vitest as dev dependency to worker package
+
+### Files Changed
+- apps/worker/package.json: added @effect/vitest to devDependencies
+- pnpm-workspace.yaml: added @effect/vitest to catalog
+- pnpm-lock.yaml: updated with @effect/vitest
+
+### Commits
+- 324760c docs(specs): add spellbook-keyvaluestore spec
+- 215374b chore(worker): add @effect/vitest dev dependency
+
+### Notes for Next Iteration
+- Next: create-keyvaluestore-file (SpellbookKeyValueStore.ts)
+- Then: impl-* items (get, set, remove, clear, size methods)
+- Then: test-* items (test file with mock storage)
