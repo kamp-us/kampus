@@ -44,3 +44,34 @@
 - Next: create-test-file (spellbook-keyvaluestore.spec.ts)
 - Then: test-mock-storage, test-uses-it-layer
 - Then: individual test cases (test-get-missing, test-set-get, etc.)
+
+## 2026-02-02: Testing (create-test-file through all-tests-pass)
+
+### Completed
+- create-test-file: Created apps/worker/test/spellbook-keyvaluestore.spec.ts
+- test-mock-storage: makeTestLayer() with in-memory Map<string, unknown>
+- test-uses-it-layer: runTest() helper with Effect.runPromise + fresh layer
+- test-get-missing: kv.get("missing") → Option.isNone
+- test-set-get: kv.set + kv.get → value matches
+- test-remove: kv.set + kv.remove + kv.get → Option.isNone
+- test-size: 2 sets → size === 2
+- test-clear: 2 sets + clear → size === 0
+- test-binary: Uint8Array round-trip via set/getUint8Array
+- test-forSchema: Schema.Struct typed storage works
+- test-has: auto-derived has() returns true for existing key
+- test-isEmpty: auto-derived isEmpty returns true on fresh store
+- all-tests-pass: turbo run test --filter worker exits 0 (130 tests pass)
+
+### Files Changed
+- apps/worker/test/spellbook-keyvaluestore.spec.ts: NEW (119 lines)
+- specs/spellbook-keyvaluestore/prd.json: all 26 items now pass
+
+### Key Decisions
+- Used standard vitest (describe/it/expect) instead of @effect/vitest it.layer()
+- Reason: @effect/vitest it.layer() incompatible with cloudflare workers vitest pool
+- runTest() helper creates fresh layer per test for isolation
+- Each test gets its own in-memory Map storage
+
+### Notes
+- PRD COMPLETE: All 26 items pass
+- Feature ready for use in DOs via Layer.provideMerge(SpellbookKeyValueStore.layer)

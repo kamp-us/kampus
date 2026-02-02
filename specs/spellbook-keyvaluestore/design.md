@@ -213,7 +213,9 @@ We implement 6 methods, users get 10+ for free.
 
 ## Testing Strategy
 
-Uses `@effect/vitest` for cleaner Effect-native testing.
+Uses standard vitest with Effect.runPromise for cloudflare workers pool compatibility.
+
+> **Note**: Originally planned to use `@effect/vitest` `it.layer()` pattern, but the cloudflare workers vitest pool has compatibility issues with Effect's layer management. Using standard vitest with a `runTest()` helper instead.
 
 ### Test File Location
 
@@ -224,36 +226,12 @@ apps/worker/test/spellbook-keyvaluestore.spec.ts
 ### Mock DurableObjectCtx
 
 ```typescript
-import {Layer} from "effect"
-import {DurableObjectCtx} from "../src/services"
-
-const makeMockStorage = () => {
-  const store = new Map<string, unknown>()
-  return {
-    get: async <T>(key: string) => store.get(key) as T | undefined,
-    put: async (key: string, value: unknown) => { store.set(key, value) },
-    delete: async (key: string) => store.delete(key),
-    deleteAll: async () => { store.clear() },
-    list: async () => store,
-  }
-}
-
-const MockDurableObjectCtx = Layer.succeed(
-  DurableObjectCtx,
-  {storage: makeMockStorage()} as unknown as DurableObjectState
-)
-```
-
-### Test Cases (using @effect/vitest)
-
-```typescript
-import {KeyValueStore} from "@effect/platform"
-import {assert, it} from "@effect/vitest"
 import {Effect, Layer, Option, Schema} from "effect"
-import {layer} from "../src/shared/SpellbookKeyValueStore"
+import {describe, expect, it} from "vitest"
 import {DurableObjectCtx} from "../src/services"
+import {layer} from "../src/shared/SpellbookKeyValueStore"
 
-// Fresh storage per test
+// Fresh storage per test - each call creates isolated Map
 const makeTestLayer = () => {
   const store = new Map<string, unknown>()
   const mockStorage = {
@@ -264,114 +242,47 @@ const makeTestLayer = () => {
     list: async () => store,
   }
   return layer.pipe(
-    Layer.provide(Layer.succeed(DurableObjectCtx, {storage: mockStorage} as any))
+    Layer.provide(
+      Layer.succeed(DurableObjectCtx, {storage: mockStorage} as unknown as DurableObjectState)
+    )
   )
 }
 
-it.layer(makeTestLayer)("SpellbookKeyValueStore", (it) => {
-  it.effect("get returns None for missing key", () =>
-    Effect.gen(function* () {
-      const kv = yield* KeyValueStore.KeyValueStore
-      const result = yield* kv.get("missing")
-      assert.isTrue(Option.isNone(result))
-    })
-  )
-
-  it.effect("set then get returns value", () =>
-    Effect.gen(function* () {
-      const kv = yield* KeyValueStore.KeyValueStore
-      yield* kv.set("key", "value")
-      const result = yield* kv.get("key")
-      assert.isTrue(Option.isSome(result))
-      if (Option.isSome(result)) {
-        assert.strictEqual(result.value, "value")
-      }
-    })
-  )
-
-  it.effect("remove deletes key", () =>
-    Effect.gen(function* () {
-      const kv = yield* KeyValueStore.KeyValueStore
-      yield* kv.set("key", "value")
-      yield* kv.remove("key")
-      const result = yield* kv.get("key")
-      assert.isTrue(Option.isNone(result))
-    })
-  )
-
-  it.effect("size returns count", () =>
-    Effect.gen(function* () {
-      const kv = yield* KeyValueStore.KeyValueStore
-      yield* kv.set("a", "1")
-      yield* kv.set("b", "2")
-      const size = yield* kv.size
-      assert.strictEqual(size, 2)
-    })
-  )
-
-  it.effect("clear removes all keys", () =>
-    Effect.gen(function* () {
-      const kv = yield* KeyValueStore.KeyValueStore
-      yield* kv.set("a", "1")
-      yield* kv.set("b", "2")
-      yield* kv.clear
-      const size = yield* kv.size
-      assert.strictEqual(size, 0)
-    })
-  )
-
-  it.effect("binary data round-trips", () =>
-    Effect.gen(function* () {
-      const kv = yield* KeyValueStore.KeyValueStore
-      const input = new Uint8Array([1, 2, 3, 4])
-      yield* kv.set("binary", input)
-      const result = yield* kv.getUint8Array("binary")
-      assert.isTrue(Option.isSome(result))
-      if (Option.isSome(result)) {
-        assert.deepStrictEqual(Array.from(result.value), [1, 2, 3, 4])
-      }
-    })
-  )
-
-  it.effect("forSchema works with typed data", () =>
-    Effect.gen(function* () {
-      const kv = yield* KeyValueStore.KeyValueStore
-      const schema = Schema.Struct({name: Schema.String, count: Schema.Number})
-      const typed = kv.forSchema(schema)
-      yield* typed.set("data", {name: "test", count: 42})
-      const result = yield* typed.get("data")
-      assert.isTrue(Option.isSome(result))
-      if (Option.isSome(result)) {
-        assert.deepStrictEqual(result.value, {name: "test", count: 42})
-      }
-    })
-  )
-
-  it.effect("has returns true for existing key", () =>
-    Effect.gen(function* () {
-      const kv = yield* KeyValueStore.KeyValueStore
-      yield* kv.set("key", "value")
-      const exists = yield* kv.has("key")
-      assert.isTrue(exists)
-    })
-  )
-
-  it.effect("isEmpty returns true when empty", () =>
-    Effect.gen(function* () {
-      const kv = yield* KeyValueStore.KeyValueStore
-      const empty = yield* kv.isEmpty
-      assert.isTrue(empty)
-    })
-  )
-})
+// Helper for running Effect tests with fresh layer
+const runTest = <A, E>(effect: Effect.Effect<A, E, KeyValueStore.KeyValueStore>) =>
+  Effect.runPromise(effect.pipe(Effect.provide(makeTestLayer())))
 ```
 
-### Dependencies
+### Test Cases
 
-Add `@effect/vitest` if not present:
+```typescript
+describe("SpellbookKeyValueStore", () => {
+  it("get returns None for missing key", async () => {
+    const result = await runTest(
+      Effect.gen(function* () {
+        const kv = yield* KeyValueStore.KeyValueStore
+        return yield* kv.get("missing")
+      })
+    )
+    expect(Option.isNone(result)).toBe(true)
+  })
 
-```bash
-pnpm add -D @effect/vitest --filter @kampus/worker
+  it("set then get returns value", async () => {
+    const result = await runTest(
+      Effect.gen(function* () {
+        const kv = yield* KeyValueStore.KeyValueStore
+        yield* kv.set("key", "value")
+        return yield* kv.get("key")
+      })
+    )
+    expect(Option.isSome(result)).toBe(true)
+    if (Option.isSome(result)) {
+      expect(result.value).toBe("value")
+    }
+  })
+
+  // ... additional tests for remove, size, clear, binary, forSchema, has, isEmpty
+})
 ```
 
 ### Run Tests
@@ -384,7 +295,10 @@ turbo run test --filter=@kampus/worker
 
 ## Dependencies
 
-No new dependencies. Uses existing:
+No new runtime dependencies. Uses existing:
 - `@effect/platform` (already in project)
 - `effect` (already in project)
 - `DurableObjectCtx` service (already exists)
+
+Dev dependency added:
+- `@effect/vitest` (for potential future use with non-workers tests)
