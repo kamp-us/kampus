@@ -19,6 +19,7 @@ export const readerContent = sqliteTable("reader_content", {
 		.$defaultFn(() => id("wbp_read")),
 
 	readable: integer("readable").notNull().default(0),
+	strategy: text("strategy"), // 'readability' | 'selector' | null
 	title: text("title"),
 	content: text("content"),
 	textContent: text("text_content"),
@@ -27,6 +28,8 @@ export const readerContent = sqliteTable("reader_content", {
 	siteName: text("site_name"),
 	wordCount: integer("word_count"),
 	readingTimeMinutes: integer("reading_time_minutes"),
+	metaTitle: text("meta_title"),
+	metaDescription: text("meta_description"),
 	error: text("error"),
 	createdAt: timestamp("created_at").$defaultFn(() => new Date()),
 });
