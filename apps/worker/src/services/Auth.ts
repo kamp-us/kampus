@@ -24,7 +24,7 @@ export class Auth extends Context.Tag("@kampus/worker/Auth")<
 	static readonly required = Effect.gen(function* () {
 		const auth = yield* Auth;
 		if (!auth.user) {
-			return yield* Effect.fail(new Unauthorized({message: "Authentication required"}));
+			return yield* new Unauthorized({message: "Authentication required"});
 		}
 		return {user: auth.user, session: auth.session};
 	});
