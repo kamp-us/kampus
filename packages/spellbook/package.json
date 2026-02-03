@@ -10,7 +10,8 @@
     }
   },
   "scripts": {
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
   },
   "dependencies": {
     "@cloudflare/workers-types": "^4.20250204.0",
@@ -21,5 +22,8 @@
     "@effect/sql-sqlite-do": "catalog:",
     "drizzle-orm": "catalog:",
     "effect": "catalog:"
+  },
+  "devDependencies": {
+    "vitest": "catalog:"
   }
 }

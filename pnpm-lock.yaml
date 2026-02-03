@@ -147,6 +147,9 @@ catalogs:
     typescript:
       specifier: ^5.9.3
       version: 5.9.3
+    vitest:
+      specifier: ^3.2.0
+      version: 3.2.4
     wrangler:
       specifier: ^4.56.0
       version: 4.56.0
@@ -384,7 +387,7 @@ importers:
         specifier: ^5.5.2
         version: 5.9.3
       vitest:
-        specifier: ~3.2.0
+        specifier: 'catalog:'
         version: 3.2.4(@types/node@25.0.3)(yaml@2.8.2)
       wrangler:
         specifier: 'catalog:'
@@ -425,6 +428,10 @@ importers:
       effect:
         specifier: 'catalog:'
         version: 3.19.13
+    devDependencies:
+      vitest:
+        specifier: 'catalog:'
+        version: 3.2.4(@types/node@25.0.3)(yaml@2.8.2)
 
   packages/web-page-parser:
     dependencies:
