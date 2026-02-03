@@ -63,3 +63,26 @@
 - `pnpm turbo run typecheck` passes for all packages
 - spellbook, worker, kamp-us all typecheck successfully
 - All 130 tests pass
+
+### INT-001: Import @kampus/spellbook from apps/worker ✅
+- Updated test file to import all spellbook exports:
+  - DurableObjectCtx, Drizzle, KeyValueStore, SqlClient
+  - runMigrations, handleRpc, DrizzleMigrations (type)
+  - SqlStorage, DurableObjectStorage (re-exported types)
+- `pnpm turbo run typecheck --filter=worker...` passes
+- All 130 tests pass
+
+### INT-002: Existing DOs continue to work ✅
+- `pnpm wrangler deploy --dry-run` succeeds
+- Worker bundles to 5MB (910KB gzipped)
+- All DOs recognized: Pasaport, WebPageParser, Library
+
+### CONV-001: DurableObjectCtx vs DurableObjectEnv convention ✅
+- Attempted re-export from spellbook, hit type incompatibility:
+  - spellbook: @cloudflare/workers-types/experimental (^4.20250204.0)
+  - worker: wrangler-generated types (workerd@1.20251217.0)
+  - Error: `facets` property missing in older type
+- **Resolution**: Worker keeps own DurableObjectCtx definition
+- Convention documented in DurableObjectServices.ts comments
+- Tests use spellbook's DurableObjectCtx with mocks (type is approximate)
+- **Future**: Unify types when upgrading @cloudflare/workers-types

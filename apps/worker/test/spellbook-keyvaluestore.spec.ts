@@ -1,6 +1,16 @@
 import type {DurableObjectState} from "@cloudflare/workers-types/experimental"
 import {KeyValueStore} from "@effect/platform"
-import {DurableObjectCtx, KeyValueStore as SpellbookKeyValueStore} from "@kampus/spellbook"
+import {
+	DurableObjectCtx,
+	Drizzle,
+	KeyValueStore as SpellbookKeyValueStore,
+	SqlClient,
+	runMigrations,
+	handleRpc,
+	type DrizzleMigrations,
+	type SqlStorage,
+	type DurableObjectStorage,
+} from "@kampus/spellbook"
 import {Effect, Layer, Option, Schema} from "effect"
 import {describe, expect, it} from "vitest"
 
