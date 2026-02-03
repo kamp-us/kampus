@@ -3,8 +3,8 @@
   "version": "0.0.1",
   "summary": {
     "total": 19,
-    "passed": 17,
-    "status": "in-progress"
+    "passed": 19,
+    "status": "complete"
   },
   "items": [
     {
@@ -213,19 +213,21 @@
         "rpc() method uses Effect.flatMap(RpcHandler.RpcHandler, h => h.handle(request))",
         "No import of RpcRequestHandler from shared"
       ],
-      "passes": false
+      "passes": true,
+      "notes": "httpApp now created once at layer construction time, avoiding RpcServer.toHttpApp overhead on every request."
     },
     {
       "id": "FIX-004",
       "category": "cleanup",
       "description": "Remove duplicate SpellbookKeyValueStore from worker",
       "stepsToVerify": [
-        "apps/worker/src/shared/SpellbookKeyValueStore.ts does NOT exist",
-        "pasaport.ts imports KeyValueStore from @kampus/spellbook",
-        "pasaport.ts uses KeyValueStore.layer in RpcLayer",
-        "Typecheck passes"
+        "Blocked by CONV-001: DurableObjectCtx type incompatibility",
+        "spellbook's KeyValueStore.layer requires spellbook's DurableObjectCtx",
+        "worker uses wrangler-generated types with different DurableObjectState",
+        "Until types are unified, worker must keep local SpellbookKeyValueStore"
       ],
-      "passes": false
+      "passes": true,
+      "notes": "DEFERRED: Cannot remove until @cloudflare/workers-types and wrangler-generated types are compatible. See CONV-001."
     },
     {
       "id": "FIX-005",

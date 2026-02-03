@@ -2,11 +2,10 @@ import {DurableObject} from "cloudflare:workers";
 import {RpcSerialization} from "@effect/rpc";
 import * as SqliteDrizzle from "@effect/sql-drizzle/Sqlite";
 import {SqliteClient} from "@effect/sql-sqlite-do";
+import {RpcHandler} from "@kampus/spellbook";
 import {drizzle} from "drizzle-orm/durable-sqlite";
-import {migrate} from "drizzle-orm/durable-sqlite/migrator";
 import {Effect, Layer, ManagedRuntime} from "effect";
 import {DurableObjectCtx} from "../../services";
-import * as RpcRequestHandler from "../../shared/RpcRequestHandler";
 import * as SpellbookKeyValueStore from "../../shared/SpellbookKeyValueStore";
 import * as SpellbookDrizzle from "../spellbook/SpellbookDrizzle";
 import {createAuth} from "./auth";
@@ -18,13 +17,14 @@ import {BetterAuth} from "./services/BetterAuth";
 import * as BetterAuthPasaport from "./services/BetterAuthPasaport";
 
 const RpcLayer = Layer.mergeAll(
-	PasaportRpcLive.pipe(
+	RpcHandler.layer(PasaportRpcs).pipe(
+		Layer.provide(PasaportRpcLive),
 		Layer.provide(BetterAuthPasaport.layer),
 		Layer.provide(BetterAuth.Default),
 		Layer.provide(SqliteDrizzle.layer),
 		Layer.provide(SpellbookKeyValueStore.layer),
+		Layer.provide(RpcSerialization.layerJson),
 	),
-	RpcSerialization.layerJson,
 	Layer.scope,
 );
 
@@ -61,7 +61,9 @@ export class Pasaport extends DurableObject<Env> {
 	}
 
 	async rpc(request: Request) {
-		return this.runtime.runPromise(RpcRequestHandler.make(PasaportRpcs, request));
+		return this.runtime.runPromise(
+			Effect.flatMap(RpcHandler.RpcHandler, (h) => h.handle(request)),
+		);
 	}
 
 	async createAdminApiKey(userID: string, name: string, expiresInDays = 7) {
