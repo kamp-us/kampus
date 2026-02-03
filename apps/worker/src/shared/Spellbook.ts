@@ -2,9 +2,8 @@ import {DurableObject} from "cloudflare:workers";
 import {HttpServerRequest, HttpServerResponse} from "@effect/platform";
 import type {Rpc, RpcGroup} from "@effect/rpc";
 import {RpcSerialization, RpcServer} from "@effect/rpc";
-import type {SqlClient} from "@effect/sql";
-import {SqlError} from "@effect/sql";
-import {make as makeDrizzle, SqliteDrizzle} from "@effect/sql-drizzle/Sqlite";
+import type {SqlError} from "@effect/sql";
+import * as SqliteDrizzle from "@effect/sql-drizzle/Sqlite";
 import {SqliteClient} from "@effect/sql-sqlite-do";
 import type {Table} from "drizzle-orm";
 import {drizzle} from "drizzle-orm/durable-sqlite";
@@ -29,11 +28,7 @@ type HandlersWithSqlError<R extends Rpc.Any> = {
 	readonly [Current in R as Current["_tag"]]: (
 		payload: Rpc.Payload<Current>,
 		options: {readonly clientId: number; readonly headers: Headers},
-	) => Effect.Effect<
-		Rpc.Success<Current>,
-		SqlError.SqlError | Rpc.Error<Current>,
-		any
-	>;
+	) => Effect.Effect<Rpc.Success<Current>, SqlError.SqlError | Rpc.Error<Current>, any>;
 };
 
 /**
@@ -101,17 +96,7 @@ export const make = <R extends Rpc.Any, TSchema extends DrizzleSchema, TEnv exte
 				transformResultNames: EffectString.snakeToCamel,
 			});
 
-			// Drizzle layer - provides SqliteDrizzle service
-			// Note: schema is passed for runtime table mapping; handlers import schema directly for types
-			// Cast needed: SqliteDrizzle tag uses untyped SqliteRemoteDatabase
-			const drizzleLayer = Layer.effect(
-				SqliteDrizzle,
-				makeDrizzle({schema: config.schema}) as unknown as Effect.Effect<
-					typeof SqliteDrizzle.Service,
-					never,
-					SqlClient.SqlClient
-				>,
-			);
+			const drizzleLayer = SqliteDrizzle.layer.pipe(Layer.provideMerge(sqliteLayer));
 
 			// Durable Object context services
 			const doLayer = Layer.mergeAll(
@@ -131,10 +116,7 @@ export const make = <R extends Rpc.Any, TSchema extends DrizzleSchema, TEnv exte
 			const drizzleWithSql = Layer.provideMerge(drizzleLayer, sqliteLayer);
 
 			// Compose all layers: handlers get sql + drizzle + do services
-			const fullLayer = Layer.provideMerge(
-				handlerLayer,
-				Layer.mergeAll(doLayer, sqliteLayer, drizzleWithSql),
-			);
+			const fullLayer = Layer.provideMerge(handlerLayer, Layer.mergeAll(doLayer, drizzleWithSql));
 
 			this.runtime = ManagedRuntime.make(fullLayer as Layer.Layer<any, any, never>);
 
