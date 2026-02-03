@@ -1,0 +1,161 @@
+{
+  "feature": "@kampus/spellbook",
+  "version": "0.0.1",
+  "items": [
+    {
+      "id": "PKG-001",
+      "category": "package-setup",
+      "description": "Package has all required dependencies",
+      "stepsToVerify": [
+        "Open packages/spellbook/package.json",
+        "Verify @cloudflare/workers-types is listed",
+        "Verify @effect/platform is listed",
+        "Verify @effect/sql-sqlite-do is listed",
+        "Verify @effect/sql-drizzle is listed",
+        "Verify drizzle-orm is listed",
+        "Verify effect is listed"
+      ],
+      "passes": true
+    },
+    {
+      "id": "MOD-001",
+      "category": "module",
+      "description": "DurableObjectCtx.ts exports Context.Tag with namespaced ID",
+      "stepsToVerify": [
+        "File exists at packages/spellbook/src/DurableObjectCtx.ts",
+        "Exports class DurableObjectCtx extending Context.Tag",
+        "Tag ID is '@kampus/spellbook/DurableObjectCtx'",
+        "Type is DurableObjectState from @cloudflare/workers-types/experimental"
+      ],
+      "passes": false
+    },
+    {
+      "id": "MOD-002",
+      "category": "module",
+      "description": "SqlClient.ts exports layer factory for SqliteClient",
+      "stepsToVerify": [
+        "File exists at packages/spellbook/src/SqlClient.ts",
+        "Exports Config interface with db: SqlStorage",
+        "Exports layer function taking Config",
+        "Layer configures camelCase/snake_case transforms",
+        "Uses SqliteClient from @effect/sql-sqlite-do"
+      ],
+      "passes": false
+    },
+    {
+      "id": "MOD-003",
+      "category": "module",
+      "description": "Drizzle.ts re-exports SqliteDrizzle.layer",
+      "stepsToVerify": [
+        "File exists at packages/spellbook/src/Drizzle.ts",
+        "Exports layer from @effect/sql-drizzle/Sqlite",
+        "No additional wrapper logic"
+      ],
+      "passes": false
+    },
+    {
+      "id": "MOD-004",
+      "category": "module",
+      "description": "KeyValueStore.ts provides KV layer backed by DO storage",
+      "stepsToVerify": [
+        "File exists at packages/spellbook/src/KeyValueStore.ts",
+        "Exports layer with type Layer<KeyValueStore, never, DurableObjectCtx>",
+        "Implements get, getUint8Array, set, remove, clear, size",
+        "Uses PlatformError.SystemError with description field",
+        "Imports DurableObjectCtx from local ./DurableObjectCtx"
+      ],
+      "passes": false
+    },
+    {
+      "id": "MOD-005",
+      "category": "module",
+      "description": "Migrations.ts exports runMigrations helper",
+      "stepsToVerify": [
+        "File exists at packages/spellbook/src/Migrations.ts",
+        "Exports DrizzleMigrations interface",
+        "Exports runMigrations(storage, migrations) => Effect<void>",
+        "Uses blockConcurrencyWhile internally",
+        "Uses drizzle-orm/durable-sqlite for migrate"
+      ],
+      "passes": false
+    },
+    {
+      "id": "MOD-006",
+      "category": "module",
+      "description": "RpcHandler.ts exports handleRpc helper",
+      "stepsToVerify": [
+        "File exists at packages/spellbook/src/RpcHandler.ts",
+        "Exports handleRpc<R>(rpcs, request) => Effect<Response>",
+        "Uses RpcServer.toHttpApp",
+        "Converts HttpServerRequest/Response to web standards"
+      ],
+      "passes": false
+    },
+    {
+      "id": "MOD-007",
+      "category": "module",
+      "description": "index.ts re-exports all modules correctly",
+      "stepsToVerify": [
+        "File exists at packages/spellbook/src/index.ts",
+        "Exports SqlClient, Drizzle, KeyValueStore as namespaces",
+        "Exports DurableObjectCtx class",
+        "Exports runMigrations, DrizzleMigrations, handleRpc",
+        "Re-exports Cloudflare types for convenience"
+      ],
+      "passes": false
+    },
+    {
+      "id": "BUILD-001",
+      "category": "build",
+      "description": "Package typechecks successfully",
+      "stepsToVerify": [
+        "Run: cd packages/spellbook && pnpm tsc --noEmit",
+        "No TypeScript errors"
+      ],
+      "passes": false
+    },
+    {
+      "id": "BUILD-002",
+      "category": "build",
+      "description": "Workspace typechecks with spellbook",
+      "stepsToVerify": [
+        "Run: pnpm turbo run typecheck",
+        "All packages pass including apps/worker"
+      ],
+      "passes": false
+    },
+    {
+      "id": "INT-001",
+      "category": "integration",
+      "description": "Can import @kampus/spellbook from apps/worker",
+      "stepsToVerify": [
+        "Add test import in apps/worker",
+        "Import { SqlClient, Drizzle, KeyValueStore, DurableObjectCtx } from '@kampus/spellbook'",
+        "Typecheck passes"
+      ],
+      "passes": false
+    },
+    {
+      "id": "INT-002",
+      "category": "integration",
+      "description": "Existing DOs continue to work",
+      "stepsToVerify": [
+        "Run: pnpm turbo run build --filter=@kampus/worker",
+        "Worker builds successfully",
+        "Pasaport and Library DOs unchanged"
+      ],
+      "passes": false
+    },
+    {
+      "id": "CONV-001",
+      "category": "convention",
+      "description": "DurableObjectCtx vs DurableObjectEnv convention documented",
+      "stepsToVerify": [
+        "DurableObjectCtx is in @kampus/spellbook (generic)",
+        "DurableObjectEnv stays in apps/worker (app-specific)",
+        "apps/worker re-exports DurableObjectCtx from spellbook"
+      ],
+      "passes": false
+    }
+  ]
+}
