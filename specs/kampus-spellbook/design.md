@@ -196,18 +196,52 @@ export const runMigrations = (
 - Returns `Effect<void>` - caller runs it in constructor
 - Wraps `blockConcurrencyWhile` internally
 
-### RpcHandler.ts (Optional)
+### RpcHandler.ts
 
 ```typescript
 import {HttpServerRequest, HttpServerResponse} from "@effect/platform"
 import type {Rpc, RpcGroup} from "@effect/rpc"
 import {RpcServer} from "@effect/rpc"
-import {Effect} from "effect"
+import {Context, Effect, Layer} from "effect"
 
+// Service tag for the RPC handler
+export class RpcHandler extends Context.Tag("@kampus/spellbook/RpcHandler")<
+  RpcHandler,
+  {
+    readonly handle: (request: Request) => Effect.Effect<Response>
+  }
+>() {}
+
+// Create a layer that builds httpApp once
+export const layer = <R extends Rpc.Any>(
+  rpcs: RpcGroup.RpcGroup<R>,
+) =>
+  Layer.effect(
+    RpcHandler,
+    Effect.gen(function* () {
+      // Create httpApp once during layer construction
+      const httpApp = yield* RpcServer.toHttpApp(rpcs)
+
+      return {
+        handle: (request: Request) =>
+          Effect.gen(function* () {
+            const response = yield* httpApp.pipe(
+              Effect.provideService(
+                HttpServerRequest.HttpServerRequest,
+                HttpServerRequest.fromWeb(request),
+              ),
+            )
+            return HttpServerResponse.toWeb(response)
+          }),
+      }
+    })
+  )
+
+// Legacy helper (deprecated, use RpcHandler service instead)
 export const handleRpc = <R extends Rpc.Any>(
   rpcs: RpcGroup.RpcGroup<R>,
   request: Request,
-): Effect.Effect<Response, never, RpcGroup.Rpcs<R>> =>
+) =>
   Effect.gen(function* () {
     const httpApp = yield* RpcServer.toHttpApp(rpcs)
     const response = yield* httpApp.pipe(
@@ -221,9 +255,10 @@ export const handleRpc = <R extends Rpc.Any>(
 ```
 
 **Design decisions:**
-- Generic over RPC group type
-- Returns `Effect<Response>` - caller runs via runtime
-- Requires RPC handlers in context (from layer composition)
+- **Service pattern**: `RpcHandler` service allows creating httpApp once at layer construction
+- `layer(rpcs)` returns `Layer<RpcHandler, never, RpcGroup.Rpcs<R>>` - requires RPC handlers in context
+- `handle(request)` is lightweight - just provides request and converts response
+- Legacy `handleRpc` kept for backwards compatibility (creates httpApp every call)
 
 ### index.ts
 
@@ -238,7 +273,7 @@ export {DurableObjectCtx} from "./DurableObjectCtx"
 
 // Helpers
 export {runMigrations, type DrizzleMigrations} from "./Migrations"
-export {handleRpc} from "./RpcHandler"
+export * as RpcHandler from "./RpcHandler"
 
 // Re-export Cloudflare types for convenience
 export type {
@@ -303,7 +338,7 @@ import {Layer, ManagedRuntime, Effect} from "effect"
 import {RpcSerialization} from "@effect/rpc"
 import {
   SqlClient, Drizzle, KeyValueStore,
-  DurableObjectCtx, runMigrations, handleRpc
+  DurableObjectCtx, runMigrations, RpcHandler
 } from "@kampus/spellbook"
 import {DurableObjectEnv} from "../../services"  // App-specific
 import {PasaportRpcs} from "./rpc"
@@ -313,7 +348,7 @@ import {BetterAuth} from "./services/BetterAuth"
 import migrations from "./drizzle/migrations"
 
 export class PasaportDO extends DurableObject<Env> {
-  private runtime: ManagedRuntime.ManagedRuntime<any, any>
+  private runtime: ManagedRuntime.ManagedRuntime<RpcHandler.RpcHandler, never>
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env)
@@ -327,12 +362,13 @@ export class PasaportDO extends DurableObject<Env> {
       Layer.succeed(DurableObjectEnv, env),
     )
 
-    // Application layers
+    // Application layers (including RpcHandler - httpApp created once here)
     const app = Layer.mergeAll(
-      PasaportLive,
+      RpcHandler.layer(PasaportRpcs),  // httpApp built once!
       RpcSerialization.layerJson,
       Layer.scope,
     ).pipe(
+      Layer.provide(PasaportLive),
       Layer.provide(Pasaport.layerBetterAuth),
       Layer.provide(BetterAuth.Default),
       Layer.provide(infra),
@@ -341,11 +377,14 @@ export class PasaportDO extends DurableObject<Env> {
     this.runtime = ManagedRuntime.make(app)
 
     // Run migrations
-    Effect.runPromise(runMigrations(ctx.storage, migrations))
+    Effect.runPromise(runMigrations(ctx, migrations))
   }
 
   async fetch(request: Request): Promise<Response> {
-    return this.runtime.runPromise(handleRpc(PasaportRpcs, request))
+    // Just handle request - httpApp already built
+    return this.runtime.runPromise(
+      Effect.flatMap(RpcHandler.RpcHandler, (h) => h.handle(request))
+    )
   }
 }
 ```

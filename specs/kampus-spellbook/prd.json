@@ -2,9 +2,9 @@
   "feature": "@kampus/spellbook",
   "version": "0.0.1",
   "summary": {
-    "total": 13,
+    "total": 14,
     "passed": 13,
-    "status": "complete"
+    "status": "in-progress"
   },
   "items": [
     {
@@ -164,6 +164,20 @@
       ],
       "passes": true,
       "notes": "Full re-export blocked by type incompatibility between @cloudflare/workers-types and wrangler-generated types. Convention adjusted to maintain both until types unified."
+    },
+    {
+      "id": "MOD-008",
+      "category": "module",
+      "description": "RpcHandler.ts provides RpcHandler service for single httpApp creation",
+      "stepsToVerify": [
+        "RpcHandler.ts exports RpcHandler Context.Tag",
+        "RpcHandler.ts exports layer(rpcs) => Layer<RpcHandler>",
+        "Service creates httpApp once via RpcServer.toHttpApp",
+        "Service exposes handle(request) => Effect<Response>",
+        "index.ts exports RpcHandler namespace",
+        "Typecheck passes"
+      ],
+      "passes": false
     }
   ]
 }
