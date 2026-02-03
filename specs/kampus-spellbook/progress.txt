@@ -46,3 +46,20 @@
 - Updated index.ts to export runMigrations and DrizzleMigrations type
 - turbo run typecheck passes (spellbook + worker)
 - All 130 tests pass
+
+### MOD-006: RpcHandler.ts exports handleRpc helper ✅
+- Created packages/spellbook/src/RpcHandler.ts
+- Copied pattern from apps/worker/src/shared/RpcRequestHandler.ts
+- Uses RpcServer.toHttpApp + HttpServerRequest.fromWeb + HttpServerResponse.toWeb
+- **Key decision**: Let TypeScript infer return type instead of explicit annotation
+  - Effect type includes Scope, RpcSerialization, ToHandler<R>, etc.
+  - Explicit `Effect<Response, never, RpcGroup.Rpcs<R>>` was too narrow
+
+### MOD-007: index.ts re-exports all modules correctly ✅
+- Added `export { handleRpc } from "./RpcHandler"`
+- Added Cloudflare type re-exports (SqlStorage, DurableObjectStorage, DurableObjectState)
+
+### BUILD-001 & BUILD-002: Package and workspace typecheck ✅
+- `pnpm turbo run typecheck` passes for all packages
+- spellbook, worker, kamp-us all typecheck successfully
+- All 130 tests pass

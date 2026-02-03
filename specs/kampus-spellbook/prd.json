@@ -89,7 +89,7 @@
         "Uses RpcServer.toHttpApp",
         "Converts HttpServerRequest/Response to web standards"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "MOD-007",
@@ -102,7 +102,7 @@
         "Exports runMigrations, DrizzleMigrations, handleRpc",
         "Re-exports Cloudflare types for convenience"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "BUILD-001",
@@ -112,7 +112,7 @@
         "Run: cd packages/spellbook && pnpm tsc --noEmit",
         "No TypeScript errors"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "BUILD-002",
@@ -122,7 +122,7 @@
         "Run: pnpm turbo run typecheck",
         "All packages pass including apps/worker"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "INT-001",
