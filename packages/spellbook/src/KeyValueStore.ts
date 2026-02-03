@@ -1,7 +1,7 @@
+import type {DurableObjectStorage} from "@cloudflare/workers-types"
 import {KeyValueStore} from "@effect/platform"
 import * as PlatformError from "@effect/platform/Error"
 import {Effect, Layer, Option} from "effect"
-import {DurableObjectCtx} from "./DurableObjectCtx"
 
 const makeError = (method: string, description: string) =>
 	new PlatformError.SystemError({
@@ -11,21 +11,18 @@ const makeError = (method: string, description: string) =>
 		description,
 	})
 
-export const layer: Layer.Layer<
-	KeyValueStore.KeyValueStore,
-	never,
-	DurableObjectCtx
-> = Layer.effect(
-	KeyValueStore.KeyValueStore,
-	Effect.gen(function* () {
-		const ctx = yield* DurableObjectCtx
-		const storage = ctx.storage
+export interface Config {
+	readonly storage: DurableObjectStorage
+}
 
-		return KeyValueStore.make({
+export const layer = (config: Config): Layer.Layer<KeyValueStore.KeyValueStore> =>
+	Layer.succeed(
+		KeyValueStore.KeyValueStore,
+		KeyValueStore.make({
 			get: (key) =>
 				Effect.tryPromise({
 					try: async () => {
-						const value = await storage.get<string>(key)
+						const value = await config.storage.get<string>(key)
 						return Option.fromNullable(value)
 					},
 					catch: (e) => makeError("get", String(e)),
@@ -34,7 +31,7 @@ export const layer: Layer.Layer<
 			getUint8Array: (key) =>
 				Effect.tryPromise({
 					try: async () => {
-						const buffer = await storage.get<ArrayBuffer>(key)
+						const buffer = await config.storage.get<ArrayBuffer>(key)
 						return Option.fromNullable(
 							buffer ? new Uint8Array(buffer) : undefined,
 						)
@@ -44,28 +41,27 @@ export const layer: Layer.Layer<
 
 			set: (key, value) =>
 				Effect.tryPromise({
-					try: () => storage.put(key, value),
+					try: () => config.storage.put(key, value),
 					catch: (e) => makeError("set", String(e)),
 				}),
 
 			remove: (key) =>
 				Effect.tryPromise({
-					try: () => storage.delete(key).then(() => undefined),
+					try: () => config.storage.delete(key).then(() => undefined),
 					catch: (e) => makeError("remove", String(e)),
 				}),
 
 			clear: Effect.tryPromise({
-				try: () => storage.deleteAll(),
+				try: () => config.storage.deleteAll(),
 				catch: (e) => makeError("clear", String(e)),
 			}),
 
 			size: Effect.tryPromise({
 				try: async () => {
-					const map = await storage.list()
+					const map = await config.storage.list()
 					return map.size
 				},
 				catch: (e) => makeError("size", String(e)),
 			}),
-		})
-	}),
-)
+		}),
+	)

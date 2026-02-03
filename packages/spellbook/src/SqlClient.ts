@@ -1,4 +1,4 @@
-import type { SqlStorage } from "@cloudflare/workers-types/experimental"
+import type { SqlStorage } from "@cloudflare/workers-types"
 import { SqliteClient } from "@effect/sql-sqlite-do"
 import { String as EffectString } from "effect"
 

@@ -10,4 +10,4 @@ export type {
 	SqlStorage,
 	DurableObjectStorage,
 	DurableObjectState,
-} from "@cloudflare/workers-types/experimental"
+} from "@cloudflare/workers-types"

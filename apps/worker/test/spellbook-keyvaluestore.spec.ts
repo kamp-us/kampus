@@ -1,21 +1,13 @@
-import type {DurableObjectState} from "@cloudflare/workers-types/experimental"
 import {KeyValueStore} from "@effect/platform"
 import {
-	DurableObjectCtx,
-	Drizzle,
 	KeyValueStore as SpellbookKeyValueStore,
-	SqlClient,
-	runMigrations,
-	handleRpc,
-	type DrizzleMigrations,
-	type SqlStorage,
 	type DurableObjectStorage,
 } from "@kampus/spellbook"
-import {Effect, Layer, Option, Schema} from "effect"
+import {Effect, Option, Schema} from "effect"
 import {describe, expect, it} from "vitest"
 
 /**
- * Creates a fresh test layer with mock DurableObjectCtx.
+ * Creates a fresh test layer with mock storage.
  * Each call creates a new in-memory storage Map for isolation.
  */
 const makeTestLayer = () => {
@@ -30,12 +22,8 @@ const makeTestLayer = () => {
 			store.clear()
 		},
 		list: async () => store,
-	}
-	return SpellbookKeyValueStore.layer.pipe(
-		Layer.provide(
-			Layer.succeed(DurableObjectCtx, {storage: mockStorage} as unknown as DurableObjectState),
-		),
-	)
+	} as unknown as DurableObjectStorage
+	return SpellbookKeyValueStore.layer({storage: mockStorage})
 }
 
 /**
