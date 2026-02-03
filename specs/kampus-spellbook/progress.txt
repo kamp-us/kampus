@@ -13,3 +13,13 @@
 - Added types to tsconfig.json: ["@cloudflare/workers-types"]
 - pnpm install succeeded
 - pnpm tsc --noEmit passes
+
+### MOD-002: SqlClient.ts layer factory ✅
+- File already existed from previous iteration
+- PRD marked as passing (was implemented but PRD not updated)
+
+### MOD-003: Drizzle.ts re-exports SqliteDrizzle.layer ✅
+- Created packages/spellbook/src/Drizzle.ts
+- Simple re-export: `export const layer = SqliteDrizzle.layer`
+- Updated index.ts to export `Drizzle` namespace
+- turbo run typecheck passes

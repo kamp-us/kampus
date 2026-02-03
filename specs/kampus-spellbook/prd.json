@@ -27,7 +27,7 @@
         "Tag ID is '@kampus/spellbook/DurableObjectCtx'",
         "Type is DurableObjectState from @cloudflare/workers-types/experimental"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "MOD-002",
@@ -40,7 +40,7 @@
         "Layer configures camelCase/snake_case transforms",
         "Uses SqliteClient from @effect/sql-sqlite-do"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "MOD-003",
@@ -51,7 +51,7 @@
         "Exports layer from @effect/sql-drizzle/Sqlite",
         "No additional wrapper logic"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "MOD-004",
