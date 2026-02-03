@@ -34,3 +34,15 @@
 - Updated test file to import from @kampus/spellbook
 - All 9 KeyValueStore tests pass
 - turbo run typecheck passes
+
+### MOD-005: Migrations.ts exports runMigrations helper ✅
+- Created packages/spellbook/src/Migrations.ts
+- Exports DrizzleMigrations interface (journal + migrations record)
+- Exports runMigrations(ctx, migrations) => Effect<void>
+- **Key decision**: Takes DurableObjectState not DurableObjectStorage
+  - blockConcurrencyWhile lives on DurableObjectState (ctx), not ctx.storage
+  - Updated spec files to reflect this
+- Uses ctx.blockConcurrencyWhile + drizzle() + migrate() internally
+- Updated index.ts to export runMigrations and DrizzleMigrations type
+- turbo run typecheck passes (spellbook + worker)
+- All 130 tests pass

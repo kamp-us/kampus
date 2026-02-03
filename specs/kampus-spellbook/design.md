@@ -170,7 +170,7 @@ export class DurableObjectCtx extends Context.Tag(
 import {Effect} from "effect"
 import {drizzle} from "drizzle-orm/durable-sqlite"
 import {migrate} from "drizzle-orm/durable-sqlite/migrator"
-import type {DurableObjectStorage} from "@cloudflare/workers-types/experimental"
+import type {DurableObjectState} from "@cloudflare/workers-types/experimental"
 
 export interface DrizzleMigrations {
   journal: {
@@ -180,19 +180,19 @@ export interface DrizzleMigrations {
 }
 
 export const runMigrations = (
-  storage: DurableObjectStorage,
+  ctx: DurableObjectState,
   migrations: DrizzleMigrations,
 ): Effect.Effect<void> =>
   Effect.promise(() =>
-    storage.blockConcurrencyWhile(async () => {
-      const db = drizzle(storage)
+    ctx.blockConcurrencyWhile(async () => {
+      const db = drizzle(ctx.storage)
       migrate(db, migrations)
     })
   )
 ```
 
 **Design decisions:**
-- Takes `DurableObjectStorage` directly (from `ctx.storage`)
+- Takes `DurableObjectState` (ctx) - has both storage and blockConcurrencyWhile
 - Returns `Effect<void>` - caller runs it in constructor
 - Wraps `blockConcurrencyWhile` internally
 

@@ -71,18 +71,18 @@ Provide Effect-returning helper for running Drizzle migrations.
 
 | Aspect | Requirement |
 |--------|-------------|
-| Signature | `(storage: DurableObjectStorage, migrations: DrizzleMigrations) => Effect<void>` |
+| Signature | `(ctx: DurableObjectState, migrations: DrizzleMigrations) => Effect<void>` |
 | Behavior | Wraps `blockConcurrencyWhile` with `migrate()` |
 | Returns | `Effect<void, never, never>` |
 
 ```typescript
 export const runMigrations = (
-  storage: DurableObjectStorage,
+  ctx: DurableObjectState,
   migrations: DrizzleMigrations,
 ): Effect.Effect<void> =>
   Effect.promise(() =>
-    storage.blockConcurrencyWhile(async () => {
-      const db = drizzle(storage)
+    ctx.blockConcurrencyWhile(async () => {
+      const db = drizzle(ctx.storage)
       migrate(db, migrations)
     })
   )

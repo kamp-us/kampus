@@ -73,11 +73,11 @@
       "stepsToVerify": [
         "File exists at packages/spellbook/src/Migrations.ts",
         "Exports DrizzleMigrations interface",
-        "Exports runMigrations(storage, migrations) => Effect<void>",
-        "Uses blockConcurrencyWhile internally",
+        "Exports runMigrations(ctx, migrations) => Effect<void>",
+        "Uses ctx.blockConcurrencyWhile internally",
         "Uses drizzle-orm/durable-sqlite for migrate"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "MOD-006",
