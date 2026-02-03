@@ -30,9 +30,10 @@
         "File exists at packages/spellbook/src/DurableObjectCtx.ts",
         "Exports class DurableObjectCtx extending Context.Tag",
         "Tag ID is '@kampus/spellbook/DurableObjectCtx'",
-        "Type is DurableObjectState from @cloudflare/workers-types/experimental"
+        "Type is DurableObjectState from @cloudflare/workers-types (non-experimental)"
       ],
-      "passes": true
+      "passes": true,
+      "notes": "Uses non-experimental types for better compatibility with wrangler-generated types."
     },
     {
       "id": "MOD-002",
@@ -64,12 +65,13 @@
       "description": "KeyValueStore.ts provides KV layer backed by DO storage",
       "stepsToVerify": [
         "File exists at packages/spellbook/src/KeyValueStore.ts",
-        "Exports layer with type Layer<KeyValueStore, never, DurableObjectCtx>",
+        "Exports Config interface with storage: DurableObjectStorage",
+        "Exports layer(config) => Layer<KeyValueStore>",
         "Implements get, getUint8Array, set, remove, clear, size",
-        "Uses PlatformError.SystemError with description field",
-        "Imports DurableObjectCtx from local ./DurableObjectCtx"
+        "Uses PlatformError.SystemError with description field"
       ],
-      "passes": true
+      "passes": true,
+      "notes": "Uses config param pattern (like SqlClient) instead of context-based. Worker provides storage directly: KeyValueStore.layer({storage: ctx.storage})"
     },
     {
       "id": "MOD-005",
@@ -156,14 +158,14 @@
       "category": "convention",
       "description": "DurableObjectCtx vs DurableObjectEnv convention documented",
       "stepsToVerify": [
-        "DurableObjectCtx is in @kampus/spellbook (generic, uses @cloudflare/workers-types)",
+        "DurableObjectCtx is in @kampus/spellbook (generic, uses @cloudflare/workers-types non-experimental)",
         "DurableObjectEnv stays in apps/worker (app-specific)",
         "apps/worker defines own DurableObjectCtx (uses wrangler-generated types)",
-        "Tests use spellbook's DurableObjectCtx with mocks",
+        "KeyValueStore uses config param pattern to avoid ctx type incompatibility",
         "Convention documented in DurableObjectServices.ts comments"
       ],
       "passes": true,
-      "notes": "Full re-export blocked by type incompatibility between @cloudflare/workers-types and wrangler-generated types. Convention adjusted to maintain both until types unified."
+      "notes": "Type incompatibility solved for KeyValueStore via config param pattern. DurableObjectCtx still has separate definitions but not blocking shared code."
     },
     {
       "id": "MOD-008",
@@ -221,13 +223,13 @@
       "category": "cleanup",
       "description": "Remove duplicate SpellbookKeyValueStore from worker",
       "stepsToVerify": [
-        "Blocked by CONV-001: DurableObjectCtx type incompatibility",
-        "spellbook's KeyValueStore.layer requires spellbook's DurableObjectCtx",
-        "worker uses wrangler-generated types with different DurableObjectState",
-        "Until types are unified, worker must keep local SpellbookKeyValueStore"
+        "apps/worker/src/shared/SpellbookKeyValueStore.ts does NOT exist",
+        "pasaport.ts imports KeyValueStore from @kampus/spellbook",
+        "pasaport.ts uses KeyValueStore.layer({storage: ctx.storage})",
+        "Typecheck passes, all 130 tests pass"
       ],
       "passes": true,
-      "notes": "DEFERRED: Cannot remove until @cloudflare/workers-types and wrangler-generated types are compatible. See CONV-001."
+      "notes": "Solved via config param pattern. KeyValueStore.layer({storage}) takes storage directly, avoiding DurableObjectCtx type incompatibility."
     },
     {
       "id": "FIX-005",

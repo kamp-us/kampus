@@ -138,12 +138,23 @@
   - apps/worker/src/features/pasaport/pasaport.ts
 - Typecheck passes, all 130 tests pass
 
-### FIX-004: Remove duplicate SpellbookKeyValueStore (DEFERRED) ✅
-- **Cannot complete**: Blocked by CONV-001 type incompatibility
-- spellbook's `KeyValueStore.layer` requires spellbook's `DurableObjectCtx`
-- worker uses wrangler-generated types with different `DurableObjectState`
-- **Resolution**: Keep local `SpellbookKeyValueStore.ts` until types unified
-- PRD updated with explanation, marked as passes with deferral note
+### FIX-004: Remove duplicate SpellbookKeyValueStore ✅
+- **Root cause analysis**: Type incompatibility between @cloudflare/workers-types and wrangler-generated types
+  - `facets` property in experimental, `Container` type differences
+  - Even with wrangler 4.62.0, fundamental type conflicts remain
+- **Key insight**: "If KeyValueStore only uses storage, why yield full ctx?"
+- **Solution**: Config param pattern (like SqlClient)
+  - `KeyValueStore.layer({storage})` instead of `KeyValueStore.layer`
+  - Takes storage directly, no context tag needed
+  - Explicit dependency passing at layer construction
+- **Changes**:
+  - Upgraded wrangler 4.56.0 → 4.62.0
+  - Changed imports from `@cloudflare/workers-types/experimental` to `@cloudflare/workers-types`
+  - KeyValueStore.layer now takes Config with storage property
+  - Deleted `apps/worker/src/shared/SpellbookKeyValueStore.ts`
+  - Updated pasaport.ts to use `KeyValueStore.layer({storage: this.ctx.storage})`
+  - Updated test to use new API
+- Typecheck passes, all 130 tests pass
 
 ## PRD Complete
 
