@@ -1,6 +1,6 @@
 import type {Rpc, RpcGroup} from "@effect/rpc";
 import type {RpcClient} from "@effect/rpc";
-import {Effect} from "effect";
+import {Effect, Schema} from "effect";
 
 /** Minimal interface for DO stubs - just needs fetch */
 interface Fetchable {
@@ -41,6 +41,18 @@ export const make = <R extends Rpc.Any>(
 	// Create a function that makes RPC requests
 	const makeRpcCall = <T>(tag: string, payload: unknown): Effect.Effect<T, unknown> =>
 		Effect.gen(function* () {
+			// Get the RPC definition to access its payload schema
+			// Cast to any to access internal payloadSchema property (same as Effect RPC source)
+			const rpc = config.rpcs.requests.get(tag) as {payloadSchema: Schema.Schema<unknown, unknown>} | undefined;
+			if (!rpc) {
+				return yield* Effect.die(new Error(`Unknown RPC tag: ${tag}`));
+			}
+
+			// Encode payload using the RPC's schema (handles Redacted, branded types, etc.)
+			const encodedPayload = yield* Schema.encode(rpc.payloadSchema)(payload).pipe(
+				Effect.orDie,
+			);
+
 			const response = yield* Effect.promise(() =>
 				config.stub.fetch(
 					new Request("http://do.internal/rpc", {
@@ -50,7 +62,7 @@ export const make = <R extends Rpc.Any>(
 							_tag: "Request",
 							id: String(Date.now()) + String(Math.floor(Math.random() * 1000000)),
 							tag,
-							payload,
+							payload: encodedPayload,
 							headers: [],
 						}),
 					}),
