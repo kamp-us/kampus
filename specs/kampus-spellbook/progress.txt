@@ -109,3 +109,19 @@
 - **Bug**: Without await, Promise returned immediately, releasing concurrency lock before migrations complete
 - File: packages/spellbook/src/Migrations.ts:36
 - Typecheck passes
+
+### FIX-002: effect-patterns.md uses correct PlatformError.SystemError param ✅
+- Changed `message: String(error)` to `description: String(error)` in docs
+- File: .claude/docs/effect-patterns.md:121
+
+### FIX-005: WebPageParser handlers do not use Effect.orDie ✅
+- Removed `.pipe(Effect.orDie)` from getMetadata and getReaderContent handlers
+- **Key changes**:
+  - `getMetadata`: Added explicit `Effect.catchAll` for fetch errors → converts to defect
+  - `getReaderContent`: Already had `Effect.catchAll` that converts errors to ReaderResult
+  - Removed explicit return type annotations (let TS infer)
+- Spellbook's `HandlersWithSqlError` type + `wrapHandlers` catches SqlError at framework level
+- Files changed:
+  - apps/worker/src/features/web-page-parser/handlers.ts
+  - apps/worker/src/shared/Spellbook.ts (kept SqlError wrapper)
+- All 130 tests pass

@@ -23,6 +23,9 @@ type DrizzleSchema = Record<string, Table>;
 /**
  * Handler type that allows SqlError in the error channel.
  * Spellbook's wrapHandlers will catch SqlError and die, making the final error channel match the RPC schema.
+ *
+ * Per effect-patterns.md: In DO context, SqlError is typically a defect (bug in query)
+ * since there are no connection issues with embedded SQLite.
  */
 type HandlersWithSqlError<R extends Rpc.Any> = {
 	readonly [Current in R as Current["_tag"]]: (

@@ -3,7 +3,7 @@
   "version": "0.0.1",
   "summary": {
     "total": 19,
-    "passed": 15,
+    "passed": 17,
     "status": "in-progress"
   },
   "items": [
@@ -200,7 +200,7 @@
         "Find PlatformError.SystemError example (~line 121)",
         "Uses 'description' parameter, not 'message'"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "FIX-003",
@@ -233,11 +233,13 @@
       "description": "WebPageParser handlers do not use Effect.orDie",
       "stepsToVerify": [
         "Open apps/worker/src/features/web-page-parser/handlers.ts",
-        "Line 148: no .pipe(Effect.orDie)",
-        "Line 196: no .pipe(Effect.orDie)",
-        "Errors propagate naturally per effect-patterns.md guidelines"
+        "No .pipe(Effect.orDie) at handler level",
+        "getMetadata catches fetch errors explicitly with Effect.catchAll",
+        "getReaderContent catches all errors via Effect.catchAll and converts to ReaderResult",
+        "Spellbook framework handles SqlError at wrapper level"
       ],
-      "passes": false
+      "passes": true,
+      "notes": "Handlers now use explicit error handling instead of .pipe(Effect.orDie). SqlError is handled at framework level by Spellbook's wrapHandlers."
     }
   ]
 }

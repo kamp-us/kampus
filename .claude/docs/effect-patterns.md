@@ -118,7 +118,7 @@ Effect.tryPromise({
     reason: "Unknown",
     module: "KeyValueStore",
     method: "get",
-    message: String(error)
+    description: String(error)
   })
 })
 ```
