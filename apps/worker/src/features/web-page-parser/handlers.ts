@@ -128,11 +128,15 @@ export const handlers = {
 			}
 
 			// Fetch + extract, then return just metadata
+			// On network errors, return empty metadata (same pattern as getReaderContent)
 			const extracted = yield* fetchAndExtract(url).pipe(
 				Effect.provide(FetchHttpClient.layer),
-				// Fetch errors are infrastructure failures - convert to defects
-				Effect.catchAll((error) =>
-					Effect.die(new Error(`Failed to fetch metadata: ${error._tag}`)),
+				Effect.catchAll(() =>
+					Effect.succeed({
+						metadata: {title: "", description: null},
+						content: null,
+						strategy: null,
+					}),
 				),
 			);
 

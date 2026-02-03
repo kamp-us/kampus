@@ -126,7 +126,7 @@ export const make = <R extends Rpc.Any, TSchema extends DrizzleSchema, TEnv exte
 			// Run Drizzle migrations before any requests are processed
 			this.ctx.blockConcurrencyWhile(async () => {
 				const db = drizzle(ctx.storage);
-				migrate(db, config.migrations);
+				await migrate(db, config.migrations);
 			});
 		}
 
