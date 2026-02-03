@@ -33,6 +33,6 @@ export const runMigrations = (
 	Effect.promise(() =>
 		ctx.blockConcurrencyWhile(async () => {
 			const db = drizzle(ctx.storage)
-			migrate(db, migrations)
+			await migrate(db, migrations)
 		}),
 	)

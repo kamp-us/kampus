@@ -102,5 +102,10 @@
   - packages/spellbook/src/index.ts
 - Typecheck passes, all 130 tests pass
 
-## PRD Complete 🎉
-All 14 items pass. @kampus/spellbook package ready for use.
+## 2026-02-03: PR Review Fixes
+
+### FIX-001: Migrations.ts awaits migrate() call ✅
+- Added `await` before `migrate(db, migrations)` in blockConcurrencyWhile callback
+- **Bug**: Without await, Promise returned immediately, releasing concurrency lock before migrations complete
+- File: packages/spellbook/src/Migrations.ts:36
+- Typecheck passes

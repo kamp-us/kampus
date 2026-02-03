@@ -2,9 +2,9 @@
   "feature": "@kampus/spellbook",
   "version": "0.0.1",
   "summary": {
-    "total": 14,
-    "passed": 14,
-    "status": "complete"
+    "total": 19,
+    "passed": 15,
+    "status": "in-progress"
   },
   "items": [
     {
@@ -179,6 +179,65 @@
       ],
       "passes": true,
       "notes": "Uses Layer.scoped to properly manage Scope from RpcServer.toHttpApp. Handle method uses Effect.scoped internally."
+    },
+    {
+      "id": "FIX-001",
+      "category": "bugfix",
+      "description": "Migrations.ts awaits migrate() call",
+      "stepsToVerify": [
+        "Open packages/spellbook/src/Migrations.ts",
+        "Line 36: migrate(db, migrations) has await keyword",
+        "Ensures migrations complete before blockConcurrencyWhile releases"
+      ],
+      "passes": true
+    },
+    {
+      "id": "FIX-002",
+      "category": "docs",
+      "description": "effect-patterns.md uses correct PlatformError.SystemError param",
+      "stepsToVerify": [
+        "Open .claude/docs/effect-patterns.md",
+        "Find PlatformError.SystemError example (~line 121)",
+        "Uses 'description' parameter, not 'message'"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FIX-003",
+      "category": "performance",
+      "description": "Pasaport DO uses RpcHandler service instead of per-request httpApp",
+      "stepsToVerify": [
+        "Open apps/worker/src/features/pasaport/pasaport.ts",
+        "Imports RpcHandler from @kampus/spellbook",
+        "RpcLayer includes RpcHandler.layer(PasaportRpcs)",
+        "rpc() method uses Effect.flatMap(RpcHandler.RpcHandler, h => h.handle(request))",
+        "No import of RpcRequestHandler from shared"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FIX-004",
+      "category": "cleanup",
+      "description": "Remove duplicate SpellbookKeyValueStore from worker",
+      "stepsToVerify": [
+        "apps/worker/src/shared/SpellbookKeyValueStore.ts does NOT exist",
+        "pasaport.ts imports KeyValueStore from @kampus/spellbook",
+        "pasaport.ts uses KeyValueStore.layer in RpcLayer",
+        "Typecheck passes"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FIX-005",
+      "category": "convention",
+      "description": "WebPageParser handlers do not use Effect.orDie",
+      "stepsToVerify": [
+        "Open apps/worker/src/features/web-page-parser/handlers.ts",
+        "Line 148: no .pipe(Effect.orDie)",
+        "Line 196: no .pipe(Effect.orDie)",
+        "Errors propagate naturally per effect-patterns.md guidelines"
+      ],
+      "passes": false
     }
   ]
 }
