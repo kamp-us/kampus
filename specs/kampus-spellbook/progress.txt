@@ -86,3 +86,21 @@
 - Convention documented in DurableObjectServices.ts comments
 - Tests use spellbook's DurableObjectCtx with mocks (type is approximate)
 - **Future**: Unify types when upgrading @cloudflare/workers-types
+
+### MOD-008: RpcHandler.ts provides RpcHandler service ✅
+- Added `RpcHandler` Context.Tag to RpcHandler.ts
+- Added `layer(rpcs)` function using `Layer.scoped`
+  - Creates httpApp once during layer construction
+  - Returns service with `handle(request) => Effect<Response>`
+- Updated index.ts to export `RpcHandler` as namespace (was exporting just `handleRpc`)
+- **Key decisions**:
+  - `Layer.scoped` (not `Layer.effect`) properly manages Scope from RpcServer.toHttpApp
+  - `handle` uses `Effect.scoped` internally to manage per-request scope
+  - Legacy `handleRpc` kept but marked @deprecated
+- Files changed:
+  - packages/spellbook/src/RpcHandler.ts
+  - packages/spellbook/src/index.ts
+- Typecheck passes, all 130 tests pass
+
+## PRD Complete 🎉
+All 14 items pass. @kampus/spellbook package ready for use.

@@ -3,8 +3,8 @@
   "version": "0.0.1",
   "summary": {
     "total": 14,
-    "passed": 13,
-    "status": "in-progress"
+    "passed": 14,
+    "status": "complete"
   },
   "items": [
     {
@@ -172,12 +172,13 @@
       "stepsToVerify": [
         "RpcHandler.ts exports RpcHandler Context.Tag",
         "RpcHandler.ts exports layer(rpcs) => Layer<RpcHandler>",
-        "Service creates httpApp once via RpcServer.toHttpApp",
+        "Service creates httpApp once via RpcServer.toHttpApp using Layer.scoped",
         "Service exposes handle(request) => Effect<Response>",
         "index.ts exports RpcHandler namespace",
         "Typecheck passes"
       ],
-      "passes": false
+      "passes": true,
+      "notes": "Uses Layer.scoped to properly manage Scope from RpcServer.toHttpApp. Handle method uses Effect.scoped internally."
     }
   ]
 }

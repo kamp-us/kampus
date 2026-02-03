@@ -212,11 +212,11 @@ export class RpcHandler extends Context.Tag("@kampus/spellbook/RpcHandler")<
   }
 >() {}
 
-// Create a layer that builds httpApp once
+// Create a layer that builds httpApp once (using Layer.scoped for proper Scope management)
 export const layer = <R extends Rpc.Any>(
   rpcs: RpcGroup.RpcGroup<R>,
 ) =>
-  Layer.effect(
+  Layer.scoped(
     RpcHandler,
     Effect.gen(function* () {
       // Create httpApp once during layer construction
@@ -224,15 +224,14 @@ export const layer = <R extends Rpc.Any>(
 
       return {
         handle: (request: Request) =>
-          Effect.gen(function* () {
-            const response = yield* httpApp.pipe(
-              Effect.provideService(
-                HttpServerRequest.HttpServerRequest,
-                HttpServerRequest.fromWeb(request),
-              ),
-            )
-            return HttpServerResponse.toWeb(response)
-          }),
+          httpApp.pipe(
+            Effect.provideService(
+              HttpServerRequest.HttpServerRequest,
+              HttpServerRequest.fromWeb(request),
+            ),
+            Effect.map(HttpServerResponse.toWeb),
+            Effect.scoped,
+          ),
       }
     })
   )
