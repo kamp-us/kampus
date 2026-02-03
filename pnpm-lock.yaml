@@ -331,6 +331,9 @@ importers:
       '@kampus/library':
         specifier: workspace:*
         version: link:../../packages/library
+      '@kampus/spellbook':
+        specifier: workspace:*
+        version: link:../../packages/spellbook
       '@kampus/web-page-parser':
         specifier: workspace:*
         version: link:../../packages/web-page-parser

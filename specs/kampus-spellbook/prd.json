@@ -64,7 +64,7 @@
         "Uses PlatformError.SystemError with description field",
         "Imports DurableObjectCtx from local ./DurableObjectCtx"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "MOD-005",

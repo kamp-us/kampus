@@ -1,8 +1,8 @@
+import type {DurableObjectState} from "@cloudflare/workers-types/experimental"
 import {KeyValueStore} from "@effect/platform"
+import {DurableObjectCtx, KeyValueStore as SpellbookKeyValueStore} from "@kampus/spellbook"
 import {Effect, Layer, Option, Schema} from "effect"
 import {describe, expect, it} from "vitest"
-import {DurableObjectCtx} from "../src/services"
-import {layer} from "../src/shared/SpellbookKeyValueStore"
 
 /**
  * Creates a fresh test layer with mock DurableObjectCtx.
@@ -21,7 +21,7 @@ const makeTestLayer = () => {
 		},
 		list: async () => store,
 	}
-	return layer.pipe(
+	return SpellbookKeyValueStore.layer.pipe(
 		Layer.provide(
 			Layer.succeed(DurableObjectCtx, {storage: mockStorage} as unknown as DurableObjectState),
 		),

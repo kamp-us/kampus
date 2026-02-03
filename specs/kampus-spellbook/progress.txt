@@ -23,3 +23,14 @@
 - Simple re-export: `export const layer = SqliteDrizzle.layer`
 - Updated index.ts to export `Drizzle` namespace
 - turbo run typecheck passes
+
+### MOD-004: KeyValueStore.ts KV layer backed by DO storage ✅
+- Created packages/spellbook/src/KeyValueStore.ts (moved from apps/worker/src/shared/SpellbookKeyValueStore.ts)
+- Implements full KeyValueStore.make interface: get, getUint8Array, set, remove, clear, size
+- Uses PlatformError.SystemError for error handling
+- Imports DurableObjectCtx from local ./DurableObjectCtx
+- Added typecheck script to package.json
+- Added @kampus/spellbook as workspace dependency in apps/worker
+- Updated test file to import from @kampus/spellbook
+- All 9 KeyValueStore tests pass
+- turbo run typecheck passes

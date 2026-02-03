@@ -9,6 +9,9 @@
       "default": "./src/index.ts"
     }
   },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
   "dependencies": {
     "@cloudflare/workers-types": "^4.20250204.0",
     "@effect/platform": "catalog:",

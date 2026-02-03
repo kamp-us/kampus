@@ -20,12 +20,14 @@
 		"wrangler": "catalog:"
 	},
 	"dependencies": {
+		"@effect/experimental": "catalog:",
 		"@effect/platform": "catalog:",
 		"@effect/rpc": "catalog:",
 		"@effect/sql": "catalog:",
 		"@effect/sql-drizzle": "catalog:",
 		"@effect/sql-sqlite-do": "catalog:",
 		"@kampus/library": "workspace:*",
+		"@kampus/spellbook": "workspace:*",
 		"@kampus/web-page-parser": "workspace:*",
 		"@mozilla/readability": "catalog:",
 		"@usirin/forge": "catalog:",
