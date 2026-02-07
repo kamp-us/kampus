@@ -10,7 +10,17 @@
 	"observability": {
 		"enabled": true
 	},
-	"compatibility_flags": ["nodejs_compat"],
+	"compatibility_flags": [
+		"nodejs_compat"
+	],
+	"containers": [
+		{
+			"class_name": "WormholeContainer",
+			"image": "../wormhole/Dockerfile",
+			"max_instances": 1,
+			"instance_type": "standard-1"
+		}
+	],
 	"durable_objects": {
 		"bindings": [
 			{
@@ -24,20 +34,36 @@
 			{
 				"name": "LIBRARY",
 				"class_name": "Library"
+			},
+			{
+				"name": "WORMHOLE",
+				"class_name": "WormholeContainer"
 			}
 		]
 	},
 	"rules": [
 		{
 			"type": "Text",
-			"globs": ["**/*.sql"],
+			"globs": [
+				"**/*.sql"
+			],
 			"fallthrough": true
 		}
 	],
 	"migrations": [
 		{
 			"tag": "v1",
-			"new_sqlite_classes": ["Pasaport", "WebPageParser", "Library"]
+			"new_sqlite_classes": [
+				"Pasaport",
+				"WebPageParser",
+				"Library"
+			]
+		},
+		{
+			"tag": "v2",
+			"new_sqlite_classes": [
+				"WormholeContainer"
+			]
 		}
 	],
 	"vars": {

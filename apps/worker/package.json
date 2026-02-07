@@ -23,6 +23,7 @@
 		"wrangler": "catalog:"
 	},
 	"dependencies": {
+		"@cloudflare/containers": "^0.1.0",
 		"@effect/experimental": "catalog:",
 		"@effect/platform": "catalog:",
 		"@effect/rpc": "catalog:",
