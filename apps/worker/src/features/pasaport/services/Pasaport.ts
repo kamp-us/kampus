@@ -1,6 +1,5 @@
 import {Context, type Effect, type Option, type Redacted} from "effect";
 import type {ApiKey, Email, PasaportError, Password, Session, User, UserId} from "../schema";
-import {layer} from "./BetterAuthPasaport";
 
 /**
  * Authentication service for user management and session handling.
@@ -60,6 +59,4 @@ export class Pasaport extends Context.Tag("worker/features/pasaport/services/Pas
 			headers: Headers,
 		) => Effect.Effect<Option.Option<{session: Session; user: User}>, PasaportError>;
 	}
->() {
-	static layerBetterAuth = layer;
-}
+>() {}
