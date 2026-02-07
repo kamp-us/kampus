@@ -84,9 +84,6 @@ catalogs:
     '@types/relay-runtime':
       specifier: ^20.1.0
       version: 20.1.0
-    '@types/ws':
-      specifier: ^8.18.1
-      version: 8.18.1
     '@usirin/forge':
       specifier: ^0.2.0
       version: 0.2.0
@@ -147,9 +144,6 @@ catalogs:
     shiki:
       specifier: ^3.21.0
       version: 3.21.0
-    tsx:
-      specifier: ^4.21.0
-      version: 4.21.0
     turbo:
       specifier: ^2.7.0
       version: 2.7.0
@@ -162,9 +156,6 @@ catalogs:
     wrangler:
       specifier: ^4.62.0
       version: 4.62.0
-    ws:
-      specifier: ^8.19.0
-      version: 8.19.0
 
 importers:
 
@@ -331,6 +322,9 @@ importers:
 
   apps/worker:
     dependencies:
+      '@cloudflare/containers':
+        specifier: ^0.1.0
+        version: 0.1.0
       '@effect/experimental':
         specifier: 'catalog:'
         version: 0.58.0(@effect/platform@0.94.0(effect@3.19.13))(effect@3.19.13)
@@ -417,23 +411,23 @@ importers:
         specifier: ^1.0.1
         version: 1.1.0
       ws:
-        specifier: 'catalog:'
+        specifier: ^8.19.0
         version: 8.19.0
     devDependencies:
       '@types/node':
-        specifier: 'catalog:'
+        specifier: ^25.0.3
         version: 25.0.3
       '@types/ws':
-        specifier: 'catalog:'
+        specifier: ^8.18.1
         version: 8.18.1
       tsx:
-        specifier: 'catalog:'
+        specifier: ^4.21.0
         version: 4.21.0
       typescript:
-        specifier: 'catalog:'
+        specifier: ^5.9.3
         version: 5.9.3
       vitest:
-        specifier: 'catalog:'
+        specifier: ^3.2.0
         version: 3.2.4(@types/node@25.0.3)(happy-dom@15.11.7)(tsx@4.21.0)(yaml@2.8.2)
 
   packages/ghostty-react:
@@ -604,6 +598,9 @@ packages:
     engines: {node: '>=14.21.3'}
     cpu: [x64]
     os: [win32]
+
+  '@cloudflare/containers@0.1.0':
+    resolution: {integrity: sha512-nuXnmkpJZzbjYdguRI2hB0sw1QCBMWdNuGDNQwEiJSLebtKRFpBt/d6AStGjp+8wGD2plPbd2U/mQerYF9kzJg==}
 
   '@cloudflare/kv-asset-handler@0.4.0':
     resolution: {integrity: sha512-+tv3z+SPp+gqTIcImN9o0hqE9xyfQjI1XD9pL6NuKjua9B1y7mNYv0S9cP+QEbA4ppVgGZEmKOvHX5G5Ei1CVA==}
@@ -4141,18 +4138,6 @@ packages:
       utf-8-validate:
         optional: true
 
-  ws@8.18.3:
-    resolution: {integrity: sha512-PEIGCY5tSlUt50cqyMXfCzX+oOPqN0vuGqWzbcJ2xvnkzkq46oOpz7dQaTDBdfICb4N14+GARUDw2XV2N4tvzg==}
-    engines: {node: '>=10.0.0'}
-    peerDependencies:
-      bufferutil: ^4.0.1
-      utf-8-validate: '>=5.0.2'
-    peerDependenciesMeta:
-      bufferutil:
-        optional: true
-      utf-8-validate:
-        optional: true
-
   ws@8.19.0:
     resolution: {integrity: sha512-blAT2mjOEIi0ZzruJfIhb3nps74PRWTCz1IjglWEEpQl5XS/UNama6u2/rjFkDDouqr4L67ry+1aGIALViWjDg==}
     engines: {node: '>=10.0.0'}
@@ -4290,6 +4275,8 @@ snapshots:
 
   '@biomejs/cli-win32-x64@2.3.10':
     optional: true
+
+  '@cloudflare/containers@0.1.0': {}
 
   '@cloudflare/kv-asset-handler@0.4.0':
     dependencies:
@@ -4473,7 +4460,7 @@ snapshots:
       '@parcel/watcher': 2.5.1
       effect: 3.19.13
       multipasta: 0.2.7
-      ws: 8.18.3
+      ws: 8.19.0
     transitivePeerDependencies:
       - bufferutil
       - utf-8-validate
@@ -7520,8 +7507,6 @@ snapshots:
       - utf-8-validate
 
   ws@8.18.0: {}
-
-  ws@8.18.3: {}
 
   ws@8.19.0: {}
 

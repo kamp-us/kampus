@@ -49,12 +49,9 @@ catalog:
   relay-compiler: ^20.1.1
   relay-runtime: ^20.1.1
   shiki: ^3.21.0
-  tsx: ^4.21.0
   turbo: ^2.7.0
   typescript: ^5.9.3
   vitest: ^3.2.0
-  ws: ^8.19.0
-  '@types/ws': ^8.18.1
   wrangler: ^4.62.0
 
 cleanupUnusedCatalogs: true

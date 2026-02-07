@@ -11,13 +11,13 @@
 	},
 	"dependencies": {
 		"@lydell/node-pty": "^1.0.1",
-		"ws": "catalog:"
+		"ws": "^8.19.0"
 	},
 	"devDependencies": {
-		"@types/node": "catalog:",
-		"@types/ws": "catalog:",
-		"tsx": "catalog:",
-		"typescript": "catalog:",
-		"vitest": "catalog:"
+		"@types/node": "^25.0.3",
+		"@types/ws": "^8.18.1",
+		"tsx": "^4.21.0",
+		"typescript": "^5.9.3",
+		"vitest": "^3.2.0"
 	}
 }
