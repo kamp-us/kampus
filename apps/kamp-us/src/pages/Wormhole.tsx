@@ -4,6 +4,7 @@ import {Navigate, useParams} from "react-router";
 import styles from "./Wormhole.module.css";
 
 const theme: ITheme = {background: "#1e1e1e", foreground: "#d4d4d4"};
+const wsUrl = import.meta.env.VITE_WORMHOLE_WS_URL || "ws://localhost:8787/wormhole/ws";
 
 export function Wormhole() {
 	const {sessionId} = useParams<{sessionId: string}>();
@@ -15,7 +16,7 @@ export function Wormhole() {
 
 	return (
 		<GhosttyTerminal
-			url="ws://localhost:3001/ws"
+			url={wsUrl}
 			sessionId={sessionId}
 			className={styles.container}
 			theme={theme}
