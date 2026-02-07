@@ -10,6 +10,9 @@
 		"typecheck": "tsc --noEmit",
 		"cf-typegen": "wrangler types"
 	},
+	"volta": {
+		"extends": "../../package.json"
+	},
 	"devDependencies": {
 		"@cloudflare/vitest-pool-workers": "^0.8.19",
 		"@effect/vitest": "catalog:",

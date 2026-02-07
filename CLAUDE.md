@@ -30,4 +30,6 @@ biome check --write --staged  # before commit
 | What | Where |
 |------|-------|
 | Local Effect source | `~/.local/share/effect-solutions/effect/` |
+| Local ghostty-web source | `~/code/github.com/usirin/ghostty-web` |
 | Local effect-atom source | `~/code/github.com/usirin/effect-atom/` |
+
