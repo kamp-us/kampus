@@ -18,7 +18,7 @@
 			"class_name": "WormholeContainer",
 			"image": "../wormhole/Dockerfile",
 			"max_instances": 1,
-			"instance_type": "standard-1"
+			"instance_type": "standard"
 		}
 	],
 	"durable_objects": {
