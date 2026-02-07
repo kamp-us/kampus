@@ -1,12 +1,13 @@
 import {Layer, ManagedRuntime} from "effect";
 import type {Session} from "../features/pasaport/auth";
+import {PasaportClient} from "../features/pasaport/PasaportClient";
 import {Auth, CloudflareEnv, RequestContext} from "../services";
 import {LibraryClient} from "./resolvers/LibraryClient";
 
 /**
  * The requirements for a GraphQL request runtime.
  */
-export type GraphQLContext = CloudflareEnv | Auth | RequestContext | LibraryClient;
+export type GraphQLContext = CloudflareEnv | Auth | RequestContext | LibraryClient | PasaportClient;
 
 /**
  * GraphQL runtime factory following Effect-idiomatic patterns.
@@ -35,6 +36,7 @@ export namespace GraphQLRuntime {
 				url: request.url,
 				method: request.method,
 			}),
+			PasaportClient.layer(env, "kampus"),
 		);
 
 		// Add LibraryClient layer only when user is authenticated

@@ -12,19 +12,22 @@
 	},
 	"devDependencies": {
 		"@cloudflare/vitest-pool-workers": "^0.8.19",
+		"@effect/vitest": "catalog:",
 		"@types/node": "catalog:",
 		"drizzle-kit": "catalog:",
 		"typescript": "^5.5.2",
-		"vitest": "~3.2.0",
+		"vitest": "catalog:",
 		"wrangler": "catalog:"
 	},
 	"dependencies": {
+		"@effect/experimental": "catalog:",
 		"@effect/platform": "catalog:",
 		"@effect/rpc": "catalog:",
 		"@effect/sql": "catalog:",
 		"@effect/sql-drizzle": "catalog:",
 		"@effect/sql-sqlite-do": "catalog:",
 		"@kampus/library": "workspace:*",
+		"@kampus/spellbook": "workspace:*",
 		"@kampus/web-page-parser": "workspace:*",
 		"@mozilla/readability": "catalog:",
 		"@usirin/forge": "catalog:",

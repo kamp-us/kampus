@@ -1,4 +1,4 @@
-import {Effect} from "effect";
+import {Effect, Redacted} from "effect";
 import {
 	GraphQLBoolean,
 	GraphQLID,
@@ -14,7 +14,9 @@ import {
 	lexicographicSortSchema,
 	printSchema,
 } from "graphql";
-import {Auth, CloudflareEnv, RequestContext} from "../services";
+import {PasaportClient} from "../features/pasaport/PasaportClient";
+import {Email, Password, UserId} from "../features/pasaport/schema";
+import {Auth, CloudflareEnv} from "../services";
 import {createConnectionTypes, toConnection} from "./connections";
 import {resolver} from "./resolver";
 import {LibraryClient} from "./resolvers/LibraryClient";
@@ -249,15 +251,30 @@ const LibraryType: GraphQLObjectType = new GraphQLObjectType({
 				}
 
 				if (!["http:", "https:"].includes(parsedUrl.protocol)) {
-					return {url: args.url, title: null, description: null, error: "Only HTTP/HTTPS URLs are allowed"};
+					return {
+						url: args.url,
+						title: null,
+						description: null,
+						error: "Only HTTP/HTTPS URLs are allowed",
+					};
 				}
 
 				return yield* Effect.gen(function* () {
 					const client = yield* WebPageParserClient.make(env, args.url);
 					const metadata = yield* client.getMetadata();
-					return {url: args.url, title: metadata.title, description: metadata.description, error: null};
+					return {
+						url: args.url,
+						title: metadata.title,
+						description: metadata.description,
+						error: null,
+					};
 				}).pipe(
-					Effect.orElseSucceed(() => ({url: args.url, title: null, description: null, error: "Failed to fetch metadata"})),
+					Effect.orElseSucceed(() => ({
+						url: args.url,
+						title: null,
+						description: null,
+						error: "Failed to fetch metadata",
+					})),
 				);
 			}),
 		},
@@ -485,7 +502,11 @@ const QueryType = new GraphQLObjectType({
 					const metadata = yield* client.getMetadata();
 					return {title: metadata.title, description: metadata.description, error: null};
 				}).pipe(
-					Effect.orElseSucceed(() => ({title: null, description: null, error: "Failed to fetch metadata"})),
+					Effect.orElseSucceed(() => ({
+						title: null,
+						description: null,
+						error: "Failed to fetch metadata",
+					})),
 				);
 			}),
 		},
@@ -530,26 +551,14 @@ const MutationType = new GraphQLObjectType({
 				password: {type: new GraphQLNonNull(GraphQLString)},
 			},
 			resolve: resolver(function* (_source: unknown, args: {email: string; password: string}) {
-				const env = yield* CloudflareEnv;
-				const ctx = yield* RequestContext;
+				const pasaport = yield* PasaportClient;
 
-				const pasaport = env.PASAPORT.getByName("kampus");
-				const result = yield* Effect.promise(() =>
-					pasaport.loginWithEmail(args.email, args.password, ctx.headers),
-				);
+				const result = yield* pasaport.loginWithEmail({
+					email: Email.make(args.email),
+					password: Redacted.make(Password.make(args.password)),
+				});
 
-				if (!result.user || !result.token) {
-					throw new Error("Invalid credentials");
-				}
-
-				return {
-					user: {
-						id: result.user.id,
-						email: result.user.email,
-						name: result.user.name,
-					},
-					token: result.token,
-				};
+				return result;
 			}),
 		},
 		bootstrap: {
@@ -563,22 +572,15 @@ const MutationType = new GraphQLObjectType({
 				_source: unknown,
 				args: {email: string; password: string; name: string},
 			) {
-				const env = yield* CloudflareEnv;
+				const pasaport = yield* PasaportClient;
 
-				const pasaport = env.PASAPORT.getByName("kampus");
-				const result = yield* Effect.promise(async () =>
-					pasaport.createUser(args.email, args.password, args.name || undefined),
-				);
+				const user = yield* pasaport.createUser({
+					email: Email.make(args.email),
+					password: Redacted.make(Password.make(args.password)),
+					name: args.name,
+				});
 
-				if (!result.user) {
-					throw new Error("Failed to create user");
-				}
-
-				return {
-					id: result.user.id,
-					email: result.user.email,
-					name: result.user.name,
-				};
+				return user;
 			}),
 		},
 		createApiKey: {
@@ -589,20 +591,16 @@ const MutationType = new GraphQLObjectType({
 			resolve: resolver(function* (_source: unknown, args: {name: string}) {
 				const env = yield* CloudflareEnv;
 				const {user} = yield* Auth.required;
+				const p = yield* PasaportClient;
 
-				const pasaport = env.PASAPORT.getByName("kampus");
-				const key = yield* Effect.promise(
-					async (): Promise<{key: string; name: string | null}> =>
-						pasaport.createAdminApiKey(user.id, args.name),
-				);
-
-				if (!key.name) {
-					throw new Error("Failed to create API key");
-				}
+				const k = yield* p.createAdminApiKey({
+					userId: UserId.make(user.id),
+					name: args.name,
+				});
 
 				return {
-					name: key.name,
-					key: key.key,
+					name: k.name,
+					key: k.value,
 				};
 			}),
 		},

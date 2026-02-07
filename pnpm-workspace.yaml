@@ -9,6 +9,7 @@ catalog:
   '@effect-atom/atom': ^0.4.11
   '@effect-atom/atom-react': ^0.4.4
   '@effect/cli': ^0.73.0
+  '@effect/experimental': ^0.58.0
   '@effect/language-service': latest
   '@effect/platform': 0.94.0
   '@effect/platform-bun': ^0.87.0
@@ -16,6 +17,7 @@ catalog:
   '@effect/sql': ^0.49.0
   '@effect/sql-drizzle': ^0.48.0
   '@effect/sql-sqlite-do': ^0.27.0
+  '@effect/vitest': ^0.27.0
   '@mozilla/readability': ^0.6.0
   '@opentui/core': 0.1.63
   '@opentui/react': 0.1.63
@@ -48,7 +50,8 @@ catalog:
   shiki: ^3.21.0
   turbo: ^2.7.0
   typescript: ^5.9.3
-  wrangler: ^4.56.0
+  vitest: ^3.2.0
+  wrangler: ^4.62.0
 
 cleanupUnusedCatalogs: true
 

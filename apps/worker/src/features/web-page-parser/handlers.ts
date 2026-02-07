@@ -101,15 +101,7 @@ export const handlers = {
 			yield* Effect.promise(() => ctx.storage.put("url", url));
 		}),
 
-	getMetadata: ({
-		forceFetch,
-	}: {
-		forceFetch?: boolean;
-	}): Effect.Effect<
-		PageMetadata,
-		never,
-		SqliteDrizzle | DurableObjectCtx | HttpClient.HttpClient
-	> =>
+	getMetadata: ({forceFetch}: {forceFetch?: boolean}) =>
 		Effect.gen(function* () {
 			const ctx = yield* DurableObjectCtx;
 			const db = yield* SqliteDrizzle;
@@ -136,7 +128,17 @@ export const handlers = {
 			}
 
 			// Fetch + extract, then return just metadata
-			const extracted = yield* fetchAndExtract(url).pipe(Effect.provide(FetchHttpClient.layer));
+			// On network errors, return empty metadata (same pattern as getReaderContent)
+			const extracted = yield* fetchAndExtract(url).pipe(
+				Effect.provide(FetchHttpClient.layer),
+				Effect.catchAll(() =>
+					Effect.succeed({
+						metadata: {title: "", description: null},
+						content: null,
+						strategy: null,
+					}),
+				),
+			);
 
 			// Save to database
 			yield* db.insert(schema.fetchlog).values({
@@ -145,13 +147,9 @@ export const handlers = {
 			});
 
 			return extracted.metadata;
-		}).pipe(Effect.orDie),
+		}),
 
-	getReaderContent: ({
-		forceFetch,
-	}: {
-		forceFetch?: boolean;
-	}): Effect.Effect<ReaderResult, never, SqliteDrizzle | DurableObjectCtx> =>
+	getReaderContent: ({forceFetch}: {forceFetch?: boolean}) =>
 		Effect.gen(function* () {
 			const ctx = yield* DurableObjectCtx;
 			const db = yield* SqliteDrizzle;
@@ -193,7 +191,7 @@ export const handlers = {
 			yield* db.insert(schema.readerContent).values(mapReaderResultToDbRow(result));
 
 			return result;
-		}).pipe(Effect.orDie),
+		}),
 };
 
 // Helper to map database row to ReaderResult

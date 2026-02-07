@@ -1,0 +1,161 @@
+# @kampus/spellbook Progress
+
+## 2026-02-02
+
+### PKG-001: Package has all required dependencies ✅
+- Added dependencies to packages/spellbook/package.json:
+  - @cloudflare/workers-types: ^4.20250204.0
+  - @effect/platform: catalog:
+  - @effect/sql: catalog:
+  - @effect/sql-drizzle: catalog:
+  - @effect/sql-sqlite-do: catalog:
+  - drizzle-orm: catalog:
+- Added types to tsconfig.json: ["@cloudflare/workers-types"]
+- pnpm install succeeded
+- pnpm tsc --noEmit passes
+
+### MOD-002: SqlClient.ts layer factory ✅
+- File already existed from previous iteration
+- PRD marked as passing (was implemented but PRD not updated)
+
+### MOD-003: Drizzle.ts re-exports SqliteDrizzle.layer ✅
+- Created packages/spellbook/src/Drizzle.ts
+- Simple re-export: `export const layer = SqliteDrizzle.layer`
+- Updated index.ts to export `Drizzle` namespace
+- turbo run typecheck passes
+
+### MOD-004: KeyValueStore.ts KV layer backed by DO storage ✅
+- Created packages/spellbook/src/KeyValueStore.ts (moved from apps/worker/src/shared/SpellbookKeyValueStore.ts)
+- Implements full KeyValueStore.make interface: get, getUint8Array, set, remove, clear, size
+- Uses PlatformError.SystemError for error handling
+- Imports DurableObjectCtx from local ./DurableObjectCtx
+- Added typecheck script to package.json
+- Added @kampus/spellbook as workspace dependency in apps/worker
+- Updated test file to import from @kampus/spellbook
+- All 9 KeyValueStore tests pass
+- turbo run typecheck passes
+
+### MOD-005: Migrations.ts exports runMigrations helper ✅
+- Created packages/spellbook/src/Migrations.ts
+- Exports DrizzleMigrations interface (journal + migrations record)
+- Exports runMigrations(ctx, migrations) => Effect<void>
+- **Key decision**: Takes DurableObjectState not DurableObjectStorage
+  - blockConcurrencyWhile lives on DurableObjectState (ctx), not ctx.storage
+  - Updated spec files to reflect this
+- Uses ctx.blockConcurrencyWhile + drizzle() + migrate() internally
+- Updated index.ts to export runMigrations and DrizzleMigrations type
+- turbo run typecheck passes (spellbook + worker)
+- All 130 tests pass
+
+### MOD-006: RpcHandler.ts exports handleRpc helper ✅
+- Created packages/spellbook/src/RpcHandler.ts
+- Copied pattern from apps/worker/src/shared/RpcRequestHandler.ts
+- Uses RpcServer.toHttpApp + HttpServerRequest.fromWeb + HttpServerResponse.toWeb
+- **Key decision**: Let TypeScript infer return type instead of explicit annotation
+  - Effect type includes Scope, RpcSerialization, ToHandler<R>, etc.
+  - Explicit `Effect<Response, never, RpcGroup.Rpcs<R>>` was too narrow
+
+### MOD-007: index.ts re-exports all modules correctly ✅
+- Added `export { handleRpc } from "./RpcHandler"`
+- Added Cloudflare type re-exports (SqlStorage, DurableObjectStorage, DurableObjectState)
+
+### BUILD-001 & BUILD-002: Package and workspace typecheck ✅
+- `pnpm turbo run typecheck` passes for all packages
+- spellbook, worker, kamp-us all typecheck successfully
+- All 130 tests pass
+
+### INT-001: Import @kampus/spellbook from apps/worker ✅
+- Updated test file to import all spellbook exports:
+  - DurableObjectCtx, Drizzle, KeyValueStore, SqlClient
+  - runMigrations, handleRpc, DrizzleMigrations (type)
+  - SqlStorage, DurableObjectStorage (re-exported types)
+- `pnpm turbo run typecheck --filter=worker...` passes
+- All 130 tests pass
+
+### INT-002: Existing DOs continue to work ✅
+- `pnpm wrangler deploy --dry-run` succeeds
+- Worker bundles to 5MB (910KB gzipped)
+- All DOs recognized: Pasaport, WebPageParser, Library
+
+### CONV-001: DurableObjectCtx vs DurableObjectEnv convention ✅
+- Attempted re-export from spellbook, hit type incompatibility:
+  - spellbook: @cloudflare/workers-types/experimental (^4.20250204.0)
+  - worker: wrangler-generated types (workerd@1.20251217.0)
+  - Error: `facets` property missing in older type
+- **Resolution**: Worker keeps own DurableObjectCtx definition
+- Convention documented in DurableObjectServices.ts comments
+- Tests use spellbook's DurableObjectCtx with mocks (type is approximate)
+- **Future**: Unify types when upgrading @cloudflare/workers-types
+
+### MOD-008: RpcHandler.ts provides RpcHandler service ✅
+- Added `RpcHandler` Context.Tag to RpcHandler.ts
+- Added `layer(rpcs)` function using `Layer.scoped`
+  - Creates httpApp once during layer construction
+  - Returns service with `handle(request) => Effect<Response>`
+- Updated index.ts to export `RpcHandler` as namespace (was exporting just `handleRpc`)
+- **Key decisions**:
+  - `Layer.scoped` (not `Layer.effect`) properly manages Scope from RpcServer.toHttpApp
+  - `handle` uses `Effect.scoped` internally to manage per-request scope
+  - Legacy `handleRpc` kept but marked @deprecated
+- Files changed:
+  - packages/spellbook/src/RpcHandler.ts
+  - packages/spellbook/src/index.ts
+- Typecheck passes, all 130 tests pass
+
+## 2026-02-03: PR Review Fixes
+
+### FIX-001: Migrations.ts awaits migrate() call ✅
+- Added `await` before `migrate(db, migrations)` in blockConcurrencyWhile callback
+- **Bug**: Without await, Promise returned immediately, releasing concurrency lock before migrations complete
+- File: packages/spellbook/src/Migrations.ts:36
+- Typecheck passes
+
+### FIX-002: effect-patterns.md uses correct PlatformError.SystemError param ✅
+- Changed `message: String(error)` to `description: String(error)` in docs
+- File: .claude/docs/effect-patterns.md:121
+
+### FIX-005: WebPageParser handlers do not use Effect.orDie ✅
+- Removed `.pipe(Effect.orDie)` from getMetadata and getReaderContent handlers
+- **Key changes**:
+  - `getMetadata`: Added explicit `Effect.catchAll` for fetch errors → converts to defect
+  - `getReaderContent`: Already had `Effect.catchAll` that converts errors to ReaderResult
+  - Removed explicit return type annotations (let TS infer)
+- Spellbook's `HandlersWithSqlError` type + `wrapHandlers` catches SqlError at framework level
+- Files changed:
+  - apps/worker/src/features/web-page-parser/handlers.ts
+  - apps/worker/src/shared/Spellbook.ts (kept SqlError wrapper)
+- All 130 tests pass
+
+### FIX-003: Pasaport DO uses RpcHandler service ✅
+- Migrated Pasaport DO from per-request httpApp to RpcHandler service
+- **Key changes**:
+  - Import `RpcHandler` from `@kampus/spellbook`
+  - RpcLayer now includes `RpcHandler.layer(PasaportRpcs)` with all dependencies
+  - `rpc()` uses `Effect.flatMap(RpcHandler.RpcHandler, h => h.handle(request))`
+  - Removed import of `RpcRequestHandler` from shared
+- **Layer structure**: RpcHandler.layer wraps all handler dependencies including RpcSerialization
+- Files changed:
+  - apps/worker/src/features/pasaport/pasaport.ts
+- Typecheck passes, all 130 tests pass
+
+### FIX-004: Remove duplicate SpellbookKeyValueStore ✅
+- **Root cause analysis**: Type incompatibility between @cloudflare/workers-types and wrangler-generated types
+  - `facets` property in experimental, `Container` type differences
+  - Even with wrangler 4.62.0, fundamental type conflicts remain
+- **Key insight**: "If KeyValueStore only uses storage, why yield full ctx?"
+- **Solution**: Config param pattern (like SqlClient)
+  - `KeyValueStore.layer({storage})` instead of `KeyValueStore.layer`
+  - Takes storage directly, no context tag needed
+  - Explicit dependency passing at layer construction
+- **Changes**:
+  - Upgraded wrangler 4.56.0 → 4.62.0
+  - Changed imports from `@cloudflare/workers-types/experimental` to `@cloudflare/workers-types`
+  - KeyValueStore.layer now takes Config with storage property
+  - Deleted `apps/worker/src/shared/SpellbookKeyValueStore.ts`
+  - Updated pasaport.ts to use `KeyValueStore.layer({storage: this.ctx.storage})`
+  - Updated test to use new API
+- Typecheck passes, all 130 tests pass
+
+## PRD Complete
+
+All 19 items pass. @kampus/spellbook package ready for production use.

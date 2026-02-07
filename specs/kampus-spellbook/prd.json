@@ -1,0 +1,249 @@
+{
+  "feature": "@kampus/spellbook",
+  "version": "0.0.1",
+  "summary": {
+    "total": 19,
+    "passed": 19,
+    "status": "complete"
+  },
+  "items": [
+    {
+      "id": "PKG-001",
+      "category": "package-setup",
+      "description": "Package has all required dependencies",
+      "stepsToVerify": [
+        "Open packages/spellbook/package.json",
+        "Verify @cloudflare/workers-types is listed",
+        "Verify @effect/platform is listed",
+        "Verify @effect/sql-sqlite-do is listed",
+        "Verify @effect/sql-drizzle is listed",
+        "Verify drizzle-orm is listed",
+        "Verify effect is listed"
+      ],
+      "passes": true
+    },
+    {
+      "id": "MOD-001",
+      "category": "module",
+      "description": "DurableObjectCtx.ts exports Context.Tag with namespaced ID",
+      "stepsToVerify": [
+        "File exists at packages/spellbook/src/DurableObjectCtx.ts",
+        "Exports class DurableObjectCtx extending Context.Tag",
+        "Tag ID is '@kampus/spellbook/DurableObjectCtx'",
+        "Type is DurableObjectState from @cloudflare/workers-types (non-experimental)"
+      ],
+      "passes": true,
+      "notes": "Uses non-experimental types for better compatibility with wrangler-generated types."
+    },
+    {
+      "id": "MOD-002",
+      "category": "module",
+      "description": "SqlClient.ts exports layer factory for SqliteClient",
+      "stepsToVerify": [
+        "File exists at packages/spellbook/src/SqlClient.ts",
+        "Exports Config interface with db: SqlStorage",
+        "Exports layer function taking Config",
+        "Layer configures camelCase/snake_case transforms",
+        "Uses SqliteClient from @effect/sql-sqlite-do"
+      ],
+      "passes": true
+    },
+    {
+      "id": "MOD-003",
+      "category": "module",
+      "description": "Drizzle.ts re-exports SqliteDrizzle.layer",
+      "stepsToVerify": [
+        "File exists at packages/spellbook/src/Drizzle.ts",
+        "Exports layer from @effect/sql-drizzle/Sqlite",
+        "No additional wrapper logic"
+      ],
+      "passes": true
+    },
+    {
+      "id": "MOD-004",
+      "category": "module",
+      "description": "KeyValueStore.ts provides KV layer backed by DO storage",
+      "stepsToVerify": [
+        "File exists at packages/spellbook/src/KeyValueStore.ts",
+        "Exports Config interface with storage: DurableObjectStorage",
+        "Exports layer(config) => Layer<KeyValueStore>",
+        "Implements get, getUint8Array, set, remove, clear, size",
+        "Uses PlatformError.SystemError with description field"
+      ],
+      "passes": true,
+      "notes": "Uses config param pattern (like SqlClient) instead of context-based. Worker provides storage directly: KeyValueStore.layer({storage: ctx.storage})"
+    },
+    {
+      "id": "MOD-005",
+      "category": "module",
+      "description": "Migrations.ts exports runMigrations helper",
+      "stepsToVerify": [
+        "File exists at packages/spellbook/src/Migrations.ts",
+        "Exports DrizzleMigrations interface",
+        "Exports runMigrations(ctx, migrations) => Effect<void>",
+        "Uses ctx.blockConcurrencyWhile internally",
+        "Uses drizzle-orm/durable-sqlite for migrate"
+      ],
+      "passes": true
+    },
+    {
+      "id": "MOD-006",
+      "category": "module",
+      "description": "RpcHandler.ts exports handleRpc helper",
+      "stepsToVerify": [
+        "File exists at packages/spellbook/src/RpcHandler.ts",
+        "Exports handleRpc<R>(rpcs, request) => Effect<Response>",
+        "Uses RpcServer.toHttpApp",
+        "Converts HttpServerRequest/Response to web standards"
+      ],
+      "passes": true
+    },
+    {
+      "id": "MOD-007",
+      "category": "module",
+      "description": "index.ts re-exports all modules correctly",
+      "stepsToVerify": [
+        "File exists at packages/spellbook/src/index.ts",
+        "Exports SqlClient, Drizzle, KeyValueStore as namespaces",
+        "Exports DurableObjectCtx class",
+        "Exports runMigrations, DrizzleMigrations, handleRpc",
+        "Re-exports Cloudflare types for convenience"
+      ],
+      "passes": true
+    },
+    {
+      "id": "BUILD-001",
+      "category": "build",
+      "description": "Package typechecks successfully",
+      "stepsToVerify": [
+        "Run: cd packages/spellbook && pnpm tsc --noEmit",
+        "No TypeScript errors"
+      ],
+      "passes": true
+    },
+    {
+      "id": "BUILD-002",
+      "category": "build",
+      "description": "Workspace typechecks with spellbook",
+      "stepsToVerify": [
+        "Run: pnpm turbo run typecheck",
+        "All packages pass including apps/worker"
+      ],
+      "passes": true
+    },
+    {
+      "id": "INT-001",
+      "category": "integration",
+      "description": "Can import @kampus/spellbook from apps/worker",
+      "stepsToVerify": [
+        "Test file imports SqlClient, Drizzle, KeyValueStore, DurableObjectCtx, runMigrations, handleRpc from @kampus/spellbook",
+        "Typecheck passes (pnpm turbo run typecheck --filter=worker...)",
+        "All 130 tests pass"
+      ],
+      "passes": true
+    },
+    {
+      "id": "INT-002",
+      "category": "integration",
+      "description": "Existing DOs continue to work",
+      "stepsToVerify": [
+        "Run: pnpm wrangler deploy --dry-run",
+        "Worker bundles successfully (5MB upload)",
+        "Pasaport, Library, WebPageParser DOs recognized"
+      ],
+      "passes": true
+    },
+    {
+      "id": "CONV-001",
+      "category": "convention",
+      "description": "DurableObjectCtx vs DurableObjectEnv convention documented",
+      "stepsToVerify": [
+        "DurableObjectCtx is in @kampus/spellbook (generic, uses @cloudflare/workers-types non-experimental)",
+        "DurableObjectEnv stays in apps/worker (app-specific)",
+        "apps/worker defines own DurableObjectCtx (uses wrangler-generated types)",
+        "KeyValueStore uses config param pattern to avoid ctx type incompatibility",
+        "Convention documented in DurableObjectServices.ts comments"
+      ],
+      "passes": true,
+      "notes": "Type incompatibility solved for KeyValueStore via config param pattern. DurableObjectCtx still has separate definitions but not blocking shared code."
+    },
+    {
+      "id": "MOD-008",
+      "category": "module",
+      "description": "RpcHandler.ts provides RpcHandler service for single httpApp creation",
+      "stepsToVerify": [
+        "RpcHandler.ts exports RpcHandler Context.Tag",
+        "RpcHandler.ts exports layer(rpcs) => Layer<RpcHandler>",
+        "Service creates httpApp once via RpcServer.toHttpApp using Layer.scoped",
+        "Service exposes handle(request) => Effect<Response>",
+        "index.ts exports RpcHandler namespace",
+        "Typecheck passes"
+      ],
+      "passes": true,
+      "notes": "Uses Layer.scoped to properly manage Scope from RpcServer.toHttpApp. Handle method uses Effect.scoped internally."
+    },
+    {
+      "id": "FIX-001",
+      "category": "bugfix",
+      "description": "Migrations.ts awaits migrate() call",
+      "stepsToVerify": [
+        "Open packages/spellbook/src/Migrations.ts",
+        "Line 36: migrate(db, migrations) has await keyword",
+        "Ensures migrations complete before blockConcurrencyWhile releases"
+      ],
+      "passes": true
+    },
+    {
+      "id": "FIX-002",
+      "category": "docs",
+      "description": "effect-patterns.md uses correct PlatformError.SystemError param",
+      "stepsToVerify": [
+        "Open .claude/docs/effect-patterns.md",
+        "Find PlatformError.SystemError example (~line 121)",
+        "Uses 'description' parameter, not 'message'"
+      ],
+      "passes": true
+    },
+    {
+      "id": "FIX-003",
+      "category": "performance",
+      "description": "Pasaport DO uses RpcHandler service instead of per-request httpApp",
+      "stepsToVerify": [
+        "Open apps/worker/src/features/pasaport/pasaport.ts",
+        "Imports RpcHandler from @kampus/spellbook",
+        "RpcLayer includes RpcHandler.layer(PasaportRpcs)",
+        "rpc() method uses Effect.flatMap(RpcHandler.RpcHandler, h => h.handle(request))",
+        "No import of RpcRequestHandler from shared"
+      ],
+      "passes": true,
+      "notes": "httpApp now created once at layer construction time, avoiding RpcServer.toHttpApp overhead on every request."
+    },
+    {
+      "id": "FIX-004",
+      "category": "cleanup",
+      "description": "Remove duplicate SpellbookKeyValueStore from worker",
+      "stepsToVerify": [
+        "apps/worker/src/shared/SpellbookKeyValueStore.ts does NOT exist",
+        "pasaport.ts imports KeyValueStore from @kampus/spellbook",
+        "pasaport.ts uses KeyValueStore.layer({storage: ctx.storage})",
+        "Typecheck passes, all 130 tests pass"
+      ],
+      "passes": true,
+      "notes": "Solved via config param pattern. KeyValueStore.layer({storage}) takes storage directly, avoiding DurableObjectCtx type incompatibility."
+    },
+    {
+      "id": "FIX-005",
+      "category": "convention",
+      "description": "WebPageParser handlers do not use Effect.orDie",
+      "stepsToVerify": [
+        "Open apps/worker/src/features/web-page-parser/handlers.ts",
+        "No .pipe(Effect.orDie) at handler level",
+        "getMetadata catches fetch errors explicitly with Effect.catchAll",
+        "getReaderContent catches all errors via Effect.catchAll and converts to ReaderResult",
+        "Spellbook framework handles SqlError at wrapper level"
+      ],
+      "passes": true,
+      "notes": "Handlers now use explicit error handling instead of .pipe(Effect.orDie). SqlError is handled at framework level by Spellbook's wrapHandlers."
+    }
+  ]
+}

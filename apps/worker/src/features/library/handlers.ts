@@ -37,33 +37,34 @@ const formatStory = (
 });
 
 // Fetch tags for multiple stories in one query
-const getTagsForStoriesSimple = (storyIds: string[]) =>
-	Effect.gen(function* () {
-		if (storyIds.length === 0) {
-			return new Map<string, Array<{id: string; name: string; color: string}>>();
-		}
-		const db = yield* SqliteDrizzle;
+const getTagsForStoriesSimple = Effect.fn("getTagsForStoriesSimple")(function* (
+	storyIds: string[],
+) {
+	if (storyIds.length === 0) {
+		return new Map<string, Array<{id: string; name: string; color: string}>>();
+	}
+	const db = yield* SqliteDrizzle;
 
-		// Join story_tag with tag, filter by story IDs
-		const rows = yield* db
-			.select({
-				storyId: schema.storyTag.storyId,
-				tagId: schema.tag.id,
-				tagName: schema.tag.name,
-				tagColor: schema.tag.color,
-			})
-			.from(schema.storyTag)
-			.innerJoin(schema.tag, eq(schema.storyTag.tagId, schema.tag.id))
-			.where(inArray(schema.storyTag.storyId, storyIds));
+	// Join story_tag with tag, filter by story IDs
+	const rows = yield* db
+		.select({
+			storyId: schema.storyTag.storyId,
+			tagId: schema.tag.id,
+			tagName: schema.tag.name,
+			tagColor: schema.tag.color,
+		})
+		.from(schema.storyTag)
+		.innerJoin(schema.tag, eq(schema.storyTag.tagId, schema.tag.id))
+		.where(inArray(schema.storyTag.storyId, storyIds));
 
-		const tagsByStory = new Map<string, Array<{id: string; name: string; color: string}>>();
-		for (const row of rows) {
-			const tags = tagsByStory.get(row.storyId) ?? [];
-			tags.push({id: row.tagId, name: row.tagName, color: row.tagColor});
-			tagsByStory.set(row.storyId, tags);
-		}
-		return tagsByStory;
-	});
+	const tagsByStory = new Map<string, Array<{id: string; name: string; color: string}>>();
+	for (const row of rows) {
+		const tags = tagsByStory.get(row.storyId) ?? [];
+		tags.push({id: row.tagId, name: row.tagName, color: row.tagColor});
+		tagsByStory.set(row.storyId, tags);
+	}
+	return tagsByStory;
+});
 
 export const getStory = ({id: storyId}: {id: string}) =>
 	Effect.gen(function* () {
@@ -132,7 +133,11 @@ export const listStoriesByTag = ({
 	tagId,
 	first,
 	after,
-}: {tagId: string; first?: number; after?: string}) =>
+}: {
+	tagId: string;
+	first?: number;
+	after?: string;
+}) =>
 	Effect.gen(function* () {
 		const db = yield* SqliteDrizzle;
 		const limit = first ?? 20;
@@ -190,60 +195,56 @@ export const listStoriesByTag = ({
 		};
 	});
 
-export const createStory = ({
-	url,
-	title,
-	description,
-	tagIds,
-}: {
+interface CreateStoryInput {
 	url: string;
 	title: string;
 	description?: string;
 	tagIds?: readonly string[];
-}) =>
-	Effect.gen(function* () {
-		// Validate URL format
-		try {
-			new URL(url);
-		} catch {
-			return yield* Effect.fail(new InvalidUrlError({url}));
-		}
+}
 
-		const db = yield* SqliteDrizzle;
-		const storyId = id("story");
-		const normalizedUrl = getNormalizedUrl(url);
-
-		const [story] = yield* db
-			.insert(schema.story)
-			.values({
-				id: storyId,
-				url,
-				normalizedUrl,
-				title,
-				description: description ?? null,
-			})
-			.returning();
-
-		// Tag the story if tagIds provided
-		if (tagIds && tagIds.length > 0) {
-			const existingTags = yield* db
-				.select({id: schema.tag.id})
-				.from(schema.tag)
-				.where(inArray(schema.tag.id, [...tagIds]));
-			const validTagIds = tagIds.filter((tid) => existingTags.some((t) => t.id === tid));
-
-			if (validTagIds.length > 0) {
-				yield* db
-					.insert(schema.storyTag)
-					.values(validTagIds.map((tagId) => ({storyId, tagId})))
-					.onConflictDoNothing();
-			}
-		}
-
-		const tagsByStory = yield* getTagsForStoriesSimple([storyId]);
-
-		return formatStory(story, tagsByStory.get(storyId) ?? []);
+export const createStory = Effect.fn("createStory")(function* (input: CreateStoryInput) {
+	yield* Effect.try({
+		try: () => new URL(input.url),
+		catch: () => new InvalidUrlError({url: input.url}),
 	});
+
+	const db = yield* SqliteDrizzle;
+	const storyId = id("story");
+	const normalizedUrl = getNormalizedUrl(input.url);
+
+	const [story] = yield* db
+		.insert(schema.story)
+		.values({
+			id: storyId,
+			url: input.url,
+			normalizedUrl,
+			title: input.title,
+			description: input.description ?? null,
+		})
+		.returning();
+
+	const {tagIds} = input;
+
+	// Tag the story if tagIds provided
+	if (tagIds && tagIds.length > 0) {
+		const existingTags = yield* db
+			.select({id: schema.tag.id})
+			.from(schema.tag)
+			.where(inArray(schema.tag.id, [...tagIds]));
+		const validTagIds = tagIds.filter((tid) => existingTags.some((t) => t.id === tid));
+
+		if (validTagIds.length > 0) {
+			yield* db
+				.insert(schema.storyTag)
+				.values(validTagIds.map((tagId) => ({storyId, tagId})))
+				.onConflictDoNothing();
+		}
+	}
+
+	const tagsByStory = yield* getTagsForStoriesSimple([storyId]);
+
+	return formatStory(story, tagsByStory.get(storyId) ?? []);
+});
 
 export const updateStory = ({
 	id: storyId,
@@ -604,9 +605,7 @@ export const setStoryTags = ({storyId, tagIds}: {storyId: string; tagIds: readon
 		if (toRemove.length > 0) {
 			yield* db
 				.delete(schema.storyTag)
-				.where(
-					and(eq(schema.storyTag.storyId, storyId), inArray(schema.storyTag.tagId, toRemove)),
-				);
+				.where(and(eq(schema.storyTag.storyId, storyId), inArray(schema.storyTag.tagId, toRemove)));
 		}
 
 		// Add new tags

@@ -1,11 +1,11 @@
 import {FetchHttpClient} from "@effect/platform";
-import {createYoga} from "graphql-yoga";
 import {Effect, Match} from "effect";
+import {createYoga} from "graphql-yoga";
 import {Hono} from "hono";
+import {proxyImage} from "./features/web-page-parser/proxyImage";
 import type {EffectContext} from "./graphql/resolver";
 import {GraphQLRuntime} from "./graphql/runtime";
 import {printSchemaSDL, schema} from "./graphql/schema";
-import {proxyImage} from "./features/web-page-parser/proxyImage";
 
 export {Library} from "./features/library/Library";
 export {Pasaport} from "./features/pasaport/pasaport";
@@ -24,9 +24,15 @@ app.get("/api/proxy-image", async (c) => {
 		Effect.catchAll((error) =>
 			Effect.succeed(
 				Match.value(error).pipe(
-					Match.tag("InvalidProtocolError", () => new Response("Invalid URL protocol", {status: 400})),
+					Match.tag(
+						"InvalidProtocolError",
+						() => new Response("Invalid URL protocol", {status: 400}),
+					),
 					Match.tag("FetchTimeoutError", () => new Response("Request timed out", {status: 504})),
-					Match.tag("FetchHttpError", (e) => new Response("Failed to fetch image", {status: e.status})),
+					Match.tag(
+						"FetchHttpError",
+						(e) => new Response("Failed to fetch image", {status: e.status}),
+					),
 					Match.tag("FetchNetworkError", () => new Response("Network error", {status: 502})),
 					Match.exhaustive,
 				),
