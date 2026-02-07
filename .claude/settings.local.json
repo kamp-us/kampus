@@ -1,4 +1,7 @@
 {
+  "env": {
+    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"
+  },
   "permissions": {
     "allow": [
       "WebSearch",
@@ -72,7 +75,32 @@
       "Bash(tmux list-sessions:*)",
       "mcp__plugin_playwright_playwright__browser_navigate_back",
       "Bash(pnpm --filter kamp-us run fetch-schema)",
-      "Bash(pnpm --filter kamp-us exec relay-compiler:*)"
+      "Bash(pnpm --filter kamp-us exec relay-compiler:*)",
+      "Bash(git mv:*)",
+      "Bash(pnpm build:*)",
+      "Bash(pnpm e2e:*)",
+      "Bash(pnpm typecheck:*)",
+      "Bash(pnpm drizzle-kit generate:*)",
+      "Bash(pnpm tsc:*)",
+      "Bash(pnpm turbo run typecheck:*)",
+      "Bash(pnpm vitest run:*)",
+      "Bash(pnpm turbo run test:*)",
+      "WebFetch(domain:gist.github.com)",
+      "Bash(tmux list-windows:*)",
+      "WebFetch(domain:dev.to)",
+      "WebFetch(domain:effect.website)",
+      "Bash(pnpm turbo run build:*)",
+      "Bash(git status:*)",
+      "Bash(pnpm why:*)",
+      "Bash(pnpm ls:*)",
+      "Bash(pnpm install:*)",
+      "Bash(pnpm --filter=wormhole run typecheck:*)",
+      "Bash(bun test)",
+      "Bash(pnpm --filter worker dev:*)",
+      "Bash(tmux new-window:*)",
+      "Bash(node --input-type=module -e:*)",
+      "Bash(python3:*)"
     ]
-  }
+  },
+  "outputStyle": "Explanatory"
 }
