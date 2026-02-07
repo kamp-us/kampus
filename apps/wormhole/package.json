@@ -1,0 +1,23 @@
+{
+	"name": "wormhole",
+	"version": "0.0.1",
+	"private": true,
+	"type": "module",
+	"scripts": {
+		"dev": "tsx --watch src/server.ts",
+		"start": "tsx src/server.ts",
+		"typecheck": "tsc --noEmit",
+		"test": "vitest run"
+	},
+	"dependencies": {
+		"@lydell/node-pty": "^1.0.1",
+		"ws": "catalog:"
+	},
+	"devDependencies": {
+		"@types/node": "catalog:",
+		"@types/ws": "catalog:",
+		"tsx": "catalog:",
+		"typescript": "catalog:",
+		"vitest": "catalog:"
+	}
+}

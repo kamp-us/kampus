@@ -1,0 +1,3 @@
+[install]
+# node-pty requires native compilation
+trustedDependencies = ["@lydell/node-pty"]
