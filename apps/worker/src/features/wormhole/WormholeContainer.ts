@@ -9,8 +9,6 @@ export class WormholeContainer extends Container {
 		PORT: "8787",
 	};
 
-	entrypoint = ["node", "node_modules/.bin/tsx", "src/server.ts"];
-
 	onError(error: unknown) {
 		console.log("Wormhole container error:", error);
 	}
