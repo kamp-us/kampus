@@ -1,9 +1,8 @@
-import {describe, expect} from "vitest";
 import {it} from "@effect/vitest";
 import {Effect, Layer, Stream} from "effect";
-
-import {Pty} from "../src/Pty.ts";
+import {describe, expect} from "vitest";
 import type {PtyProcess} from "../src/Pty.ts";
+import {Pty} from "../src/Pty.ts";
 
 const stubProcess: PtyProcess = {
 	output: Stream.empty,

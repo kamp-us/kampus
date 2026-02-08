@@ -1,9 +1,8 @@
-import {describe, expect} from "vitest";
 import {it} from "@effect/vitest";
 import {Chunk, Effect, Stream} from "effect";
-
-import {Pty} from "../src/Pty.ts";
+import {describe, expect} from "vitest";
 import {PtyLive} from "../src/internal/pty.ts";
+import {Pty} from "../src/Pty.ts";
 
 describe("PtyLive (integration)", () => {
 	it.scoped(
