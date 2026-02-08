@@ -9,7 +9,7 @@
 		"typecheck": "tsc --noEmit"
 	},
 	"dependencies": {
-		"@kampus/wormhole": "workspace:*",
+		"@kampus/wormhole-effect": "workspace:*",
 		"@effect/platform": "catalog:",
 		"@effect/platform-node": "catalog:",
 		"effect": "catalog:"
