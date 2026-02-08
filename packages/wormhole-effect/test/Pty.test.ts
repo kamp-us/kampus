@@ -24,7 +24,7 @@ describe("Pty (service interface)", () => {
 		}).pipe(Effect.provide(TestPty)),
 	);
 
-	it.effect("spawn returns a PtyProcess with expected shape", () =>
+	it.scoped("spawn returns a PtyProcess with expected shape", () =>
 		Effect.gen(function* () {
 			const pty = yield* Pty;
 			const proc = yield* pty.spawn({cols: 80, rows: 24});
