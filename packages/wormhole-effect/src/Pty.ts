@@ -37,3 +37,9 @@ export class Pty extends Context.Tag("@kampus/wormhole-effect/Pty")<
 		) => Effect.Effect<PtyProcess, PtySpawnError, Scope.Scope>;
 	}
 >() {}
+
+/**
+ * @since 0.0.1
+ * @category layers
+ */
+export {PtyLive} from "./internal/pty.ts";
