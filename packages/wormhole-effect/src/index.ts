@@ -6,10 +6,10 @@
 
 /** @since 0.0.1 */
 export * as Errors from "./Errors.ts";
-
+/** @since 0.0.1 */
+export {PtyLive} from "./internal/pty.ts";
 /** @since 0.0.1 */
 export * as Protocol from "./Protocol.ts";
-
 /** @since 0.0.1 */
 export * as Pty from "./Pty.ts";
 
