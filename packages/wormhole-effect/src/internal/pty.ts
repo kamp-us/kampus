@@ -62,4 +62,4 @@ const spawn = (options: SpawnOptions): Effect.Effect<PtyProcess, PtySpawnError, 
 	});
 
 /** @internal */
-export const PtyLive: Layer.Layer<Pty> = Layer.succeed(Pty, Pty.of({spawn}));
+export const PtyLive: Layer.Layer<Pty> = Layer.sync(Pty, () => Pty.of({spawn}));

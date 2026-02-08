@@ -14,8 +14,7 @@ const program = Effect.gen(function* () {
 
 const WormholeLive = Layer.mergeAll(
 	NodeSocketServer.layerWebSocket({port: PORT, host: "0.0.0.0"}),
-	SessionStore.SessionStore.Default,
-	Pty.PtyLive,
+	SessionStore.SessionStore.Default.pipe(Layer.provide(Pty.PtyLive)),
 	NodeContext.layer,
 );
 
