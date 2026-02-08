@@ -13,6 +13,7 @@ catalog:
   '@effect/language-service': latest
   '@effect/platform': 0.94.0
   '@effect/platform-bun': ^0.87.0
+  '@effect/platform-node': ^0.94.0
   '@effect/rpc': ^0.73.0
   '@effect/sql': ^0.49.0
   '@effect/sql-drizzle': ^0.48.0

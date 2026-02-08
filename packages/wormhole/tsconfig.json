@@ -1,0 +1,18 @@
+{
+	"compilerOptions": {
+		"target": "es2024",
+		"lib": ["es2024"],
+		"module": "es2022",
+		"moduleResolution": "Bundler",
+		"strict": true,
+		"noEmit": true,
+		"skipLibCheck": true,
+		"verbatimModuleSyntax": true,
+		"moduleDetection": "force",
+		"allowImportingTsExtensions": true,
+		"noUnusedLocals": true,
+		"noUnusedParameters": true,
+		"erasableSyntaxOnly": true
+	},
+	"include": ["src", "test"]
+}
