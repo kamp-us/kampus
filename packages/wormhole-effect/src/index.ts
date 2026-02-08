@@ -15,3 +15,6 @@ export * as RingBuffer from "./RingBuffer.ts";
 
 /** @since 0.0.1 */
 export * as Session from "./Session.ts";
+
+/** @since 0.0.1 */
+export * as SessionStore from "./SessionStore.ts";
