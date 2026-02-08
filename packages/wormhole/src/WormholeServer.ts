@@ -17,13 +17,12 @@ export const handleConnection = (socket: Socket.Socket) =>
 			const store = yield* SessionStore
 			const write = yield* socket.writer
 			const clientId = crypto.randomUUID()
-			const encoder = new TextEncoder()
 			const decoder = new TextDecoder()
 
 			let session: PtySession | undefined
 			let attached = false
 
-			const sendJson = (msg: object) => write(encoder.encode(JSON.stringify(msg)))
+			const sendJson = (msg: object) => write(JSON.stringify(msg))
 
 			const doAttach = Effect.fn("WormholeServer.doAttach")(function* (
 				sessionId: string | null,
@@ -51,11 +50,11 @@ export const handleConnection = (socket: Socket.Socket) =>
 				yield* session.attach(
 					clientId,
 					(data) => {
-						Effect.runSync(write(encoder.encode(data)))
+						Effect.runSync(write(data))
 					},
 					(exitCode) => {
 						const msg = `\r\n\x1b[33mShell exited (code: ${exitCode})\x1b[0m\r\n`
-						Effect.runSync(write(encoder.encode(msg)))
+						Effect.runSync(write(msg))
 						Effect.runSync(write(new Socket.CloseEvent(1000)))
 					},
 					cols,
