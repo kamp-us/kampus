@@ -10,10 +10,7 @@ import * as internal from "./internal/sessionStore.ts";
  * @since 0.0.1
  * @category tags
  */
-export class SessionStore extends Effect.Service<SessionStore>()(
-	"@kampus/wormhole/SessionStore",
-	{
-		effect: internal.make,
-		dependencies: [],
-	},
-) {}
+export class SessionStore extends Effect.Service<SessionStore>()("@kampus/wormhole/SessionStore", {
+	effect: internal.make,
+	dependencies: [],
+}) {}

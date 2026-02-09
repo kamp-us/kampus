@@ -24,8 +24,10 @@ export class RingBuffer {
 	push(data: string): void {
 		const len = Buffer.byteLength(data);
 		if (len > this.capacity) {
-			this.entries = [data.slice(-this.capacity)];
-			this.totalBytes = Buffer.byteLength(this.entries[0]);
+			const buf = Buffer.from(data);
+			const truncated = buf.subarray(buf.length - this.capacity).toString("utf-8");
+			this.entries = [truncated];
+			this.totalBytes = Buffer.byteLength(truncated);
 			return;
 		}
 		this.entries.push(data);

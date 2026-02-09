@@ -1,7 +1,7 @@
 /** @internal */
 import {homedir} from "node:os";
 import pty from "@lydell/node-pty";
-import {Deferred, Effect, Layer, type Scope, Stream} from "effect";
+import {Deferred, Effect, Layer, Stream} from "effect";
 import {PtySpawnError} from "../Errors.ts";
 import {Pty, type PtyProcess, type SpawnOptions} from "../Pty.ts";
 
@@ -10,7 +10,7 @@ const getDefaultShell = (): string =>
 		? process.env.COMSPEC || "cmd.exe"
 		: process.env.SHELL || "/bin/bash";
 
-const spawn = (options: SpawnOptions): Effect.Effect<PtyProcess, PtySpawnError, Scope.Scope> =>
+const spawn = (options: SpawnOptions) =>
 	Effect.gen(function* () {
 		const shell = options.shell ?? getDefaultShell();
 		const exitDeferred = yield* Deferred.make<number>();

@@ -10,6 +10,6 @@ export class WormholeContainer extends Container {
 	};
 
 	onError(error: unknown) {
-		console.log("Wormhole container error:", error);
+		console.error("Wormhole container error:", error);
 	}
 }

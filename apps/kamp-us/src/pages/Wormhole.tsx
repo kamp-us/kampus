@@ -14,8 +14,6 @@ export function Wormhole() {
 		return <Navigate to={`/wormhole/${crypto.randomUUID()}`} replace />;
 	}
 
-	console.log("Connecting to Wormhole session:", sessionId, wsUrl);
-
 	return (
 		<GhosttyTerminal url={wsUrl} sessionId={sessionId} className={styles.container} theme={theme} />
 	);

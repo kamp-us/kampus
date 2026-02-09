@@ -1,5 +1,5 @@
 /** @internal */
-import {Deferred, Effect, Exit, Ref, Scope} from "effect";
+import {Config, Deferred, Effect, Exit, Ref, Scope} from "effect";
 import {SessionNotFoundError} from "../Errors.ts";
 import {Pty} from "../Pty.ts";
 import type {Session} from "../Session.ts";
@@ -16,7 +16,9 @@ interface SessionEntry {
 export const make = Effect.gen(function* () {
 	const pty = yield* Pty;
 	const entries = yield* Ref.make<Map<string, SessionEntry>>(new Map());
-	const bufferCapacity = Number(process.env.WORMHOLE_BUFFER_SIZE) || DEFAULT_BUFFER_CAPACITY;
+	const bufferCapacity = yield* Config.number("WORMHOLE_BUFFER_SIZE").pipe(
+		Config.withDefault(DEFAULT_BUFFER_CAPACITY),
+	);
 
 	const create = (id: string, cols: number, rows: number) =>
 		Effect.gen(function* () {
