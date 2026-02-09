@@ -1,6 +1,6 @@
 import * as SocketServer from "@effect/platform/SocketServer";
 import {NodeContext, NodeRuntime, NodeSocketServer} from "@effect/platform-node";
-import {PtyLive, Server, SessionStore} from "@kampus/wormhole-effect";
+import {PtyLive, Server, SessionStore} from "@kampus/wormhole";
 import {Console, Effect, Layer} from "effect";
 
 const PORT = Number(process.env.PORT) || 8787;

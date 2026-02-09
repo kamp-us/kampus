@@ -29,7 +29,7 @@ export interface PtyProcess {
  * @since 0.0.1
  * @category tags
  */
-export class Pty extends Context.Tag("@kampus/wormhole-effect/Pty")<
+export class Pty extends Context.Tag("@kampus/wormhole/Pty")<
 	Pty,
 	{
 		readonly spawn: (

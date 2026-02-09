@@ -1,4 +1,4 @@
-# @kampus/wormhole-effect
+# @kampus/wormhole
 
 Effect-native PTY multiplexer. Spawns pseudo-terminal processes and multiplexes their I/O across multiple WebSocket clients.
 
@@ -40,7 +40,7 @@ WebSocket Client C ──┘       │        │    └── Queue C ──→
 ```ts
 import * as SocketServer from "@effect/platform/SocketServer"
 import {NodeContext, NodeRuntime, NodeSocketServer} from "@effect/platform-node"
-import {PtyLive, Server, SessionStore} from "@kampus/wormhole-effect"
+import {PtyLive, Server, SessionStore} from "@kampus/wormhole"
 import {Console, Effect, Layer} from "effect"
 
 const PORT = 8787
@@ -63,7 +63,7 @@ program.pipe(Effect.provide(WormholeLive), NodeRuntime.runMain)
 ## Testing
 
 ```bash
-pnpm --filter @kampus/wormhole-effect test
+pnpm --filter @kampus/wormhole test
 ```
 
 The `Pty` tag makes testing easy — swap `PtyLive` for a mock Layer:

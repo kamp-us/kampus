@@ -1,23 +1,26 @@
-// Protocol
-export type {ControlMessage, ServerMessage} from "./Protocol.ts"
-export {
-	AttachMessage,
-	ResizeMessage,
-	SessionMessage,
-	SessionListRequest,
-	SessionListResponse,
-	SessionNewRequest,
-	parseMessage,
-} from "./Protocol.ts"
+/**
+ * @kampus/wormhole — Effect-native PTY multiplexer.
+ *
+ * @since 0.0.1
+ */
 
-// Errors
-export {PtySpawnError, SessionNotFoundError} from "./Errors.ts"
+/** @since 0.0.1 */
+export * as Errors from "./Errors.ts";
+/** @since 0.0.1 */
+export {PtyLive} from "./internal/pty.ts";
+/** @since 0.0.1 */
+export * as Protocol from "./Protocol.ts";
+/** @since 0.0.1 */
+export * as Pty from "./Pty.ts";
 
-// Domain
-export {RingBuffer} from "./RingBuffer.ts"
-export type {PtySession, PtySessionConfig} from "./PtySession.ts"
-export {make as makePtySession} from "./PtySession.ts"
-export {SessionStore} from "./SessionStore.ts"
+/** @since 0.0.1 */
+export * as RingBuffer from "./RingBuffer.ts";
 
-// Server
-export {handleConnection} from "./WormholeServer.ts"
+/** @since 0.0.1 */
+export * as Server from "./Server.ts";
+
+/** @since 0.0.1 */
+export * as Session from "./Session.ts";
+
+/** @since 0.0.1 */
+export * as SessionStore from "./SessionStore.ts";

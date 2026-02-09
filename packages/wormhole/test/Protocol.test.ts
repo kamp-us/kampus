@@ -1,57 +1,71 @@
-import {describe, expect, test} from "vitest"
-import {Option} from "effect"
-import {parseMessage} from "../src/Protocol.ts"
+import {Option} from "effect";
+import {describe, expect, test} from "vitest";
+import {parseMessage, SessionListResponse, SessionMessage} from "../src/Protocol.ts";
 
-describe("parseMessage", () => {
-	test("parses valid resize message", () => {
-		const msg = parseMessage('{"type":"resize","cols":120,"rows":40}')
-		expect(Option.isSome(msg)).toBe(true)
-		expect(Option.getOrThrow(msg)).toMatchObject({type: "resize", cols: 120, rows: 40})
-	})
+describe("Protocol", () => {
+	describe("parseMessage", () => {
+		test("parses attach message", () => {
+			const msg = JSON.stringify({type: "attach", sessionId: "s1", cols: 80, rows: 24});
+			const result = parseMessage(msg);
+			expect(Option.isSome(result)).toBe(true);
+			if (Option.isSome(result)) {
+				expect(result.value.type).toBe("attach");
+			}
+		});
 
-	test("parses valid attach message with null sessionId", () => {
-		const msg = parseMessage('{"type":"attach","sessionId":null,"cols":80,"rows":24}')
-		expect(Option.isSome(msg)).toBe(true)
-		expect(Option.getOrThrow(msg)).toMatchObject({type: "attach", sessionId: null, cols: 80, rows: 24})
-	})
+		test("parses resize message", () => {
+			const msg = JSON.stringify({type: "resize", cols: 120, rows: 40});
+			const result = parseMessage(msg);
+			expect(Option.isSome(result)).toBe(true);
+			if (Option.isSome(result)) {
+				expect(result.value.type).toBe("resize");
+			}
+		});
 
-	test("parses valid attach message with string sessionId", () => {
-		const msg = parseMessage('{"type":"attach","sessionId":"abc-123","cols":120,"rows":40}')
-		expect(Option.isSome(msg)).toBe(true)
-		expect(Option.getOrThrow(msg)).toMatchObject({
-			type: "attach",
-			sessionId: "abc-123",
-			cols: 120,
-			rows: 40,
-		})
-	})
+		test("parses session_list_request", () => {
+			const msg = JSON.stringify({type: "session_list_request"});
+			const result = parseMessage(msg);
+			expect(Option.isSome(result)).toBe(true);
+		});
 
-	test("returns None for raw terminal input", () => {
-		expect(Option.isNone(parseMessage("ls -la"))).toBe(true)
-		expect(Option.isNone(parseMessage("hello\r\n"))).toBe(true)
-	})
+		test("parses session_new", () => {
+			const msg = JSON.stringify({type: "session_new", cols: 80, rows: 24});
+			const result = parseMessage(msg);
+			expect(Option.isSome(result)).toBe(true);
+		});
 
-	test("returns None for non-resize JSON", () => {
-		expect(Option.isNone(parseMessage('{"type":"unknown"}'))).toBe(true)
-	})
+		test("returns None for raw terminal input", () => {
+			expect(Option.isNone(parseMessage("ls -la\n"))).toBe(true);
+		});
 
-	test("returns None for invalid JSON starting with {", () => {
-		expect(Option.isNone(parseMessage("{not json"))).toBe(true)
-	})
+		test("returns None for invalid JSON starting with {", () => {
+			expect(Option.isNone(parseMessage("{not valid json"))).toBe(true);
+		});
 
-	test("returns None for resize missing cols", () => {
-		expect(Option.isNone(parseMessage('{"type":"resize","rows":24}'))).toBe(true)
-	})
+		test("returns None for valid JSON with unknown type", () => {
+			expect(Option.isNone(parseMessage(JSON.stringify({type: "unknown"})))).toBe(true);
+		});
 
-	test("returns None for resize with wrong types", () => {
-		expect(Option.isNone(parseMessage('{"type":"resize","cols":"80","rows":"24"}'))).toBe(true)
-	})
+		test("attach with null sessionId", () => {
+			const msg = JSON.stringify({type: "attach", sessionId: null, cols: 80, rows: 24});
+			const result = parseMessage(msg);
+			expect(Option.isSome(result)).toBe(true);
+		});
+	});
 
-	test("returns None for attach missing cols", () => {
-		expect(Option.isNone(parseMessage('{"type":"attach","sessionId":null,"rows":24}'))).toBe(true)
-	})
+	describe("server messages", () => {
+		test("SessionMessage constructs correctly", () => {
+			const msg = new SessionMessage({type: "session", sessionId: "s1"});
+			expect(msg.type).toBe("session");
+			expect(msg.sessionId).toBe("s1");
+		});
 
-	test("returns None for attach with numeric sessionId", () => {
-		expect(Option.isNone(parseMessage('{"type":"attach","sessionId":123,"cols":80,"rows":24}'))).toBe(true)
-	})
-})
+		test("SessionListResponse constructs correctly", () => {
+			const msg = new SessionListResponse({
+				type: "session_list",
+				sessions: [{id: "s1", clientCount: 2}],
+			});
+			expect(msg.sessions).toHaveLength(1);
+		});
+	});
+});

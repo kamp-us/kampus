@@ -1,116 +1,75 @@
-import {beforeEach, describe, expect, test, vi} from "vitest"
-import {Effect} from "effect"
-import {createMockPty, mockPtyState, resetPtyMock} from "./mocks/node-pty.ts"
-import {SessionStore} from "../src/SessionStore.ts"
+import {it} from "@effect/vitest";
+import {Deferred, Effect, Layer, Queue, Stream} from "effect";
+import {describe, expect} from "vitest";
 
-vi.mock("@lydell/node-pty", () => createMockPty())
+import {Pty, type PtyProcess} from "../src/Pty.ts";
+import {SessionStore} from "../src/SessionStore.ts";
+
+// Test Pty: each spawn gets independent mock
+const makeTestPtyProcess = Effect.gen(function* () {
+	const outputQueue = yield* Queue.unbounded<string>();
+	const exitDeferred = yield* Deferred.make<number>();
+	return {
+		output: Stream.fromQueue(outputQueue),
+		awaitExit: Deferred.await(exitDeferred),
+		write: () => Effect.void,
+		resize: () => Effect.void,
+	} satisfies PtyProcess;
+});
+
+const TestPty = Layer.succeed(Pty, {
+	spawn: () => makeTestPtyProcess,
+});
+
+const TestSessionStore = SessionStore.Default.pipe(Layer.provide(TestPty));
 
 describe("SessionStore", () => {
-	beforeEach(() => {
-		resetPtyMock()
-	})
+	it.effect("create + get returns session", () =>
+		Effect.gen(function* () {
+			const store = yield* SessionStore;
+			const session = yield* store.create("s1", 80, 24);
+			expect(session.id).toBe("s1");
 
-	const run = <A, E>(effect: Effect.Effect<A, E, SessionStore>) =>
-		Effect.runPromise(effect.pipe(Effect.provide(SessionStore.Default)))
+			const found = yield* store.get("s1");
+			expect(found?.id).toBe("s1");
+		}).pipe(Effect.provide(TestSessionStore)),
+	);
 
-	test("create returns a session with unique id", async () => {
-		await run(
-			Effect.gen(function* () {
-				const store = yield* SessionStore
-				const s1 = yield* store.create("id-1", 80, 24)
-				const s2 = yield* store.create("id-2", 80, 24)
-				expect(s1.id).toBe("id-1")
-				expect(s2.id).toBe("id-2")
-				expect(s1.id).not.toBe(s2.id)
-				const size = yield* store.size
-				expect(size).toBe(2)
-			}),
-		)
-	})
+	it.effect("get returns undefined for unknown id", () =>
+		Effect.gen(function* () {
+			const store = yield* SessionStore;
+			const found = yield* store.get("nonexistent");
+			expect(found).toBeUndefined();
+		}).pipe(Effect.provide(TestSessionStore)),
+	);
 
-	test("get returns session by id", async () => {
-		await run(
-			Effect.gen(function* () {
-				const store = yield* SessionStore
-				const session = yield* store.create("test-id", 80, 24)
-				const found = yield* store.get(session.id)
-				expect(found).toBe(session)
-			}),
-		)
-	})
+	it.effect("getOrFail returns SessionNotFoundError for unknown id", () =>
+		Effect.gen(function* () {
+			const store = yield* SessionStore;
+			const result = yield* store
+				.getOrFail("nonexistent")
+				.pipe(Effect.catchTag("SessionNotFoundError", (e) => Effect.succeed(e.sessionId)));
+			expect(result).toBe("nonexistent");
+		}).pipe(Effect.provide(TestSessionStore)),
+	);
 
-	test("get returns undefined for unknown id", async () => {
-		await run(
-			Effect.gen(function* () {
-				const store = yield* SessionStore
-				const found = yield* store.get("nonexistent")
-				expect(found).toBeUndefined()
-			}),
-		)
-	})
+	it.effect("list shows created sessions", () =>
+		Effect.gen(function* () {
+			const store = yield* SessionStore;
+			yield* store.create("s1", 80, 24);
+			yield* store.create("s2", 120, 40);
+			const sessions = yield* store.list();
+			expect(sessions).toHaveLength(2);
+			expect(sessions.map((s) => s.id).sort()).toEqual(["s1", "s2"]);
+		}).pipe(Effect.provide(TestSessionStore)),
+	);
 
-	test("attach replays buffered output from detached period", async () => {
-		await run(
-			Effect.gen(function* () {
-				const store = yield* SessionStore
-				const session = yield* store.create("test-id", 80, 24)
-
-				mockPtyState.dataCb?.("hello")
-				mockPtyState.dataCb?.(" world")
-
-				const received: string[] = []
-				yield* session.attach("client-1", (data) => received.push(data), () => {}, 80, 24)
-
-				expect(received).toEqual(["hello", " world"])
-			}),
-		)
-	})
-
-	test("attach replays output produced while attached then detached", async () => {
-		await run(
-			Effect.gen(function* () {
-				const store = yield* SessionStore
-				const session = yield* store.create("test-id", 80, 24)
-
-				const first: string[] = []
-				yield* session.attach("client-1", (data) => first.push(data), () => {}, 80, 24)
-				mockPtyState.dataCb?.("line1")
-				expect(first).toEqual(["line1"])
-
-				yield* session.detach("client-1")
-
-				const second: string[] = []
-				yield* session.attach("client-2", (data) => second.push(data), () => {}, 80, 24)
-				expect(second).toEqual(["line1"])
-			}),
-		)
-	})
-
-	test("no buffered data replayed when nothing was produced", async () => {
-		await run(
-			Effect.gen(function* () {
-				const store = yield* SessionStore
-				const session = yield* store.create("test-id", 80, 24)
-
-				const received: string[] = []
-				yield* session.attach("client-1", (data) => received.push(data), () => {}, 80, 24)
-
-				expect(received).toEqual([])
-			}),
-		)
-	})
-
-	test("list returns active sessions", async () => {
-		await run(
-			Effect.gen(function* () {
-				const store = yield* SessionStore
-				yield* store.create("s1", 80, 24)
-				yield* store.create("s2", 80, 24)
-
-				const sessions = yield* store.list()
-				expect(sessions).toHaveLength(2)
-				expect(sessions.map((s) => s.id).sort()).toEqual(["s1", "s2"])
-			}),
-		)
-	})
-})
+	it.effect("size reflects session count", () =>
+		Effect.gen(function* () {
+			const store = yield* SessionStore;
+			expect(yield* store.size).toBe(0);
+			yield* store.create("s1", 80, 24);
+			expect(yield* store.size).toBe(1);
+		}).pipe(Effect.provide(TestSessionStore)),
+	);
+});

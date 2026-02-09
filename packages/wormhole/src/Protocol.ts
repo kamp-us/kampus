@@ -1,7 +1,13 @@
-import {Either, Option, Schema} from "effect"
+/**
+ * WebSocket message protocol for wormhole sessions.
+ *
+ * @since 0.0.1
+ */
+import {Either, Option, Schema} from "effect";
 
-// --- Client → Server messages ---
+// Client → Server
 
+/** @since 0.0.1 @category models */
 export class AttachMessage extends Schema.Class<AttachMessage>("AttachMessage")({
 	type: Schema.Literal("attach"),
 	sessionId: Schema.NullOr(Schema.String),
@@ -9,66 +15,71 @@ export class AttachMessage extends Schema.Class<AttachMessage>("AttachMessage")(
 	rows: Schema.Number,
 }) {}
 
+/** @since 0.0.1 @category models */
 export class ResizeMessage extends Schema.Class<ResizeMessage>("ResizeMessage")({
 	type: Schema.Literal("resize"),
 	cols: Schema.Number,
 	rows: Schema.Number,
 }) {}
 
+/** @since 0.0.1 @category models */
 export class SessionListRequest extends Schema.Class<SessionListRequest>("SessionListRequest")({
 	type: Schema.Literal("session_list_request"),
 }) {}
 
+/** @since 0.0.1 @category models */
 export class SessionNewRequest extends Schema.Class<SessionNewRequest>("SessionNewRequest")({
 	type: Schema.Literal("session_new"),
 	cols: Schema.Number,
 	rows: Schema.Number,
 }) {}
 
-export const ControlMessage = Schema.Union(AttachMessage, ResizeMessage, SessionListRequest, SessionNewRequest)
-export type ControlMessage = typeof ControlMessage.Type
+/** @since 0.0.1 @category models */
+export const ControlMessage = Schema.Union(
+	AttachMessage,
+	ResizeMessage,
+	SessionListRequest,
+	SessionNewRequest,
+);
 
-// --- Server → Client messages ---
+/** @since 0.0.1 @category models */
+export type ControlMessage = typeof ControlMessage.Type;
 
+// Server → Client
+
+/** @since 0.0.1 @category models */
 export class SessionMessage extends Schema.Class<SessionMessage>("SessionMessage")({
 	type: Schema.Literal("session"),
 	sessionId: Schema.String,
 }) {}
 
+/** @since 0.0.1 @category models */
 export class SessionListResponse extends Schema.Class<SessionListResponse>("SessionListResponse")({
 	type: Schema.Literal("session_list"),
-	sessions: Schema.Array(
-		Schema.Struct({
-			id: Schema.String,
-			clientCount: Schema.Number,
-		}),
-	),
+	sessions: Schema.Array(Schema.Struct({id: Schema.String, clientCount: Schema.Number})),
 }) {}
 
-export type ServerMessage = SessionMessage | SessionListResponse
+/** @since 0.0.1 @category models */
+export type ServerMessage = SessionMessage | SessionListResponse;
 
-// --- Parsing ---
+// Parsing
 
-const decodeControlMessage = Schema.decodeUnknownEither(ControlMessage)
+const decodeControlMessage = Schema.decodeUnknownEither(ControlMessage);
 
 /**
- * Parse a raw WebSocket message into a ControlMessage.
- * Returns Option.None for raw terminal input (non-JSON).
- * Returns Option.Some for valid control messages.
- * Silently drops invalid JSON.
+ * @since 0.0.1
+ * @category parsing
  */
 export const parseMessage = (data: string): Option.Option<ControlMessage> => {
-	if (!data.startsWith("{")) return Option.none()
-
-	let parsed: unknown
+	if (!data.startsWith("{")) return Option.none();
+	let parsed: unknown;
 	try {
-		parsed = JSON.parse(data)
+		parsed = JSON.parse(data);
 	} catch {
-		return Option.none()
+		return Option.none();
 	}
-
 	return Either.match(decodeControlMessage(parsed), {
 		onLeft: () => Option.none(),
 		onRight: (msg) => Option.some(msg),
-	})
-}
+	});
+};

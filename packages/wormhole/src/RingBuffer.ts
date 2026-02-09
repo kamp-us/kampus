@@ -1,45 +1,56 @@
 /**
- * RingBuffer — fixed-capacity circular buffer for PTY output.
+ * Byte-capped ring buffer that evicts oldest entries when capacity is exceeded.
  *
- * Stores strings up to `capacity` total bytes. When a push exceeds capacity,
- * oldest entries are evicted until the new entry fits. This ensures bounded
- * memory usage for buffered terminal output during WebSocket disconnects.
+ * @since 0.0.1
+ * @category models
  */
 export class RingBuffer {
 	private entries: string[] = [];
 	private totalBytes = 0;
+
+	/** Maximum byte capacity. */
 	readonly capacity: number;
 
 	constructor(capacity: number) {
 		this.capacity = capacity;
 	}
 
-	/** Append data, evicting oldest entries if total bytes exceed capacity. */
+	/**
+	 * Push a string into the buffer, evicting oldest entries if the total exceeds capacity.
+	 * A single entry larger than capacity is truncated to its tail.
+	 *
+	 * @since 0.0.1
+	 */
 	push(data: string): void {
 		const len = Buffer.byteLength(data);
-
-		// If a single entry exceeds capacity, store only the tail that fits.
 		if (len > this.capacity) {
 			this.entries = [data.slice(-this.capacity)];
 			this.totalBytes = Buffer.byteLength(this.entries[0]);
 			return;
 		}
-
 		this.entries.push(data);
 		this.totalBytes += len;
-
 		while (this.totalBytes > this.capacity && this.entries.length > 1) {
-			const evicted = this.entries.shift()!;
+			const evicted = this.entries.shift();
+			if (evicted === undefined) break;
 			this.totalBytes -= Buffer.byteLength(evicted);
 		}
 	}
 
-	/** Return a copy of all buffered entries without clearing. */
+	/**
+	 * Return a shallow copy of all buffered entries in insertion order.
+	 *
+	 * @since 0.0.1
+	 */
 	snapshot(): string[] {
 		return this.entries.slice();
 	}
 
-	/** Current buffered byte count. */
+	/**
+	 * Current total byte size of all buffered entries.
+	 *
+	 * @since 0.0.1
+	 */
 	get size(): number {
 		return this.totalBytes;
 	}
