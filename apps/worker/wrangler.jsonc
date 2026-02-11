@@ -15,10 +15,10 @@
 	],
 	"containers": [
 		{
-			"class_name": "WormholeContainer",
-			"image": "../wormhole/Dockerfile",
-			"max_instances": 1,
-			"instance_type": "standard"
+			"class_name": "WormholeSandbox",
+			"image": "./src/features/wormhole/Dockerfile.sandbox",
+			"max_instances": 5,
+			"instance_type": "basic"
 		}
 	],
 	"durable_objects": {
@@ -36,8 +36,12 @@
 				"class_name": "Library"
 			},
 			{
-				"name": "WORMHOLE",
-				"class_name": "WormholeContainer"
+				"name": "WORMHOLE_DO",
+				"class_name": "WormholeDO"
+			},
+			{
+				"name": "WORMHOLE_SANDBOX",
+				"class_name": "WormholeSandbox"
 			}
 		]
 	},
@@ -63,6 +67,16 @@
 			"tag": "v2",
 			"new_sqlite_classes": [
 				"WormholeContainer"
+			]
+		},
+		{
+			"tag": "v3",
+			"deleted_classes": [
+				"WormholeContainer"
+			],
+			"new_sqlite_classes": [
+				"WormholeDO",
+				"WormholeSandbox"
 			]
 		}
 	],

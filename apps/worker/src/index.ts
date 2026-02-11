@@ -1,4 +1,3 @@
-import {getContainer} from "@cloudflare/containers";
 import {FetchHttpClient} from "@effect/platform";
 import {Effect, Match} from "effect";
 import {createYoga} from "graphql-yoga";
@@ -11,7 +10,8 @@ import {printSchemaSDL, schema} from "./graphql/schema";
 export {Library} from "./features/library/Library";
 export {Pasaport} from "./features/pasaport/pasaport";
 export {WebPageParser} from "./features/web-page-parser/WebPageParser";
-export {WormholeContainer} from "./features/wormhole/WormholeContainer";
+export {WormholeDO} from "./features/wormhole/WormholeDO";
+export {WormholeSandbox} from "./features/wormhole/WormholeSandbox";
 
 const app = new Hono<{Bindings: Env}>();
 
@@ -77,25 +77,11 @@ app.all("/rpc/library/*", async (c) => {
 	}
 });
 
-// WebSocket proxy to wormhole container
+// WebSocket to wormhole multiplexer DO
 app.all("/wormhole/ws", async (c) => {
-	const container = getContainer(c.env.WORMHOLE, "singleton");
-	const wsReq = new Request("http://wormhole/ws", {
-		method: c.req.raw.method,
-		headers: c.req.raw.headers,
-	});
-
-	return await container.fetch(wsReq);
-});
-
-// WebSocket proxy to wormhole container
-app.all("/wormhole/*", async (c) => {
-	const container = getContainer(c.env.WORMHOLE, "singleton");
-	const url = new URL(c.req.url);
-	url.pathname = url.pathname.replace(/^\/wormhole/, "");
-	url.host = "wormhole";
-	console.log("Proxying to Wormhole container:", url.toString());
-	return container.fetch(new Request(url.toString(), c.req.raw));
+	const id = c.env.WORMHOLE_DO.idFromName("singleton");
+	const stub = c.env.WORMHOLE_DO.get(id);
+	return stub.fetch(c.req.raw);
 });
 
 // Endpoint to fetch GraphQL schema SDL
