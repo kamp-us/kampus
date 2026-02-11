@@ -12,6 +12,9 @@ catalogs:
     '@biomejs/biome':
       specifier: ^2.3.10
       version: 2.3.10
+    '@cloudflare/sandbox':
+      specifier: ^0.7.1
+      version: 0.7.1
     '@cloudflare/vite-plugin':
       specifier: ^1.19.0
       version: 1.19.0
@@ -29,7 +32,7 @@ catalogs:
       version: 0.58.0
     '@effect/language-service':
       specifier: latest
-      version: 0.73.0
+      version: 0.73.1
     '@effect/platform':
       specifier: 0.94.0
       version: 0.94.0
@@ -169,7 +172,7 @@ importers:
         version: 2.3.10
       '@effect/language-service':
         specifier: 'catalog:'
-        version: 0.73.0
+        version: 0.73.1
       turbo:
         specifier: 'catalog:'
         version: 2.7.0
@@ -328,6 +331,9 @@ importers:
       '@cloudflare/containers':
         specifier: ^0.1.0
         version: 0.1.0
+      '@cloudflare/sandbox':
+        specifier: 'catalog:'
+        version: 0.7.1
       '@effect/experimental':
         specifier: 'catalog:'
         version: 0.58.0(@effect/platform@0.94.0(effect@3.19.13))(effect@3.19.13)
@@ -355,6 +361,9 @@ importers:
       '@kampus/web-page-parser':
         specifier: workspace:*
         version: link:../../packages/web-page-parser
+      '@kampus/wormhole':
+        specifier: workspace:*
+        version: link:../../packages/wormhole
       '@mozilla/readability':
         specifier: 'catalog:'
         version: 0.6.0
@@ -627,6 +636,9 @@ packages:
     cpu: [x64]
     os: [win32]
 
+  '@cloudflare/containers@0.0.30':
+    resolution: {integrity: sha512-i148xBgmyn/pje82ZIyuTr/Ae0BT/YWwa1/GTJcw6DxEjUHAzZLaBCiX446U9OeuJ2rBh/L/9FIzxX5iYNt1AQ==}
+
   '@cloudflare/containers@0.1.0':
     resolution: {integrity: sha512-nuXnmkpJZzbjYdguRI2hB0sw1QCBMWdNuGDNQwEiJSLebtKRFpBt/d6AStGjp+8wGD2plPbd2U/mQerYF9kzJg==}
 
@@ -637,6 +649,20 @@ packages:
   '@cloudflare/kv-asset-handler@0.4.2':
     resolution: {integrity: sha512-SIOD2DxrRRwQ+jgzlXCqoEFiKOFqaPjhnNTGKXSRLvp1HiOvapLaFG2kEr9dYQTYe8rKrd9uvDUzmAITeNyaHQ==}
     engines: {node: '>=18.0.0'}
+
+  '@cloudflare/sandbox@0.7.1':
+    resolution: {integrity: sha512-suDuYa+/rLmvaTqRwETsRO7gyN7XGAfxy+Y/UmCCQJzPL5FHBojV5NUw7xwe6mIznSscz2uk1iPHrF7sCecCBA==}
+    peerDependencies:
+      '@openai/agents': ^0.3.3
+      '@opencode-ai/sdk': ^1.0.137
+      '@xterm/xterm': '>=5.0.0'
+    peerDependenciesMeta:
+      '@openai/agents':
+        optional: true
+      '@opencode-ai/sdk':
+        optional: true
+      '@xterm/xterm':
+        optional: true
 
   '@cloudflare/unenv-preset@2.12.0':
     resolution: {integrity: sha512-NK4vN+2Z/GbfGS4BamtbbVk1rcu5RmqaYGiyHJQrA09AoxdZPHDF3W/EhgI0YSK8p3vRo/VNCtbSJFPON7FWMQ==}
@@ -826,8 +852,8 @@ packages:
       lmdb:
         optional: true
 
-  '@effect/language-service@0.73.0':
-    resolution: {integrity: sha512-/SGoq50VDm/XwQI6d0cReYcLjwfdqwZv7uEJp92+ssx5vLCsm+QvHf4Ul6l6PYVzorsgAp/b6fhAwI2VSkqcJQ==}
+  '@effect/language-service@0.73.1':
+    resolution: {integrity: sha512-FbOKzXmP1QM6/YMvDFZGTZ0Gk0AjKqRSY48dpAN0zUdVzq5xV/Us/6vZ5FcdmG6GjgSWP2rpESy59OMvfPeylw==}
     hasBin: true
 
   '@effect/platform-bun@0.87.0':
@@ -4310,6 +4336,8 @@ snapshots:
   '@biomejs/cli-win32-x64@2.3.10':
     optional: true
 
+  '@cloudflare/containers@0.0.30': {}
+
   '@cloudflare/containers@0.1.0': {}
 
   '@cloudflare/kv-asset-handler@0.4.0':
@@ -4317,6 +4345,10 @@ snapshots:
       mime: 3.0.0
 
   '@cloudflare/kv-asset-handler@0.4.2': {}
+
+  '@cloudflare/sandbox@0.7.1':
+    dependencies:
+      '@cloudflare/containers': 0.0.30
 
   '@cloudflare/unenv-preset@2.12.0(unenv@2.0.0-rc.24)(workerd@1.20260131.0)':
     dependencies:
@@ -4470,7 +4502,7 @@ snapshots:
       effect: 3.19.13
       uuid: 11.1.0
 
-  '@effect/language-service@0.73.0': {}
+  '@effect/language-service@0.73.1': {}
 
   '@effect/platform-bun@0.87.0(@effect/cluster@0.56.0(@effect/platform@0.94.0(effect@3.19.13))(@effect/rpc@0.73.0(@effect/platform@0.94.0(effect@3.19.13))(effect@3.19.13))(@effect/sql@0.49.0(@effect/experimental@0.58.0(@effect/platform@0.94.0(effect@3.19.13))(effect@3.19.13))(@effect/platform@0.94.0(effect@3.19.13))(effect@3.19.13))(@effect/workflow@0.16.0(@effect/experimental@0.58.0(@effect/platform@0.94.0(effect@3.19.13))(effect@3.19.13))(@effect/platform@0.94.0(effect@3.19.13))(@effect/rpc@0.73.0(@effect/platform@0.94.0(effect@3.19.13))(effect@3.19.13))(effect@3.19.13))(effect@3.19.13))(@effect/platform@0.94.0(effect@3.19.13))(@effect/rpc@0.73.0(@effect/platform@0.94.0(effect@3.19.13))(effect@3.19.13))(@effect/sql@0.49.0(@effect/experimental@0.58.0(@effect/platform@0.94.0(effect@3.19.13))(effect@3.19.13))(@effect/platform@0.94.0(effect@3.19.13))(effect@3.19.13))(effect@3.19.13)':
     dependencies:

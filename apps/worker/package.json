@@ -24,6 +24,7 @@
 	},
 	"dependencies": {
 		"@cloudflare/containers": "^0.1.0",
+		"@cloudflare/sandbox": "catalog:",
 		"@effect/experimental": "catalog:",
 		"@effect/platform": "catalog:",
 		"@effect/rpc": "catalog:",
@@ -33,6 +34,7 @@
 		"@kampus/library": "workspace:*",
 		"@kampus/spellbook": "workspace:*",
 		"@kampus/web-page-parser": "workspace:*",
+		"@kampus/wormhole": "workspace:*",
 		"@mozilla/readability": "catalog:",
 		"@usirin/forge": "catalog:",
 		"better-auth": "catalog:",
