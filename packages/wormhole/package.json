@@ -4,7 +4,10 @@
 	"private": true,
 	"type": "module",
 	"exports": {
-		".": "./src/index.ts"
+		".": "./src/index.ts",
+		"./pty-live": "./src/internal/pty.ts",
+		"./Pty": "./src/Pty.ts",
+		"./Errors": "./src/Errors.ts"
 	},
 	"scripts": {
 		"typecheck": "tsc --noEmit",
