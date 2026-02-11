@@ -16,7 +16,7 @@ const MockSandboxBinding = Layer.succeed(
 		idFromName: () => ({toString: () => "mock-sandbox"}) as unknown as DurableObjectId,
 		get: () =>
 			({
-				fetch: async (_request: Request): Promise<Response> => {
+				terminal: async (_request: Request, _options?: {cols?: number; rows?: number}): Promise<Response> => {
 					const pair = new WebSocketPair();
 					const [client, server] = Object.values(pair);
 					server.accept();
@@ -32,7 +32,7 @@ const MockSandboxBinding = Layer.succeed(
 					mockServerWs = server;
 					return new Response(null, {status: 101, webSocket: client});
 				},
-			}) as unknown as DurableObjectStub,
+			}) as unknown as DurableObjectStub & Sandbox,
 	} as unknown as DurableObjectNamespace<Sandbox>,
 );
 

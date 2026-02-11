@@ -4,8 +4,6 @@ import {PtySpawnError} from "@kampus/wormhole/Errors";
 import {Pty, type PtyProcess, type SpawnOptions} from "@kampus/wormhole/Pty";
 import {SandboxBinding} from "./SandboxBinding";
 
-const SANDBOX_PORT = 3000;
-
 const spawnImpl = (
 	binding: DurableObjectNamespace<Sandbox>,
 	options: SpawnOptions,
@@ -13,25 +11,16 @@ const spawnImpl = (
 	Effect.gen(function* () {
 		const sandboxId = options.env?.SANDBOX_ID ?? "default";
 		const id = binding.idFromName(sandboxId);
-		const stub = binding.get(id);
+		const stub = binding.get(id) as DurableObjectStub<Sandbox> & Sandbox;
 
-		// Build the PTY WebSocket request matching the SDK's proxyTerminal format:
-		// http://localhost/ws/pty?sessionId=...&cols=...&rows=...
-		const params = new URLSearchParams({
-			sessionId: options.env?.SESSION_ID ?? "default",
-			cols: String(options.cols),
-			rows: String(options.rows),
-		});
-
-		const upgradeReq = new Request(`http://localhost/ws/pty?${params}`, {
-			headers: new Headers({
-				Upgrade: "websocket",
-				"cf-container-target-port": String(SANDBOX_PORT),
-			}),
+		// Use Sandbox's terminal() API — connects to the container's built-in PTY
+		// without needing an HTTP server listening inside the container.
+		const upgradeReq = new Request("https://sandbox/terminal", {
+			headers: new Headers({Upgrade: "websocket"}),
 		});
 
 		const resp = yield* Effect.tryPromise({
-			try: () => stub.fetch(upgradeReq),
+			try: () => stub.terminal(upgradeReq, {cols: options.cols, rows: options.rows}),
 			catch: (cause) => new PtySpawnError({shell: "sandbox", cause}),
 		});
 
