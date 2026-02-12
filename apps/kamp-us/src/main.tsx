@@ -50,10 +50,6 @@ const router = createBrowserRouter([
 		path: "/wormhole",
 		element: <Wormhole />,
 	},
-	{
-		path: "/wormhole/:sessionId",
-		element: <Wormhole />,
-	},
 ]);
 
 const root = document.getElementById("root");
