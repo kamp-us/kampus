@@ -27,11 +27,11 @@ const cfWebSocketToSocket = (ws: WebSocket): Effect.Effect<Socket.Socket> => {
 					});
 
 					ws.addEventListener("close", () => {
-						controller.close();
+						try { controller.close(); } catch { /* stream already closed */ }
 					});
 
 					ws.addEventListener("error", (err) => {
-						controller.error(err);
+						try { controller.error(err); } catch { /* stream already closed */ }
 					});
 				},
 				cancel() {
@@ -65,12 +65,7 @@ export class WormholeDO extends DurableObject<Env> {
 	constructor(ctx: DurableObjectState, env: Env) {
 		super(ctx, env);
 
-		// Build service layer: SessionStore → PtySandbox → SandboxBinding
-		// FIXME(Task #8): WORMHOLE_SANDBOX binding not yet defined in wrangler.jsonc
-		const sandboxLayer = Layer.succeed(
-			SandboxBinding,
-			(env as any).WORMHOLE_SANDBOX as DurableObjectNamespace<import("@cloudflare/sandbox").Sandbox>,
-		);
+		const sandboxLayer = Layer.succeed(SandboxBinding, env.WORMHOLE_SANDBOX);
 		const sessionStoreLayer = SessionStore.SessionStore.Default.pipe(
 			Layer.provide(PtySandbox),
 			Layer.provide(sandboxLayer),
@@ -93,9 +88,18 @@ export class WormholeDO extends DurableObject<Env> {
 		// Convert CF WebSocket to Effect Socket, run wormhole connection handler
 		this.runtime.runFork(
 			Effect.gen(function* () {
+				console.log("[WormholeDO] handleConnection starting");
 				const socket = yield* cfWebSocketToSocket(server);
 				yield* Server.handleConnection(socket);
-			}).pipe(Effect.scoped),
+			}).pipe(
+				Effect.catchAllCause((cause) =>
+					Effect.sync(() => {
+						console.error("[WormholeDO] handleConnection failed:", cause.toString());
+						try { server.close(1011, "Internal error"); } catch { /* already closed */ }
+					}),
+				),
+				Effect.scoped,
+			),
 		);
 
 		return new Response(null, {status: 101, webSocket: client});

@@ -1,4 +1,2 @@
-FROM ubuntu:22.04
-RUN apt-get update && apt-get install -y --no-install-recommends bash curl git && rm -rf /var/lib/apt/lists/*
+FROM docker.io/cloudflare/sandbox:0.7.1
 EXPOSE 8080
-CMD ["bash"]

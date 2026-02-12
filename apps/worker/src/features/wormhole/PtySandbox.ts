@@ -9,21 +9,28 @@ const spawnImpl = (
 	options: SpawnOptions,
 ): Effect.Effect<PtyProcess, PtySpawnError, never> =>
 	Effect.gen(function* () {
+		// Construct the PTY WebSocket URL that the container's sandbox binary expects.
+		// This mirrors what proxyTerminal() + switchPort() from @cloudflare/sandbox do internally:
+		//   proxyTerminal(stub, sessionId, req, opts) → stub.fetch("http://localhost:3000/ws/pty?...")
+		// We inline this to avoid a runtime import of @cloudflare/sandbox (which pulls in
+		// @cloudflare/containers — unresolvable in vitest-pool-workers).
 		const sandboxId = options.env?.SANDBOX_ID ?? "default";
 		const id = binding.idFromName(sandboxId);
-		const stub = binding.get(id) as DurableObjectStub<Sandbox> & Sandbox;
+		const stub = binding.get(id);
 
-		// Use Sandbox's terminal() API — connects to the container's built-in PTY
-		// without needing an HTTP server listening inside the container.
-		const upgradeReq = new Request("https://sandbox/terminal", {
-			headers: new Headers({Upgrade: "websocket"}),
+		const sessionId = `${sandboxId}-default`;
+		const params = new URLSearchParams({sessionId});
+		if (options.cols) params.set("cols", String(options.cols));
+		if (options.rows) params.set("rows", String(options.rows));
+
+		const upgradeReq = new Request(`http://localhost:3000/ws/pty?${params}`, {
+			headers: new Headers({Upgrade: "websocket", Connection: "Upgrade"}),
 		});
 
 		const resp = yield* Effect.tryPromise({
-			try: () => stub.terminal(upgradeReq, {cols: options.cols, rows: options.rows}),
+			try: () => stub.fetch(upgradeReq),
 			catch: (cause) => new PtySpawnError({shell: "sandbox", cause}),
 		});
-
 		const ws = resp.webSocket;
 		if (!ws) {
 			return yield* new PtySpawnError({
@@ -118,7 +125,9 @@ const spawnImpl = (
 		return {
 			output,
 			awaitExit: Deferred.await(exitDeferred),
-			write: (data: string) => guardAlive(() => ws.send(data)),
+			write: (data: string) => guardAlive(() => {
+				ws.send(new TextEncoder().encode(data));
+			}),
 			resize: (cols: number, rows: number) =>
 				guardAlive(() => ws.send(JSON.stringify({type: "resize", cols, rows}))),
 		} satisfies PtyProcess;
