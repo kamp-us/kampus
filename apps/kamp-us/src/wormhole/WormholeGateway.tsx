@@ -155,7 +155,10 @@ export function WormholeGateway({url, children}: {url: string; children: ReactNo
 		};
 
 		return () => {
-			ws.close();
+			// Guard: only close if already open (avoids noisy error in StrictMode double-invoke)
+			if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
+				ws.close();
+			}
 			wsRef.current = null;
 		};
 	}, [url]);
