@@ -24,6 +24,7 @@ export const make = (maxChannels: number = DEFAULT_MAX_CHANNELS): Effect.Effect<
 					// Reuse freed channel first, otherwise allocate next sequential
 					let channel: number;
 					if (freeList.length > 0) {
+						// biome-ignore lint/style/noNonNullAssertion: length check guarantees element exists
 						channel = freeList.pop()!;
 					} else {
 						if (nextChannel >= maxChannels) {

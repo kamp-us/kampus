@@ -1,27 +1,27 @@
 .container {
-  width: 100%;
-  height: 100vh;
-  background: #1e1e1e;
-  color: #d4d4d4;
+	width: 100%;
+	height: 100vh;
+	background: #1e1e1e;
+	color: #d4d4d4;
 }
 
 .pane {
-  width: 100%;
-  height: 100%;
-  opacity: 0.65;
-  transition: opacity 0.15s ease;
+	width: 100%;
+	height: 100%;
+	opacity: 0.65;
+	transition: opacity 0.15s ease;
 }
 
 .pane[data-focused] {
-  opacity: 1;
+	opacity: 1;
 }
 
 .resizeHandle {
-  width: 4px;
-  background: #333;
-  transition: background 0.15s ease;
+	width: 4px;
+	background: #333;
+	transition: background 0.15s ease;
 }
 
 .resizeHandle:hover {
-  background: #555;
+	background: #555;
 }
