@@ -1,0 +1,22 @@
+{
+	"name": "wormhole",
+	"version": "0.0.1",
+	"private": true,
+	"type": "module",
+	"scripts": {
+		"dev": "tsx --watch src/server.ts",
+		"start": "tsx src/server.ts",
+		"typecheck": "tsc --noEmit"
+	},
+	"dependencies": {
+		"@kampus/wormhole": "workspace:*",
+		"@effect/platform": "catalog:",
+		"@effect/platform-node": "catalog:",
+		"effect": "catalog:"
+	},
+	"devDependencies": {
+		"@types/node": "catalog:",
+		"tsx": "^4.21.0",
+		"typescript": "catalog:"
+	}
+}

@@ -181,3 +181,9 @@ braindump
 .turbo
 
 .playwright-mcp
+
+# Dev session logs
+.context/
+
+# Personal scripts
+ralph*.sh

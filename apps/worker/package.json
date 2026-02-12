@@ -10,6 +10,9 @@
 		"typecheck": "tsc --noEmit",
 		"cf-typegen": "wrangler types"
 	},
+	"volta": {
+		"extends": "../../package.json"
+	},
 	"devDependencies": {
 		"@cloudflare/vitest-pool-workers": "^0.8.19",
 		"@effect/vitest": "catalog:",
@@ -20,6 +23,7 @@
 		"wrangler": "catalog:"
 	},
 	"dependencies": {
+		"@cloudflare/sandbox": "catalog:",
 		"@effect/experimental": "catalog:",
 		"@effect/platform": "catalog:",
 		"@effect/rpc": "catalog:",
@@ -29,6 +33,7 @@
 		"@kampus/library": "workspace:*",
 		"@kampus/spellbook": "workspace:*",
 		"@kampus/web-page-parser": "workspace:*",
+		"@kampus/wormhole": "workspace:*",
 		"@mozilla/readability": "catalog:",
 		"@usirin/forge": "catalog:",
 		"better-auth": "catalog:",

@@ -13,6 +13,7 @@ import {Library} from "./pages/Library";
 import {Login} from "./pages/Login";
 import {ReaderPage} from "./pages/library/ReaderPage";
 import {TagManagement} from "./pages/library/TagManagement";
+import {Wormhole} from "./pages/Wormhole";
 import {environment} from "./relay/environment";
 import {RpcProvider} from "./rpc/Provider";
 
@@ -44,6 +45,14 @@ const router = createBrowserRouter([
 	{
 		path: "/me/library/:storyId",
 		element: <ReaderPage />,
+	},
+	{
+		path: "/wormhole",
+		element: <Wormhole />,
+	},
+	{
+		path: "/wormhole/:sessionId",
+		element: <Wormhole />,
 	},
 ]);
 

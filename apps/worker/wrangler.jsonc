@@ -10,7 +10,17 @@
 	"observability": {
 		"enabled": true
 	},
-	"compatibility_flags": ["nodejs_compat"],
+	"compatibility_flags": [
+		"nodejs_compat"
+	],
+	"containers": [
+		{
+			"class_name": "WormholeSandbox",
+			"image": "./src/features/wormhole/Dockerfile.sandbox",
+			"max_instances": 5,
+			"instance_type": "basic"
+		}
+	],
 	"durable_objects": {
 		"bindings": [
 			{
@@ -24,20 +34,50 @@
 			{
 				"name": "LIBRARY",
 				"class_name": "Library"
+			},
+			{
+				"name": "WORMHOLE_DO",
+				"class_name": "WormholeDO"
+			},
+			{
+				"name": "WORMHOLE_SANDBOX",
+				"class_name": "WormholeSandbox"
 			}
 		]
 	},
 	"rules": [
 		{
 			"type": "Text",
-			"globs": ["**/*.sql"],
+			"globs": [
+				"**/*.sql"
+			],
 			"fallthrough": true
 		}
 	],
 	"migrations": [
 		{
 			"tag": "v1",
-			"new_sqlite_classes": ["Pasaport", "WebPageParser", "Library"]
+			"new_sqlite_classes": [
+				"Pasaport",
+				"WebPageParser",
+				"Library"
+			]
+		},
+		{
+			"tag": "v2",
+			"new_sqlite_classes": [
+				"WormholeContainer"
+			]
+		},
+		{
+			"tag": "v3",
+			"deleted_classes": [
+				"WormholeContainer"
+			],
+			"new_sqlite_classes": [
+				"WormholeDO",
+				"WormholeSandbox"
+			]
 		}
 	],
 	"vars": {

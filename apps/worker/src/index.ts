@@ -10,6 +10,8 @@ import {printSchemaSDL, schema} from "./graphql/schema";
 export {Library} from "./features/library/Library";
 export {Pasaport} from "./features/pasaport/pasaport";
 export {WebPageParser} from "./features/web-page-parser/WebPageParser";
+export {WormholeDO} from "./features/wormhole/WormholeDO";
+export {WormholeSandbox} from "./features/wormhole/WormholeSandbox";
 
 const app = new Hono<{Bindings: Env}>();
 
@@ -73,6 +75,14 @@ app.all("/rpc/library/*", async (c) => {
 		console.error("RPC error:", error);
 		return c.json({error: "Internal server error"}, 500);
 	}
+});
+
+// WebSocket to wormhole — one DO per session = one container per session
+app.all("/wormhole/ws", async (c) => {
+	const sessionId = c.req.query("sessionId") ?? crypto.randomUUID();
+	const id = c.env.WORMHOLE_DO.idFromName(sessionId);
+	const stub = c.env.WORMHOLE_DO.get(id);
+	return stub.fetch(c.req.raw);
 });
 
 // Endpoint to fetch GraphQL schema SDL

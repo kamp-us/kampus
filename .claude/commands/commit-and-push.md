@@ -69,17 +69,15 @@ git push -u origin $(git branch --show-current)
 
 ### Step 6: Create or Update PR
 
-**If NO PR exists**, create one:
+**If NO PR exists**, create a new draft one:
 
 ```bash
-gh pr create --title "<concise title>" --body "$(cat <<'EOF'
+gh pr create --draft --title "<concise title>" --body "$(cat <<'EOF'
 ## Summary
 <bullet points of what changed>
 
 ## Changes
 <list of commits with brief descriptions>
-
-🤖 Generated with [Claude Code](https://claude.com/claude-code)
 EOF
 )"
 ```
