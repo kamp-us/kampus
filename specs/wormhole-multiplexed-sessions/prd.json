@@ -1,0 +1,200 @@
+{
+  "feature": "wormhole-multiplexed-sessions",
+  "version": "0.0.1",
+  "summary": {
+    "total": 16,
+    "passed": 0,
+    "status": "not-started"
+  },
+  "items": [
+    {
+      "id": "PROTO-001",
+      "category": "protocol",
+      "description": "MuxProtocol.ts: binary frame helpers (frame, deframe, CONTROL_CHANNEL)",
+      "stepsToVerify": [
+        "File exists at packages/wormhole/src/MuxProtocol.ts",
+        "Exports frame(channel, payload) => Uint8Array",
+        "Exports deframe(data) => {channel, payload}",
+        "Exports CONTROL_CHANNEL = 255",
+        "Unit tests pass"
+      ],
+      "passes": false
+    },
+    {
+      "id": "PROTO-002",
+      "category": "protocol",
+      "description": "MuxProtocol.ts: control message schemas (MuxSessionNew, MuxSessionOpened, etc.)",
+      "stepsToVerify": [
+        "Client messages: MuxSessionNew, MuxSessionAttach, MuxSessionClose, MuxResize",
+        "Server messages: MuxSessionOpened, MuxSessionClosed, MuxError",
+        "Union types: MuxControlMessage (client), MuxServerMessage (server)",
+        "Schema.decodeUnknownEither works for parsing"
+      ],
+      "passes": false
+    },
+    {
+      "id": "PROTO-003",
+      "category": "protocol",
+      "description": "ChannelExhaustedError added to Errors.ts",
+      "stepsToVerify": [
+        "ChannelExhaustedError extends Schema.TaggedError",
+        "Exported from packages/wormhole/src/Errors.ts",
+        "Re-exported from index.ts"
+      ],
+      "passes": false
+    },
+    {
+      "id": "PROTO-004",
+      "category": "protocol",
+      "description": "ChannelMap: per-connection channel allocation",
+      "stepsToVerify": [
+        "File exists at packages/wormhole/src/ChannelMap.ts",
+        "allocate(sessionId) returns lowest free channel 0-254",
+        "release(channel) frees channel for reuse",
+        "getSessionId(channel) and getChannel(sessionId) bidirectional lookup",
+        "allocate fails with ChannelExhaustedError when full"
+      ],
+      "passes": false
+    },
+    {
+      "id": "MUX-001",
+      "category": "mux-server",
+      "description": "MuxServer.handleConnection: multiplexed connection handler",
+      "stepsToVerify": [
+        "File exists at packages/wormhole/src/MuxServer.ts",
+        "Reads binary frames, deframes, dispatches by channel",
+        "Channel 255: parse JSON, handle control messages",
+        "Channels 0-254: forward payload to session.write()",
+        "Session output piped back with frame(channel, chunk)",
+        "Requires SessionStore in context"
+      ],
+      "passes": false
+    },
+    {
+      "id": "MUX-002",
+      "category": "mux-server",
+      "description": "MuxServer handles session_new control message",
+      "stepsToVerify": [
+        "Allocates channel via ChannelMap",
+        "Creates session via SessionStore",
+        "Sends session_opened response with channel + sessionId",
+        "Starts piping session output to socket"
+      ],
+      "passes": false
+    },
+    {
+      "id": "MUX-003",
+      "category": "mux-server",
+      "description": "MuxServer handles session_close control message",
+      "stepsToVerify": [
+        "Releases channel in ChannelMap",
+        "Closes session",
+        "Sends session_closed response"
+      ],
+      "passes": false
+    },
+    {
+      "id": "WORKER-001",
+      "category": "worker",
+      "description": "Per-user DO routing with auth",
+      "stepsToVerify": [
+        "Wormhole route extracts userId from request",
+        "Routes to env.WORMHOLE.idFromName(userId)",
+        "Unauthenticated requests rejected"
+      ],
+      "passes": false
+    },
+    {
+      "id": "WORKER-002",
+      "category": "worker",
+      "description": "WormholeDO wired to MuxServer",
+      "stepsToVerify": [
+        "WormholeDO detects multiplexed connection",
+        "Uses MuxServer.handleConnection for binary WebSocket",
+        "Existing text-based path still works"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FE-001",
+      "category": "frontend",
+      "description": "WormholeGateway React context",
+      "stepsToVerify": [
+        "Manages single binary WebSocket connection",
+        "send(channel, data): frames and sends",
+        "subscribe(channel, cb): demuxes incoming frames",
+        "sendControl(msg): sends on channel 255",
+        "onControl(cb): receives control messages"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FE-002",
+      "category": "frontend",
+      "description": "useChannelTerminal hook",
+      "stepsToVerify": [
+        "Binds ghostty-web terminal to a channel",
+        "Terminal write → gateway.send(channel, data)",
+        "gateway.subscribe(channel) → terminal.write(data)",
+        "Resize → sendControl resize message"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FE-003",
+      "category": "frontend",
+      "description": "useWormholeLayout hook",
+      "stepsToVerify": [
+        "Uses @usirin/layout-tree for state",
+        "splitPane(direction) sends session_new, adds leaf on session_opened",
+        "closePane(channel) sends session_close, removes leaf",
+        "Exposes layout tree for rendering"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FE-004",
+      "category": "frontend",
+      "description": "WormholeLayout recursive tiled component",
+      "stepsToVerify": [
+        "Branch node renders flex container with children",
+        "Leaf node renders TerminalPane",
+        "Panes sized according to layout-tree ratios"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FE-005",
+      "category": "frontend",
+      "description": "TerminalPane component",
+      "stepsToVerify": [
+        "Renders GhosttyTerminal bound to channel via useChannelTerminal",
+        "Shows pane controls (close button)",
+        "Handles resize events"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FE-006",
+      "category": "frontend",
+      "description": "Wormhole.tsx updated for multiplexed mode",
+      "stepsToVerify": [
+        "/wormhole route renders WormholeGateway + WormholeLayout",
+        "Initial session_new sent on connect",
+        "Layout renders first terminal pane"
+      ],
+      "passes": false
+    },
+    {
+      "id": "BUILD-001",
+      "category": "build",
+      "description": "Full typecheck + lint + tests pass",
+      "stepsToVerify": [
+        "pnpm turbo run typecheck passes",
+        "biome check passes",
+        "pnpm turbo run test passes"
+      ],
+      "passes": false
+    }
+  ]
+}
