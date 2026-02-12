@@ -1,6 +1,6 @@
 import type * as LT from "@usirin/layout-tree";
 import {Fragment, useEffect, useRef} from "react";
-import {Panel, PanelGroup, PanelResizeHandle} from "react-resizable-panels";
+import {Group, Panel, Separator} from "react-resizable-panels";
 import {TerminalPane} from "./TerminalPane.tsx";
 import {useWormholeLayout} from "./use-wormhole-layout.ts";
 import styles from "./WormholeLayout.module.css";
@@ -62,11 +62,9 @@ export function WormholeLayout() {
 
 	return (
 		<div className={styles.container}>
-			<PanelGroup
-				direction={layout.tree.root.orientation === "vertical" ? "vertical" : "horizontal"}
-			>
+			<Group orientation={layout.tree.root.orientation}>
 				{renderChildren(layout.tree.root, [], layout)}
-			</PanelGroup>
+			</Group>
 		</div>
 	);
 }
@@ -80,16 +78,14 @@ function renderChildren(
 		const childPath = [...path, i];
 		return (
 			<Fragment key={child.id}>
-				{i > 0 && <PanelResizeHandle className={styles.resizeHandle} />}
+				{i > 0 && <Separator className={styles.resizeHandle} />}
 				<Panel>
 					{child.tag === "window" ? (
 						renderWindow(child as LT.Window, childPath, layout)
 					) : (
-						<PanelGroup
-							direction={(child as LT.Stack).orientation === "vertical" ? "vertical" : "horizontal"}
-						>
+						<Group orientation={(child as LT.Stack).orientation}>
 							{renderChildren(child as LT.Stack, childPath, layout)}
-						</PanelGroup>
+						</Group>
 					)}
 				</Panel>
 			</Fragment>
