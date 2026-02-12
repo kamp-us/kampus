@@ -1,6 +1,6 @@
 /** @internal */
 import * as Socket from "@effect/platform/Socket";
-import {Deferred, Effect, Fiber, Option, Stream} from "effect";
+import {Deferred, Effect, Fiber, Option, type Scope, Stream} from "effect";
 import {
 	CONTROL_CHANNEL,
 	encodeBinaryFrame,
@@ -27,6 +27,7 @@ export const handleMuxConnection = (socket: Socket.Socket) =>
 			const write = yield* socket.writer;
 			const clientId = crypto.randomUUID();
 			const channelMap = yield* makeChannelMap();
+			const connectionScope = (yield* Effect.scope) as Scope.Scope;
 			const encoder = new TextEncoder();
 			const decoder = new TextDecoder();
 
@@ -76,7 +77,7 @@ export const handleMuxConnection = (socket: Socket.Socket) =>
 							}
 							const channel = channelResult.right;
 							const handle = yield* session.attach(clientId, msg.cols, msg.rows);
-							const fiber = yield* startOutputFiber(channel, sessionId, handle).pipe(Effect.fork);
+							const fiber = yield* startOutputFiber(channel, sessionId, handle).pipe(Effect.forkIn(connectionScope));
 							entries.set(channel, {session, handle, outputFiber: fiber});
 
 							yield* sendControl(
@@ -98,7 +99,7 @@ export const handleMuxConnection = (socket: Socket.Socket) =>
 							const channel = attachChannelResult.right;
 							const handle = yield* existing.attach(clientId, msg.cols, msg.rows);
 							const fiber = yield* startOutputFiber(channel, msg.sessionId, handle).pipe(
-								Effect.fork,
+								Effect.forkIn(connectionScope),
 							);
 							entries.set(channel, {session: existing, handle, outputFiber: fiber});
 
