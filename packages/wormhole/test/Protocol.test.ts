@@ -1,6 +1,6 @@
 import {Option} from "effect";
 import {describe, expect, test} from "vitest";
-import {parseMessage, SessionCreatedResponse, SessionExitResponse, SessionListResponse, SessionMessage} from "../src/Protocol.ts";
+import {parseMessage, SessionCreatedResponse, SessionExitResponse, SessionListResponse, SessionMessage, encodeBinaryFrame, parseBinaryFrame, CONTROL_CHANNEL} from "../src/Protocol.ts";
 
 describe("Protocol", () => {
 	describe("parseMessage", () => {
@@ -102,6 +102,34 @@ describe("Protocol", () => {
 		test("SessionExitResponse constructs correctly", () => {
 			const msg = new SessionExitResponse({type: "session_exit", sessionId: "s1", channel: 0, exitCode: 0});
 			expect(msg.exitCode).toBe(0);
+		});
+	});
+
+	describe("binary framing", () => {
+		test("CONTROL_CHANNEL is 255", () => {
+			expect(CONTROL_CHANNEL).toBe(255);
+		});
+
+		test("encodeBinaryFrame prepends channel byte", () => {
+			const payload = new TextEncoder().encode("hello");
+			const frame = encodeBinaryFrame(3, payload);
+			expect(frame[0]).toBe(3);
+			expect(frame.subarray(1)).toEqual(payload);
+			expect(frame.length).toBe(payload.length + 1);
+		});
+
+		test("parseBinaryFrame extracts channel and payload", () => {
+			const frame = new Uint8Array([7, 104, 101, 108, 108, 111]); // channel 7 + "hello"
+			const result = parseBinaryFrame(frame);
+			expect(result.channel).toBe(7);
+			expect(new TextDecoder().decode(result.payload)).toBe("hello");
+		});
+
+		test("encodeBinaryFrame for control channel", () => {
+			const json = JSON.stringify({type: "session_created", sessionId: "s1", channel: 0});
+			const payload = new TextEncoder().encode(json);
+			const frame = encodeBinaryFrame(CONTROL_CHANNEL, payload);
+			expect(frame[0]).toBe(255);
 		});
 	});
 });

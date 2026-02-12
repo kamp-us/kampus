@@ -110,6 +110,39 @@ export class SessionExitResponse extends Schema.Class<SessionExitResponse>("Sess
 /** @since 0.0.1 @category models */
 export type ServerMessage = SessionMessage | SessionListResponse | SessionCreatedResponse | SessionExitResponse;
 
+// Binary framing
+
+/**
+ * Channel 255 is reserved for JSON control messages.
+ * Channels 0–254 carry raw terminal I/O.
+ *
+ * @since 0.0.2
+ * @category constants
+ */
+export const CONTROL_CHANNEL = 255;
+
+/**
+ * Binary frame: [1-byte channel][payload].
+ *
+ * @since 0.0.2
+ * @category binary
+ */
+export const encodeBinaryFrame = (channel: number, payload: Uint8Array): Uint8Array => {
+	const frame = new Uint8Array(1 + payload.length);
+	frame[0] = channel;
+	frame.set(payload, 1);
+	return frame;
+};
+
+/**
+ * @since 0.0.2
+ * @category binary
+ */
+export const parseBinaryFrame = (frame: Uint8Array): {channel: number; payload: Uint8Array} => ({
+	channel: frame[0],
+	payload: frame.subarray(1),
+});
+
 // Parsing
 
 const decodeControlMessage = Schema.decodeUnknownEither(ControlMessage);
