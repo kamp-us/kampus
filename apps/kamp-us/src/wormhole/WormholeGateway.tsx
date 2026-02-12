@@ -116,14 +116,19 @@ export function WormholeGateway({url, children}: {url: string; children: ReactNo
 	}, []);
 
 	useEffect(() => {
+		let disposed = false;
 		setStatus("connecting");
 		const ws = new WebSocket(url);
 		ws.binaryType = "arraybuffer";
 		wsRef.current = ws;
 
-		ws.onopen = () => setStatus("connected");
+		ws.onopen = () => {
+			if (disposed) return;
+			setStatus("connected");
+		};
 
 		ws.onmessage = (event) => {
+			if (disposed) return;
 			const frame = new Uint8Array(event.data as ArrayBuffer);
 			const {channel, payload} = parseBinaryFrame(frame);
 
@@ -150,15 +155,14 @@ export function WormholeGateway({url, children}: {url: string; children: ReactNo
 		};
 
 		ws.onclose = () => {
+			if (disposed) return;
 			setStatus("disconnected");
 			wsRef.current = null;
 		};
 
 		return () => {
-			// Guard: only close if already open (avoids noisy error in StrictMode double-invoke)
-			if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
-				ws.close();
-			}
+			disposed = true;
+			ws.close();
 			wsRef.current = null;
 		};
 	}, [url]);
