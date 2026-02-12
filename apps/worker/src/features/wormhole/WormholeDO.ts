@@ -85,16 +85,18 @@ export class WormholeDO extends DurableObject<Env> {
 		const [client, server] = Object.values(pair);
 		server.accept();
 
-		// Convert CF WebSocket to Effect Socket, run wormhole connection handler
+		const mux = new URL(request.url).searchParams.get("mux") === "1";
+
 		this.runtime.runFork(
 			Effect.gen(function* () {
-				console.log("[WormholeDO] handleConnection starting");
+				const handler = mux ? Server.handleMuxConnection : Server.handleConnection;
+				console.log(`[WormholeDO] ${mux ? "handleMuxConnection" : "handleConnection"} starting`);
 				const socket = yield* cfWebSocketToSocket(server);
-				yield* Server.handleConnection(socket);
+				yield* handler(socket);
 			}).pipe(
 				Effect.catchAllCause((cause) =>
 					Effect.sync(() => {
-						console.error("[WormholeDO] handleConnection failed:", cause.toString());
+						console.error("[WormholeDO] handler failed:", cause.toString());
 						try { server.close(1011, "Internal error"); } catch { /* already closed */ }
 					}),
 				),
