@@ -33,7 +33,8 @@ export const handleMuxConnection = (socket: Socket.Socket) =>
 			// Active channel entries keyed by channel number
 			const entries = new Map<number, ChannelEntry>();
 
-			const sendControl = (msg: object) => write(encodeBinaryFrame(CONTROL_CHANNEL, encoder.encode(JSON.stringify(msg))));
+			const sendControl = (msg: object) =>
+				write(encodeBinaryFrame(CONTROL_CHANNEL, encoder.encode(JSON.stringify(msg))));
 
 			const startOutputFiber = (channel: number, sessionId: string, handle: ClientHandle) =>
 				Effect.gen(function* () {
@@ -44,11 +45,13 @@ export const handleMuxConnection = (socket: Socket.Socket) =>
 						),
 						Deferred.await(handle.exited).pipe(Effect.asVoid),
 					);
-					// PTY exited — send exit notification
-					const exitCode = yield* Deferred.await(handle.exited);
-					yield* sendControl(
-						new SessionExitResponse({type: "session_exit", sessionId, channel, exitCode}),
-					);
+					// Only send exit notification if PTY actually exited (not detach/close)
+					if (yield* Deferred.isDone(handle.exited)) {
+						const exitCode = yield* Deferred.await(handle.exited);
+						yield* sendControl(
+							new SessionExitResponse({type: "session_exit", sessionId, channel, exitCode}),
+						);
+					}
 				});
 
 			const handleControlMessage = (msg: any) =>
@@ -85,18 +88,26 @@ export const handleMuxConnection = (socket: Socket.Socket) =>
 							const existing = yield* store.get(msg.sessionId);
 							if (!existing) return;
 
-							const attachChannelResult = yield* channelMap.assign(msg.sessionId).pipe(Effect.either);
+							const attachChannelResult = yield* channelMap
+								.assign(msg.sessionId)
+								.pipe(Effect.either);
 							if (attachChannelResult._tag === "Left") {
 								yield* write(new Socket.CloseEvent(4003, "Max channels exhausted"));
 								return;
 							}
 							const channel = attachChannelResult.right;
 							const handle = yield* existing.attach(clientId, msg.cols, msg.rows);
-							const fiber = yield* startOutputFiber(channel, msg.sessionId, handle).pipe(Effect.fork);
+							const fiber = yield* startOutputFiber(channel, msg.sessionId, handle).pipe(
+								Effect.fork,
+							);
 							entries.set(channel, {session: existing, handle, outputFiber: fiber});
 
 							yield* sendControl(
-								new SessionCreatedResponse({type: "session_created", sessionId: msg.sessionId, channel}),
+								new SessionCreatedResponse({
+									type: "session_created",
+									sessionId: msg.sessionId,
+									channel,
+								}),
 							);
 							return;
 						}
@@ -145,7 +156,12 @@ export const handleMuxConnection = (socket: Socket.Socket) =>
 					const {channel, payload} = parseBinaryFrame(bytes);
 
 					if (channel === CONTROL_CHANNEL) {
-						const json = JSON.parse(decoder.decode(payload));
+						let json: unknown;
+						try {
+							json = JSON.parse(decoder.decode(payload));
+						} catch {
+							return Effect.void;
+						}
 						return handleControlMessage(json);
 					}
 
