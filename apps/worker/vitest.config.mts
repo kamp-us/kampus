@@ -14,6 +14,12 @@ export default defineWorkersConfig({
 			},
 		],
 	},
+	ssr: {
+		// @cloudflare/sandbox → @cloudflare/containers can't be resolved by workerd
+		// in pnpm's strict node_modules layout. Inlining tells Vite to bundle the
+		// dependency (and its transitive deps) so workerd never resolves them.
+		noExternal: ['@cloudflare/sandbox', '@cloudflare/containers'],
+	},
 	test: {
 		poolOptions: {
 			workers: {

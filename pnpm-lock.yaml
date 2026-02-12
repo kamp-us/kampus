@@ -13,8 +13,8 @@ catalogs:
       specifier: ^2.3.10
       version: 2.3.10
     '@cloudflare/sandbox':
-      specifier: ^0.7.1
-      version: 0.7.1
+      specifier: ^0.7.2
+      version: 0.7.2
     '@cloudflare/vite-plugin':
       specifier: ^1.19.0
       version: 1.19.0
@@ -328,12 +328,9 @@ importers:
 
   apps/worker:
     dependencies:
-      '@cloudflare/containers':
-        specifier: ^0.1.0
-        version: 0.1.0
       '@cloudflare/sandbox':
         specifier: 'catalog:'
-        version: 0.7.1
+        version: 0.7.2
       '@effect/experimental':
         specifier: 'catalog:'
         version: 0.58.0(@effect/platform@0.94.0(effect@3.19.13))(effect@3.19.13)
@@ -639,9 +636,6 @@ packages:
   '@cloudflare/containers@0.0.30':
     resolution: {integrity: sha512-i148xBgmyn/pje82ZIyuTr/Ae0BT/YWwa1/GTJcw6DxEjUHAzZLaBCiX446U9OeuJ2rBh/L/9FIzxX5iYNt1AQ==}
 
-  '@cloudflare/containers@0.1.0':
-    resolution: {integrity: sha512-nuXnmkpJZzbjYdguRI2hB0sw1QCBMWdNuGDNQwEiJSLebtKRFpBt/d6AStGjp+8wGD2plPbd2U/mQerYF9kzJg==}
-
   '@cloudflare/kv-asset-handler@0.4.0':
     resolution: {integrity: sha512-+tv3z+SPp+gqTIcImN9o0hqE9xyfQjI1XD9pL6NuKjua9B1y7mNYv0S9cP+QEbA4ppVgGZEmKOvHX5G5Ei1CVA==}
     engines: {node: '>=18.0.0'}
@@ -650,8 +644,8 @@ packages:
     resolution: {integrity: sha512-SIOD2DxrRRwQ+jgzlXCqoEFiKOFqaPjhnNTGKXSRLvp1HiOvapLaFG2kEr9dYQTYe8rKrd9uvDUzmAITeNyaHQ==}
     engines: {node: '>=18.0.0'}
 
-  '@cloudflare/sandbox@0.7.1':
-    resolution: {integrity: sha512-suDuYa+/rLmvaTqRwETsRO7gyN7XGAfxy+Y/UmCCQJzPL5FHBojV5NUw7xwe6mIznSscz2uk1iPHrF7sCecCBA==}
+  '@cloudflare/sandbox@0.7.2':
+    resolution: {integrity: sha512-q0dn6RUBLZ8CD4g99sVJbxoQK/BjJ3luw0T03mvTrUbRicjyzdFWP7dlEYzhvqpyd6TWpTsYr+TSHf/95bVuWw==}
     peerDependencies:
       '@openai/agents': ^0.3.3
       '@opencode-ai/sdk': ^1.0.137
@@ -4338,15 +4332,13 @@ snapshots:
 
   '@cloudflare/containers@0.0.30': {}
 
-  '@cloudflare/containers@0.1.0': {}
-
   '@cloudflare/kv-asset-handler@0.4.0':
     dependencies:
       mime: 3.0.0
 
   '@cloudflare/kv-asset-handler@0.4.2': {}
 
-  '@cloudflare/sandbox@0.7.1':
+  '@cloudflare/sandbox@0.7.2':
     dependencies:
       '@cloudflare/containers': 0.0.30
 

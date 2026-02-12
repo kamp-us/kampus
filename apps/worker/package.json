@@ -23,7 +23,6 @@
 		"wrangler": "catalog:"
 	},
 	"dependencies": {
-		"@cloudflare/containers": "^0.1.0",
 		"@cloudflare/sandbox": "catalog:",
 		"@effect/experimental": "catalog:",
 		"@effect/platform": "catalog:",
