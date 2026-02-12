@@ -77,10 +77,16 @@ app.all("/rpc/library/*", async (c) => {
 	}
 });
 
-// WebSocket to wormhole — one DO per session = one container per session
+// WebSocket to wormhole — one DO per user (multiplexed sessions)
 app.all("/wormhole/ws", async (c) => {
-	const sessionId = c.req.query("sessionId") ?? crypto.randomUUID();
-	const id = c.env.WORMHOLE_DO.idFromName(sessionId);
+	const pasaport = c.env.PASAPORT.getByName("kampus");
+	const sessionData = await pasaport.validateSession(c.req.raw.headers);
+
+	if (!sessionData?.user) {
+		return c.json({error: "Unauthorized"}, 401);
+	}
+
+	const id = c.env.WORMHOLE_DO.idFromName(sessionData.user.id);
 	const stub = c.env.WORMHOLE_DO.get(id);
 	return stub.fetch(c.req.raw);
 });
