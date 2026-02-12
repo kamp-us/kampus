@@ -2,7 +2,7 @@ import {it} from "@effect/vitest";
 import {Effect} from "effect";
 import {describe, expect} from "vitest";
 
-import {PtySpawnError, SessionNotFoundError} from "../src/Errors.ts";
+import {ChannelExhaustedError, PtySpawnError, SessionNotFoundError} from "../src/Errors.ts";
 
 describe("PtySpawnError", () => {
 	it.effect("is a tagged error with _tag PtySpawnError", () =>
@@ -38,6 +38,16 @@ describe("SessionNotFoundError", () => {
 				Effect.catchTag("SessionNotFoundError", (e) => Effect.succeed(e.sessionId)),
 			);
 			expect(result).toBe("xyz");
+		}),
+	);
+});
+
+describe("ChannelExhaustedError", () => {
+	it.effect("is tagged", () =>
+		Effect.sync(() => {
+			const err = new ChannelExhaustedError({maxChannels: 255});
+			expect(err._tag).toBe("ChannelExhaustedError");
+			expect(err.maxChannels).toBe(255);
 		}),
 	);
 });
