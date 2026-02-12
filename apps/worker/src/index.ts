@@ -77,9 +77,10 @@ app.all("/rpc/library/*", async (c) => {
 	}
 });
 
-// WebSocket to wormhole multiplexer DO
+// WebSocket to wormhole — one DO per session = one container per session
 app.all("/wormhole/ws", async (c) => {
-	const id = c.env.WORMHOLE_DO.idFromName("singleton");
+	const sessionId = c.req.query("sessionId") ?? crypto.randomUUID();
+	const id = c.env.WORMHOLE_DO.idFromName(sessionId);
 	const stub = c.env.WORMHOLE_DO.get(id);
 	return stub.fetch(c.req.raw);
 });
