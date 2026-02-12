@@ -346,4 +346,27 @@ describe("Mux server handler", () => {
 			yield* Fiber.join(fiber);
 		}),
 	);
+
+	it.effect("session_list_request lists active sessions", () =>
+		Effect.gen(function* () {
+			const controlsRef = yield* Ref.make<PtyControls | null>(null);
+			const {socket, sendControl, receiveControl, close} = yield* makeMuxMockSocket;
+
+			const fiber = yield* handleMuxConnection(socket).pipe(
+				Effect.provide(makeTestLayers(controlsRef)),
+				Effect.fork,
+			);
+
+			yield* sendControl({type: "session_create", cols: 80, rows: 24});
+			yield* receiveControl; // consume session_created
+
+			yield* sendControl({type: "session_list_request"});
+			const list = yield* receiveControl;
+			expect(list.type).toBe("session_list");
+			expect(list.sessions.length).toBe(1);
+
+			yield* close;
+			yield* Fiber.join(fiber);
+		}),
+	);
 });
