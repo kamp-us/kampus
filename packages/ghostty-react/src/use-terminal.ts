@@ -14,7 +14,7 @@ export interface UseTerminalOptions {
 
 export interface UseTerminalResult {
   ref: (element: HTMLDivElement | null) => void;
-  write: (data: string) => void;
+  write: (data: string | Uint8Array) => void;
   terminal: Terminal | null;
   ready: boolean;
 }

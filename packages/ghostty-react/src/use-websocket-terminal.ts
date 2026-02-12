@@ -74,6 +74,7 @@ export function useWebSocketTerminal(
     function connect() {
       setStatus("connecting");
       const ws = new WebSocket(url);
+      ws.binaryType = "arraybuffer";
       wsRef.current = ws;
 
       ws.onopen = () => {
@@ -101,7 +102,14 @@ export function useWebSocketTerminal(
             // Not JSON — fall through to write
           }
         }
-        write(event.data);
+
+        // Binary frames arrive as ArrayBuffer (binaryType = "arraybuffer").
+        // ghostty-web's Terminal.write() only accepts string | Uint8Array.
+        if (event.data instanceof ArrayBuffer) {
+          write(new Uint8Array(event.data));
+        } else {
+          write(event.data);
+        }
       };
 
       ws.onclose = () => {
