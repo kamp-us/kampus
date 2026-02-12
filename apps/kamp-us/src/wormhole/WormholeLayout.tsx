@@ -1,20 +1,23 @@
 import type * as LT from "@usirin/layout-tree";
 import {Fragment, useEffect, useRef} from "react";
 import {Group, Panel, Separator} from "react-resizable-panels";
+import {useWormholeGateway} from "./WormholeGateway.tsx";
 import {TerminalPane} from "./TerminalPane.tsx";
 import {useWormholeLayout} from "./use-wormhole-layout.ts";
 import styles from "./WormholeLayout.module.css";
 
 export function WormholeLayout() {
+	const gateway = useWormholeGateway();
 	const layout = useWormholeLayout();
 	const initialized = useRef(false);
 
-	// Create first session on mount
+	// Create first session once WS is connected
 	useEffect(() => {
+		if (gateway.status !== "connected") return;
 		if (initialized.current) return;
 		initialized.current = true;
 		layout.createInitialSession(80, 24);
-	}, [layout.createInitialSession]);
+	}, [gateway.status, layout.createInitialSession]);
 
 	// Keybindings
 	useEffect(() => {
