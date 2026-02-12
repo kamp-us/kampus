@@ -34,12 +34,45 @@ export class SessionNewRequest extends Schema.Class<SessionNewRequest>("SessionN
 	rows: Schema.Number,
 }) {}
 
+/** @since 0.0.2 @category models */
+export class SessionCreateRequest extends Schema.Class<SessionCreateRequest>("SessionCreateRequest")({
+	type: Schema.Literal("session_create"),
+	cols: Schema.Number,
+	rows: Schema.Number,
+}) {}
+
+/** @since 0.0.2 @category models */
+export class SessionAttachRequest extends Schema.Class<SessionAttachRequest>("SessionAttachRequest")({
+	type: Schema.Literal("session_attach"),
+	sessionId: Schema.String,
+	cols: Schema.Number,
+	rows: Schema.Number,
+}) {}
+
+/** @since 0.0.2 @category models */
+export class SessionDetachRequest extends Schema.Class<SessionDetachRequest>("SessionDetachRequest")({
+	type: Schema.Literal("session_detach"),
+	sessionId: Schema.String,
+}) {}
+
+/** @since 0.0.2 @category models */
+export class SessionResizeRequest extends Schema.Class<SessionResizeRequest>("SessionResizeRequest")({
+	type: Schema.Literal("session_resize"),
+	sessionId: Schema.String,
+	cols: Schema.Number,
+	rows: Schema.Number,
+}) {}
+
 /** @since 0.0.1 @category models */
 export const ControlMessage = Schema.Union(
 	AttachMessage,
 	ResizeMessage,
 	SessionListRequest,
 	SessionNewRequest,
+	SessionCreateRequest,
+	SessionAttachRequest,
+	SessionDetachRequest,
+	SessionResizeRequest,
 );
 
 /** @since 0.0.1 @category models */
@@ -59,8 +92,23 @@ export class SessionListResponse extends Schema.Class<SessionListResponse>("Sess
 	sessions: Schema.Array(Schema.Struct({id: Schema.String, clientCount: Schema.Number})),
 }) {}
 
+/** @since 0.0.2 @category models */
+export class SessionCreatedResponse extends Schema.Class<SessionCreatedResponse>("SessionCreatedResponse")({
+	type: Schema.Literal("session_created"),
+	sessionId: Schema.String,
+	channel: Schema.Number,
+}) {}
+
+/** @since 0.0.2 @category models */
+export class SessionExitResponse extends Schema.Class<SessionExitResponse>("SessionExitResponse")({
+	type: Schema.Literal("session_exit"),
+	sessionId: Schema.String,
+	channel: Schema.Number,
+	exitCode: Schema.Number,
+}) {}
+
 /** @since 0.0.1 @category models */
-export type ServerMessage = SessionMessage | SessionListResponse;
+export type ServerMessage = SessionMessage | SessionListResponse | SessionCreatedResponse | SessionExitResponse;
 
 // Parsing
 

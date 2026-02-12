@@ -1,6 +1,6 @@
 import {Option} from "effect";
 import {describe, expect, test} from "vitest";
-import {parseMessage, SessionListResponse, SessionMessage} from "../src/Protocol.ts";
+import {parseMessage, SessionCreatedResponse, SessionExitResponse, SessionListResponse, SessionMessage} from "../src/Protocol.ts";
 
 describe("Protocol", () => {
 	describe("parseMessage", () => {
@@ -51,6 +51,31 @@ describe("Protocol", () => {
 			const result = parseMessage(msg);
 			expect(Option.isSome(result)).toBe(true);
 		});
+
+		test("parses session_create", () => {
+			const msg = JSON.stringify({type: "session_create", cols: 80, rows: 24});
+			const result = parseMessage(msg);
+			expect(Option.isSome(result)).toBe(true);
+			if (Option.isSome(result)) expect(result.value.type).toBe("session_create");
+		});
+
+		test("parses session_attach", () => {
+			const msg = JSON.stringify({type: "session_attach", sessionId: "s1", cols: 80, rows: 24});
+			const result = parseMessage(msg);
+			expect(Option.isSome(result)).toBe(true);
+		});
+
+		test("parses session_detach", () => {
+			const msg = JSON.stringify({type: "session_detach", sessionId: "s1"});
+			const result = parseMessage(msg);
+			expect(Option.isSome(result)).toBe(true);
+		});
+
+		test("parses session_resize", () => {
+			const msg = JSON.stringify({type: "session_resize", sessionId: "s1", cols: 120, rows: 40});
+			const result = parseMessage(msg);
+			expect(Option.isSome(result)).toBe(true);
+		});
 	});
 
 	describe("server messages", () => {
@@ -66,6 +91,17 @@ describe("Protocol", () => {
 				sessions: [{id: "s1", clientCount: 2}],
 			});
 			expect(msg.sessions).toHaveLength(1);
+		});
+
+		test("SessionCreatedResponse constructs correctly", () => {
+			const msg = new SessionCreatedResponse({type: "session_created", sessionId: "s1", channel: 0});
+			expect(msg.channel).toBe(0);
+			expect(msg.sessionId).toBe("s1");
+		});
+
+		test("SessionExitResponse constructs correctly", () => {
+			const msg = new SessionExitResponse({type: "session_exit", sessionId: "s1", channel: 0, exitCode: 0});
+			expect(msg.exitCode).toBe(0);
 		});
 	});
 });
