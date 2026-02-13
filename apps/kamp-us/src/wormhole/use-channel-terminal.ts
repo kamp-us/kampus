@@ -29,6 +29,7 @@ export function useChannelTerminal(options: UseChannelTerminalOptions) {
 	}, [ready, channel, gateway, write]);
 
 	// Let layout keybindings (Ctrl+Shift combos) pass through the terminal
+	// ghostty-web: return true = "consumed, preventDefault (no stopPropagation)", false = "not handled"
 	useEffect(() => {
 		if (!terminal) return;
 		terminal.attachCustomKeyEventHandler((e: KeyboardEvent) => {
