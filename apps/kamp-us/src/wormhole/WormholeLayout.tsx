@@ -11,13 +11,21 @@ export function WormholeLayout() {
 	const layout = useWormholeLayout();
 	const initialized = useRef(false);
 
-	// Create first session once WS is connected
+	// Create first session or reattach existing ones on WS connect
 	useEffect(() => {
 		if (gateway.status !== "connected") return;
+
+		// Reconnect: reattach all existing sessions
+		if (layout.sessionCount() > 0) {
+			layout.reattachAll(80, 24);
+			return;
+		}
+
+		// First connect: create initial session
 		if (initialized.current) return;
 		initialized.current = true;
 		layout.createInitialSession(80, 24);
-	}, [gateway.status, layout.createInitialSession]);
+	}, [gateway.status, layout]);
 
 	// Keybindings
 	useEffect(() => {

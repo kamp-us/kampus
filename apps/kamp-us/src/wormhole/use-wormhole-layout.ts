@@ -18,6 +18,15 @@ export function useWormholeLayout() {
 	useEffect(() => {
 		return gateway.onSessionCreated((event: SessionCreatedEvent) => {
 			const {sessionId, channel} = event;
+
+			// Reattach: just update channel, don't modify tree
+			const existing = paneMap.current.get(sessionId);
+			if (existing) {
+				paneMap.current.set(sessionId, {sessionId, channel});
+				return;
+			}
+
+			// New session
 			paneMap.current.set(sessionId, {sessionId, channel});
 
 			setTree((prev) => {
@@ -84,6 +93,17 @@ export function useWormholeLayout() {
 		return paneMap.current.get(sessionId);
 	}, []);
 
+	const reattachAll = useCallback(
+		(cols: number, rows: number) => {
+			for (const [, info] of paneMap.current) {
+				gateway.attachSession(info.sessionId, cols, rows);
+			}
+		},
+		[gateway],
+	);
+
+	const sessionCount = useCallback(() => paneMap.current.size, []);
+
 	return {
 		tree,
 		focused,
@@ -93,5 +113,7 @@ export function useWormholeLayout() {
 		closePane,
 		focusDirection,
 		getPaneInfo,
+		reattachAll,
+		sessionCount,
 	};
 }
