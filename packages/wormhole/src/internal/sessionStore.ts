@@ -1,5 +1,5 @@
 /** @internal */
-import {Config, Deferred, Effect, Exit, Ref, Scope} from "effect";
+import {Config, Effect, Exit, Ref, Scope} from "effect";
 import {SessionNotFoundError} from "../Errors.ts";
 import {Pty} from "../Pty.ts";
 import type {Session} from "../Session.ts";
@@ -37,19 +37,6 @@ export const make = Effect.gen(function* () {
 				return next;
 			});
 
-			// Auto-cleanup on PTY exit
-			yield* Deferred.await(session.exited).pipe(
-				Effect.andThen(
-					Ref.update(entries, (map) => {
-						const next = new Map(map);
-						next.delete(id);
-						return next;
-					}),
-				),
-				Effect.andThen(Scope.close(sessionScope, Exit.void)),
-				Effect.fork,
-			);
-
 			return session;
 		});
 
@@ -78,5 +65,18 @@ export const make = Effect.gen(function* () {
 
 	const size = Ref.get(entries).pipe(Effect.map((map) => map.size));
 
-	return {create, get, getOrFail, list: () => list, size};
+	const destroy = (id: string) =>
+		Effect.gen(function* () {
+			const map = yield* Ref.get(entries);
+			const entry = map.get(id);
+			if (!entry) return;
+			yield* Ref.update(entries, (m) => {
+				const next = new Map(m);
+				next.delete(id);
+				return next;
+			});
+			yield* Scope.close(entry.scope, Exit.void);
+		});
+
+	return {create, get, getOrFail, list: () => list, size, destroy};
 });
