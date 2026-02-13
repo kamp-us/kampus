@@ -37,9 +37,11 @@ export interface Session {
 	readonly id: string;
 	readonly clientCount: Effect.Effect<number>;
 	readonly exited: Deferred.Deferred<number>;
+	readonly isExited: Effect.Effect<boolean>;
 	readonly attach: (clientId: string, cols: number, rows: number) => Effect.Effect<ClientHandle>;
 	readonly write: (data: string) => Effect.Effect<void>;
 	readonly clientResize: (clientId: string, cols: number, rows: number) => Effect.Effect<void>;
+	readonly respawn: (cols: number, rows: number) => Effect.Effect<void, PtySpawnError>;
 }
 
 /**
