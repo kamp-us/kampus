@@ -5,8 +5,8 @@
  */
 import type * as Socket from "@effect/platform/Socket";
 import type {Effect} from "effect";
-import * as internal from "./internal/server.ts";
 import * as muxInternal from "./internal/muxServer.ts";
+import * as internal from "./internal/server.ts";
 import type {SessionStore} from "./SessionStore.ts";
 
 /**

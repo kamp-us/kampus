@@ -1,6 +1,6 @@
 import {DurableObject} from "cloudflare:workers";
-import {Server, SessionStore} from "@kampus/wormhole";
 import * as Socket from "@effect/platform/Socket";
+import {Server, SessionStore} from "@kampus/wormhole";
 import {Effect, Layer, ManagedRuntime} from "effect";
 import {PtySandbox} from "./PtySandbox";
 import {SandboxBinding} from "./SandboxBinding";
@@ -27,11 +27,19 @@ const cfWebSocketToSocket = (ws: WebSocket): Effect.Effect<Socket.Socket> => {
 					});
 
 					ws.addEventListener("close", () => {
-						try { controller.close(); } catch { /* stream already closed */ }
+						try {
+							controller.close();
+						} catch {
+							/* stream already closed */
+						}
 					});
 
 					ws.addEventListener("error", (err) => {
-						try { controller.error(err); } catch { /* stream already closed */ }
+						try {
+							controller.error(err);
+						} catch {
+							/* stream already closed */
+						}
 					});
 				},
 				cancel() {
@@ -97,7 +105,11 @@ export class WormholeDO extends DurableObject<Env> {
 				Effect.catchAllCause((cause) =>
 					Effect.sync(() => {
 						console.error("[WormholeDO] handler failed:", cause.toString());
-						try { server.close(1011, "Internal error"); } catch { /* already closed */ }
+						try {
+							server.close(1011, "Internal error");
+						} catch {
+							/* already closed */
+						}
 					}),
 				),
 				Effect.scoped,
