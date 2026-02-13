@@ -10,13 +10,19 @@ export function WormholeLayout() {
 	const gateway = useWormholeGateway();
 	const layout = useWormholeLayout();
 	const initialized = useRef(false);
+	const wasDisconnected = useRef(false);
 
 	// Create first session or reattach existing ones on WS connect
 	useEffect(() => {
+		if (gateway.status === "disconnected") {
+			wasDisconnected.current = true;
+			return;
+		}
 		if (gateway.status !== "connected") return;
 
-		// Reconnect: reattach all existing sessions
-		if (layout.sessionCount() > 0) {
+		// Reconnect after actual disconnect: reattach all existing sessions
+		if (wasDisconnected.current && layout.sessionCount() > 0) {
+			wasDisconnected.current = false;
 			layout.reattachAll(80, 24);
 			return;
 		}
@@ -24,8 +30,10 @@ export function WormholeLayout() {
 		// First connect: create initial session
 		if (initialized.current) return;
 		initialized.current = true;
+		wasDisconnected.current = false;
 		layout.createInitialSession(80, 24);
-	}, [gateway.status, layout]);
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [gateway.status]);
 
 	// Keybindings
 	useEffect(() => {

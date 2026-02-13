@@ -42,7 +42,9 @@ export const handleMuxConnection = (socket: Socket.Socket) =>
 					// Race output streaming against PTY exit so we react promptly
 					yield* Effect.raceFirst(
 						handle.output.pipe(
-							Stream.runForEach((data) => write(encodeBinaryFrame(channel, encoder.encode(data)))),
+							Stream.runForEach((data) =>
+								write(encodeBinaryFrame(channel, encoder.encode(data))),
+							),
 						),
 						Deferred.await(handle.exited).pipe(Effect.asVoid),
 					);
