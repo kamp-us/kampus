@@ -89,6 +89,20 @@ export const handleMuxConnection = (socket: Socket.Socket) =>
 							const existing = yield* store.get(msg.sessionId);
 							if (!existing) return;
 
+							// Respawn dead session before attaching
+							const exited = yield* existing.isExited;
+							if (exited) {
+								const respawnResult = yield* existing
+									.respawn(msg.cols, msg.rows)
+									.pipe(Effect.either);
+								if (respawnResult._tag === "Left") {
+									yield* write(
+										new Socket.CloseEvent(4002, `Failed to respawn PTY: ${respawnResult.left.shell}`),
+									);
+									return;
+								}
+							}
+
 							const attachChannelResult = yield* channelMap
 								.assign(msg.sessionId)
 								.pipe(Effect.either);
@@ -136,6 +150,21 @@ export const handleMuxConnection = (socket: Socket.Socket) =>
 						case "session_list_request": {
 							const sessions = yield* store.list();
 							yield* sendControl(new SessionListResponse({type: "session_list", sessions}));
+							return;
+						}
+						case "session_destroy": {
+							const channelOpt = channelMap.getChannel(msg.sessionId);
+							if (Option.isSome(channelOpt)) {
+								const channel = channelOpt.value;
+								const entry = entries.get(channel);
+								if (entry) {
+									yield* entry.handle.close;
+									yield* Fiber.interrupt(entry.outputFiber);
+									entries.delete(channel);
+									yield* channelMap.release(channel);
+								}
+							}
+							yield* store.destroy(msg.sessionId);
 							return;
 						}
 						default:
