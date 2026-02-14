@@ -79,14 +79,14 @@ export const make = (options: {
 						}
 						const channel = channelResult.right;
 						const handle = yield* session.attach(clientId, msg.cols, msg.rows);
-						const fiber = yield* startOutputFiber(channel, sessionId, handle).pipe(
-							Effect.forkDaemon,
-						);
-						entries.set(channel, {session, handle, outputFiber: fiber});
 
 						yield* sendControl(
 							new SessionCreatedResponse({type: "session_created", sessionId, channel}),
 						);
+						const fiber = yield* startOutputFiber(channel, sessionId, handle).pipe(
+							Effect.forkDaemon,
+						);
+						entries.set(channel, {session, handle, outputFiber: fiber});
 						return;
 					}
 					case "session_attach": {
@@ -109,10 +109,6 @@ export const make = (options: {
 						}
 						const channel = attachChannelResult.right;
 						const handle = yield* existing.attach(clientId, msg.cols, msg.rows);
-						const fiber = yield* startOutputFiber(channel, msg.sessionId, handle).pipe(
-							Effect.forkDaemon,
-						);
-						entries.set(channel, {session: existing, handle, outputFiber: fiber});
 
 						yield* sendControl(
 							new SessionCreatedResponse({
@@ -121,6 +117,10 @@ export const make = (options: {
 								channel,
 							}),
 						);
+						const fiber = yield* startOutputFiber(channel, msg.sessionId, handle).pipe(
+							Effect.forkDaemon,
+						);
+						entries.set(channel, {session: existing, handle, outputFiber: fiber});
 						return;
 					}
 					case "session_detach": {
