@@ -6,42 +6,37 @@ import {
 	parseBinaryFrame,
 	parseMessage,
 	SessionCreatedResponse,
-	SessionExitResponse,
 	SessionDestroyRequest,
+	SessionExitResponse,
 	SessionListResponse,
 	SessionMessage,
 } from "../src/Protocol.ts";
 
+/** Parse and unwrap, failing the test if the message is not recognized. */
+function mustParse(raw: string) {
+	const result = parseMessage(raw);
+	expect(Option.isSome(result)).toBe(true);
+	return Option.getOrThrow(result);
+}
+
 describe("Protocol", () => {
 	describe("parseMessage", () => {
 		test("parses attach message", () => {
-			const msg = JSON.stringify({type: "attach", sessionId: "s1", cols: 80, rows: 24});
-			const result = parseMessage(msg);
-			expect(Option.isSome(result)).toBe(true);
-			if (Option.isSome(result)) {
-				expect(result.value.type).toBe("attach");
-			}
+			const msg = mustParse(JSON.stringify({type: "attach", sessionId: "s1", cols: 80, rows: 24}));
+			expect(msg.type).toBe("attach");
 		});
 
 		test("parses resize message", () => {
-			const msg = JSON.stringify({type: "resize", cols: 120, rows: 40});
-			const result = parseMessage(msg);
-			expect(Option.isSome(result)).toBe(true);
-			if (Option.isSome(result)) {
-				expect(result.value.type).toBe("resize");
-			}
+			const msg = mustParse(JSON.stringify({type: "resize", cols: 120, rows: 40}));
+			expect(msg.type).toBe("resize");
 		});
 
 		test("parses session_list_request", () => {
-			const msg = JSON.stringify({type: "session_list_request"});
-			const result = parseMessage(msg);
-			expect(Option.isSome(result)).toBe(true);
+			mustParse(JSON.stringify({type: "session_list_request"}));
 		});
 
 		test("parses session_new", () => {
-			const msg = JSON.stringify({type: "session_new", cols: 80, rows: 24});
-			const result = parseMessage(msg);
-			expect(Option.isSome(result)).toBe(true);
+			mustParse(JSON.stringify({type: "session_new", cols: 80, rows: 24}));
 		});
 
 		test("returns None for raw terminal input", () => {
@@ -57,41 +52,29 @@ describe("Protocol", () => {
 		});
 
 		test("attach with null sessionId", () => {
-			const msg = JSON.stringify({type: "attach", sessionId: null, cols: 80, rows: 24});
-			const result = parseMessage(msg);
-			expect(Option.isSome(result)).toBe(true);
+			mustParse(JSON.stringify({type: "attach", sessionId: null, cols: 80, rows: 24}));
 		});
 
 		test("parses session_create", () => {
-			const msg = JSON.stringify({type: "session_create", cols: 80, rows: 24});
-			const result = parseMessage(msg);
-			expect(Option.isSome(result)).toBe(true);
-			if (Option.isSome(result)) expect(result.value.type).toBe("session_create");
+			const msg = mustParse(JSON.stringify({type: "session_create", cols: 80, rows: 24}));
+			expect(msg.type).toBe("session_create");
 		});
 
 		test("parses session_attach", () => {
-			const msg = JSON.stringify({type: "session_attach", sessionId: "s1", cols: 80, rows: 24});
-			const result = parseMessage(msg);
-			expect(Option.isSome(result)).toBe(true);
+			mustParse(JSON.stringify({type: "session_attach", sessionId: "s1", cols: 80, rows: 24}));
 		});
 
 		test("parses session_detach", () => {
-			const msg = JSON.stringify({type: "session_detach", sessionId: "s1"});
-			const result = parseMessage(msg);
-			expect(Option.isSome(result)).toBe(true);
+			mustParse(JSON.stringify({type: "session_detach", sessionId: "s1"}));
 		});
 
 		test("parses session_resize", () => {
-			const msg = JSON.stringify({type: "session_resize", sessionId: "s1", cols: 120, rows: 40});
-			const result = parseMessage(msg);
-			expect(Option.isSome(result)).toBe(true);
+			mustParse(JSON.stringify({type: "session_resize", sessionId: "s1", cols: 120, rows: 40}));
 		});
 
 		test("parses session_destroy", () => {
-			const msg = JSON.stringify({type: "session_destroy", sessionId: "s1"});
-			const result = parseMessage(msg);
-			expect(Option.isSome(result)).toBe(true);
-			if (Option.isSome(result)) expect(result.value.type).toBe("session_destroy");
+			const msg = mustParse(JSON.stringify({type: "session_destroy", sessionId: "s1"}));
+			expect(msg.type).toBe("session_destroy");
 		});
 	});
 
