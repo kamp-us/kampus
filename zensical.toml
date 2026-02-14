@@ -1,0 +1,40 @@
+[project]
+site_name = "kampus"
+site_description = "kampus project documentation"
+site_author = "Umut Sirin"
+
+nav = [
+  { "Home" = "index.md" },
+  { "Blog" = [
+    { "Building Wormhole" = "blog/index.md" },
+    { "1. Why I'm Building My Own Terminal Multiplexer" = "blog/2026-02-14-why-im-building-my-own-terminal-multiplexer.md" },
+    { "2. From Prototype to Package" = "blog/2026-02-14-from-prototype-to-package.md" },
+    { "3. A Binary Protocol for Terminal Multiplexing" = "blog/2026-02-14-a-binary-protocol-for-terminal-multiplexing.md" },
+    { "4. Running a PTY on Cloudflare's Edge" = "blog/2026-02-14-running-a-pty-on-cloudflares-edge.md" },
+    { "5. When Your Fibers Die Silently" = "blog/2026-02-14-when-your-fibers-die-silently.md" },
+    { "6. Killing Your Abstractions" = "blog/2026-02-14-killing-your-abstractions.md" },
+    { "7. Tiled Terminals in the Browser" = "blog/2026-02-14-tiled-terminals-in-the-browser.md" },
+  ]}
+]
+
+[project.theme]
+language = "en"
+features = [
+    "content.code.copy",
+    "navigation.instant",
+    "navigation.top",
+    "search.highlight",
+]
+
+[[project.theme.palette]]
+scheme = "slate"
+toggle.icon = "lucide/sun"
+toggle.name = "Switch to light mode"
+
+[[project.theme.palette]]
+scheme = "default"
+toggle.icon = "lucide/moon"
+toggle.name = "Switch to dark mode"
+
+[project.extra]
+generator = false
