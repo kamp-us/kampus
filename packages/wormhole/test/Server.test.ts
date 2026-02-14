@@ -2,7 +2,7 @@ import * as Socket from "@effect/platform/Socket";
 import {it} from "@effect/vitest";
 import {Deferred, Effect, Fiber, Layer, Queue, Ref, Stream} from "effect";
 import {describe, expect} from "vitest";
-import {handleMuxConnection} from "../src/internal/muxServer.ts";
+import {make as makeMuxHandlerFn} from "../src/internal/muxHandler.ts";
 import {handleConnection} from "../src/internal/server.ts";
 import {CONTROL_CHANNEL, encodeBinaryFrame, parseBinaryFrame} from "../src/Protocol.ts";
 import {Pty, type PtyProcess} from "../src/Pty.ts";
@@ -74,52 +74,42 @@ const makeTestLayers = (controlsRef: Ref.Ref<PtyControls | null>) => {
 	return SessionStore.Default.pipe(Layer.provide(testPty));
 };
 
-// ── Binary Mock Socket (for mux tests) ──────────────────────────────
+// ── Handler-based Mock (for mux tests) ──────────────────────────────
 
-const makeMuxMockSocket = Effect.gen(function* () {
-	const incoming = yield* Queue.unbounded<Uint8Array>();
-	const outgoing = yield* Queue.unbounded<Uint8Array | Socket.CloseEvent>();
+const makeMuxMockHandler = Effect.gen(function* () {
+	const outgoing = yield* Queue.unbounded<Uint8Array>();
+	let closed: {code: number; reason: string} | null = null;
 
-	const writeFn = (data: string | Uint8Array | Socket.CloseEvent) => {
-		if (data instanceof Socket.CloseEvent) {
-			return Queue.offer(outgoing, data as any).pipe(
-				Effect.tap(() => Queue.shutdown(incoming)),
-				Effect.asVoid,
-			);
-		}
-		const bytes = typeof data === "string" ? new TextEncoder().encode(data) : data;
-		return Queue.offer(outgoing, bytes).pipe(Effect.asVoid);
-	};
+	const send = (data: Uint8Array) => Queue.offer(outgoing, data).pipe(Effect.asVoid);
+	const close = (code: number, reason: string) =>
+		Effect.sync(() => {
+			closed = {code, reason};
+		});
+
+	const handler = yield* makeMuxHandlerFn({send, close});
 
 	return {
-		socket: {
-			writer: Effect.succeed(writeFn),
-			runRaw: (handler: (data: string | Uint8Array) => Effect.Effect<void, any, any>) =>
-				Stream.fromQueue(incoming).pipe(Stream.runForEach(handler)),
-		} as unknown as Socket.Socket,
+		handler,
 		sendControl: (msg: object) => {
 			const json = JSON.stringify(msg);
 			const frame = encodeBinaryFrame(CONTROL_CHANNEL, new TextEncoder().encode(json));
-			return Queue.offer(incoming, frame);
+			return handler.handleMessage(frame);
 		},
 		sendData: (channel: number, data: string) => {
 			const frame = encodeBinaryFrame(channel, new TextEncoder().encode(data));
-			return Queue.offer(incoming, frame);
+			return handler.handleMessage(frame);
 		},
 		receiveControl: Effect.gen(function* () {
 			const frame = yield* Queue.take(outgoing);
-			if (frame instanceof Socket.CloseEvent) return frame as any;
-			const bytes = frame as Uint8Array;
-			const {channel, payload} = parseBinaryFrame(bytes);
-			expect(channel).toBe(CONTROL_CHANNEL);
+			const {payload} = parseBinaryFrame(frame);
 			return JSON.parse(new TextDecoder().decode(payload));
 		}),
 		receiveData: Effect.gen(function* () {
 			const frame = yield* Queue.take(outgoing);
-			const bytes = frame as Uint8Array;
-			return parseBinaryFrame(bytes);
+			return parseBinaryFrame(frame);
 		}),
-		close: Queue.shutdown(incoming),
+		getClosed: () => closed,
+		cleanup: handler.cleanup,
 	};
 });
 
@@ -254,11 +244,8 @@ describe("Mux server handler", () => {
 	it.effect("session_create creates session and responds with channel", () =>
 		Effect.gen(function* () {
 			const controlsRef = yield* Ref.make<PtyControls | null>(null);
-			const {socket, sendControl, receiveControl, close} = yield* makeMuxMockSocket;
-
-			const fiber = yield* handleMuxConnection(socket).pipe(
+			const {sendControl, receiveControl, cleanup} = yield* makeMuxMockHandler.pipe(
 				Effect.provide(makeTestLayers(controlsRef)),
-				Effect.fork,
 			);
 
 			yield* sendControl({type: "session_create", cols: 80, rows: 24});
@@ -267,19 +254,15 @@ describe("Mux server handler", () => {
 			expect(response.channel).toBe(0);
 			expect(typeof response.sessionId).toBe("string");
 
-			yield* close;
-			yield* Fiber.join(fiber);
+			yield* cleanup;
 		}),
 	);
 
 	it.effect("PTY output arrives on assigned channel as binary", () =>
 		Effect.gen(function* () {
 			const controlsRef = yield* Ref.make<PtyControls | null>(null);
-			const {socket, sendControl, receiveControl, receiveData, close} = yield* makeMuxMockSocket;
-
-			const fiber = yield* handleMuxConnection(socket).pipe(
+			const {sendControl, receiveControl, receiveData, cleanup} = yield* makeMuxMockHandler.pipe(
 				Effect.provide(makeTestLayers(controlsRef)),
-				Effect.fork,
 			);
 
 			yield* sendControl({type: "session_create", cols: 80, rows: 24});
@@ -292,19 +275,15 @@ describe("Mux server handler", () => {
 			expect(data.channel).toBe(created.channel);
 			expect(new TextDecoder().decode(data.payload)).toBe("hello world");
 
-			yield* close;
-			yield* Fiber.join(fiber);
+			yield* cleanup;
 		}),
 	);
 
 	it.effect("binary input routed to correct session", () =>
 		Effect.gen(function* () {
 			const controlsRef = yield* Ref.make<PtyControls | null>(null);
-			const {socket, sendControl, sendData, receiveControl, close} = yield* makeMuxMockSocket;
-
-			const fiber = yield* handleMuxConnection(socket).pipe(
+			const {sendControl, sendData, receiveControl, cleanup} = yield* makeMuxMockHandler.pipe(
 				Effect.provide(makeTestLayers(controlsRef)),
-				Effect.fork,
 			);
 
 			yield* sendControl({type: "session_create", cols: 80, rows: 24});
@@ -315,19 +294,15 @@ describe("Mux server handler", () => {
 			const input = yield* controls!.getInput;
 			expect(input).toBe("ls -la");
 
-			yield* close;
-			yield* Fiber.join(fiber);
+			yield* cleanup;
 		}),
 	);
 
 	it.effect("session_exit sent when PTY exits", () =>
 		Effect.gen(function* () {
 			const controlsRef = yield* Ref.make<PtyControls | null>(null);
-			const {socket, sendControl, receiveControl, close} = yield* makeMuxMockSocket;
-
-			const fiber = yield* handleMuxConnection(socket).pipe(
+			const {sendControl, receiveControl, cleanup} = yield* makeMuxMockHandler.pipe(
 				Effect.provide(makeTestLayers(controlsRef)),
-				Effect.fork,
 			);
 
 			yield* sendControl({type: "session_create", cols: 80, rows: 24});
@@ -340,19 +315,15 @@ describe("Mux server handler", () => {
 			expect(exit.type).toBe("session_exit");
 			expect(exit.exitCode).toBe(0);
 
-			yield* close;
-			yield* Fiber.join(fiber);
+			yield* cleanup;
 		}),
 	);
 
 	it.effect("session_list_request lists active sessions", () =>
 		Effect.gen(function* () {
 			const controlsRef = yield* Ref.make<PtyControls | null>(null);
-			const {socket, sendControl, receiveControl, close} = yield* makeMuxMockSocket;
-
-			const fiber = yield* handleMuxConnection(socket).pipe(
+			const {sendControl, receiveControl, cleanup} = yield* makeMuxMockHandler.pipe(
 				Effect.provide(makeTestLayers(controlsRef)),
-				Effect.fork,
 			);
 
 			yield* sendControl({type: "session_create", cols: 80, rows: 24});
@@ -363,19 +334,15 @@ describe("Mux server handler", () => {
 			expect(list.type).toBe("session_list");
 			expect(list.sessions.length).toBe(1);
 
-			yield* close;
-			yield* Fiber.join(fiber);
+			yield* cleanup;
 		}),
 	);
 
 	it.effect("session persists in store after PTY exit", () =>
 		Effect.gen(function* () {
 			const controlsRef = yield* Ref.make<PtyControls | null>(null);
-			const {socket, sendControl, receiveControl, close} = yield* makeMuxMockSocket;
-
-			const fiber = yield* handleMuxConnection(socket).pipe(
+			const {sendControl, receiveControl, cleanup} = yield* makeMuxMockHandler.pipe(
 				Effect.provide(makeTestLayers(controlsRef)),
-				Effect.fork,
 			);
 
 			yield* sendControl({type: "session_create", cols: 80, rows: 24});
@@ -391,21 +358,15 @@ describe("Mux server handler", () => {
 			expect(reattached.type).toBe("session_created");
 			expect(reattached.sessionId).toBe(created.sessionId);
 
-			yield* close;
-			yield* Fiber.join(fiber);
+			yield* cleanup;
 		}),
 	);
 
 	it.effect("reattach to exited session respawns PTY with working I/O", () =>
 		Effect.gen(function* () {
 			const controlsRef = yield* Ref.make<PtyControls | null>(null);
-			const {socket, sendControl, sendData, receiveControl, receiveData, close} =
-				yield* makeMuxMockSocket;
-
-			const fiber = yield* handleMuxConnection(socket).pipe(
-				Effect.provide(makeTestLayers(controlsRef)),
-				Effect.fork,
-			);
+			const {sendControl, sendData, receiveControl, receiveData, cleanup} =
+				yield* makeMuxMockHandler.pipe(Effect.provide(makeTestLayers(controlsRef)));
 
 			// Create and kill session
 			yield* sendControl({type: "session_create", cols: 80, rows: 24});
@@ -443,19 +404,15 @@ describe("Mux server handler", () => {
 			const input = yield* newControls!.getInput;
 			expect(input).toBe("echo hello");
 
-			yield* close;
-			yield* Fiber.join(fiber);
+			yield* cleanup;
 		}),
 	);
 
 	it.effect("scrollback including restart separator replayed on reattach", () =>
 		Effect.gen(function* () {
 			const controlsRef = yield* Ref.make<PtyControls | null>(null);
-			const {socket, sendControl, receiveControl, receiveData, close} = yield* makeMuxMockSocket;
-
-			const fiber = yield* handleMuxConnection(socket).pipe(
+			const {sendControl, receiveControl, receiveData, cleanup} = yield* makeMuxMockHandler.pipe(
 				Effect.provide(makeTestLayers(controlsRef)),
-				Effect.fork,
 			);
 
 			yield* sendControl({type: "session_create", cols: 80, rows: 24});
@@ -478,19 +435,15 @@ describe("Mux server handler", () => {
 			const replay2 = yield* receiveData;
 			expect(new TextDecoder().decode(replay2.payload)).toContain("shell restarted");
 
-			yield* close;
-			yield* Fiber.join(fiber);
+			yield* cleanup;
 		}),
 	);
 
 	it.effect("session_destroy removes session from store", () =>
 		Effect.gen(function* () {
 			const controlsRef = yield* Ref.make<PtyControls | null>(null);
-			const {socket, sendControl, receiveControl, close} = yield* makeMuxMockSocket;
-
-			const fiber = yield* handleMuxConnection(socket).pipe(
+			const {sendControl, receiveControl, cleanup} = yield* makeMuxMockHandler.pipe(
 				Effect.provide(makeTestLayers(controlsRef)),
-				Effect.fork,
 			);
 
 			yield* sendControl({type: "session_create", cols: 80, rows: 24});
@@ -505,8 +458,7 @@ describe("Mux server handler", () => {
 			expect(list.type).toBe("session_list");
 			expect(list.sessions.length).toBe(0);
 
-			yield* close;
-			yield* Fiber.join(fiber);
+			yield* cleanup;
 		}),
 	);
 });
