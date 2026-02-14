@@ -12,7 +12,7 @@ export function useWormholeLayout() {
 	const [tree, setTree] = useState(() => LT.createTree(LT.createStack("vertical", [])));
 	const [focused, setFocused] = useState<LT.StackPath>([0]);
 	const paneMap = useRef(new Map<string, PaneInfo>());
-	const pendingSplitRef = useRef<{orientation: LT.Orientation} | null>(null);
+	const pendingSplits = useRef<LT.Orientation[]>([]);
 
 	// Listen for session_created to wire panes
 	useEffect(() => {
@@ -36,9 +36,9 @@ export function useWormholeLayout() {
 					return LT.createTree(LT.createStack("vertical", [window]));
 				}
 				// Pending split — add new pane
-				if (pendingSplitRef.current) {
-					const orientation = pendingSplitRef.current.orientation;
-					pendingSplitRef.current = null;
+				if (pendingSplits.current.length > 0) {
+					// biome-ignore lint/style/noNonNullAssertion: length check guarantees element
+					const orientation = pendingSplits.current.shift()!;
 					const updated = LT.split(prev, focused, orientation);
 					// split() clones the focused window — update the NEW pane's key to the new sessionId
 					const newPath = [...focused.slice(0, -1), (focused[focused.length - 1] ?? 0) + 1];
@@ -58,7 +58,7 @@ export function useWormholeLayout() {
 
 	const splitPane = useCallback(
 		(orientation: LT.Orientation, cols: number, rows: number) => {
-			pendingSplitRef.current = {orientation};
+			pendingSplits.current.push(orientation);
 			gateway.createSession(cols, rows);
 		},
 		[gateway],

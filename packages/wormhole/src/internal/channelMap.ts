@@ -21,6 +21,10 @@ export const make = (maxChannels: number = DEFAULT_MAX_CHANNELS): Effect.Effect<
 		return {
 			assign: (sessionId) =>
 				Effect.gen(function* () {
+					// If sessionId already has a channel, return it (idempotent)
+					const existing = sessionToChannel.get(sessionId);
+					if (existing !== undefined) return existing;
+
 					// Reuse freed channel first, otherwise allocate next sequential
 					let channel: number;
 					if (freeList.length > 0) {
