@@ -182,8 +182,20 @@ braindump
 
 .playwright-mcp
 
-# Dev session logs
-.context/
+.claude/settings.local.json
+
+# Session captures (sensitive, never committed)
+.context/sessions/
+
+# Hook diagnostic logs (machine-specific, not committed)
+.context/logs/
+
+# Journal entries (personal, potentially large)
+.context/journal/
+.context/journal.bak/
+.context/journal-site/
+
+.context/.scratchpad.key
 
 # Personal scripts
 ralph*.sh
