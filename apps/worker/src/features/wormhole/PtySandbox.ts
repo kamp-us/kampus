@@ -1,7 +1,7 @@
 import type {Sandbox} from "@cloudflare/sandbox";
-import {Deferred, Effect, Layer, Stream} from "effect";
 import {PtySpawnError} from "@kampus/wormhole/Errors";
 import {Pty, type PtyProcess, type SpawnOptions} from "@kampus/wormhole/Pty";
+import {Deferred, Effect, Layer, Stream} from "effect";
 import {SandboxBinding} from "./SandboxBinding";
 
 const spawnImpl = (
@@ -125,9 +125,10 @@ const spawnImpl = (
 		return {
 			output,
 			awaitExit: Deferred.await(exitDeferred),
-			write: (data: string) => guardAlive(() => {
-				ws.send(new TextEncoder().encode(data));
-			}),
+			write: (data: string) =>
+				guardAlive(() => {
+					ws.send(new TextEncoder().encode(data));
+				}),
 			resize: (cols: number, rows: number) =>
 				guardAlive(() => ws.send(JSON.stringify({type: "resize", cols, rows}))),
 		} satisfies PtyProcess;

@@ -1,66 +1,13 @@
 import {DurableObject} from "cloudflare:workers";
 import {Server, SessionStore} from "@kampus/wormhole";
-import * as Socket from "@effect/platform/Socket";
 import {Effect, Layer, ManagedRuntime} from "effect";
 import {PtySandbox} from "./PtySandbox";
 import {SandboxBinding} from "./SandboxBinding";
 
-/**
- * Convert Cloudflare WebSocket to Effect Socket via TransformStream.
- *
- * CF WebSocket has different API than globalThis.WebSocket (`.accept()`, different events).
- * We bridge it using Web Streams API — create ReadableStream/WritableStream that proxy
- * WS messages to/from Effect's Socket interface.
- */
-const cfWebSocketToSocket = (ws: WebSocket): Effect.Effect<Socket.Socket> => {
-	const acquire = Effect.sync(
-		(): Socket.InputTransformStream => ({
-			readable: new ReadableStream<string | Uint8Array>({
-				start(controller) {
-					ws.addEventListener("message", (evt: MessageEvent) => {
-						if (typeof evt.data === "string") {
-							controller.enqueue(evt.data);
-						} else {
-							// Binary frame — convert ArrayBuffer to Uint8Array
-							controller.enqueue(new Uint8Array(evt.data as ArrayBuffer));
-						}
-					});
-
-					ws.addEventListener("close", () => {
-						try { controller.close(); } catch { /* stream already closed */ }
-					});
-
-					ws.addEventListener("error", (err) => {
-						try { controller.error(err); } catch { /* stream already closed */ }
-					});
-				},
-				cancel() {
-					ws.close();
-				},
-			}),
-			writable: new WritableStream<Uint8Array>({
-				write(chunk) {
-					ws.send(chunk);
-				},
-				close() {
-					ws.close(1000);
-				},
-			}),
-		}),
-	);
-
-	return Socket.fromTransformStream(acquire);
-};
-
-/**
- * WormholeDO — Durable Object that runs wormhole's Effect services.
- *
- * Lifecycle:
- * 1. Constructor: Initialize ManagedRuntime with SessionStore + PtySandbox layers
- * 2. fetch(): Accept WebSocket upgrade, convert to Effect Socket, run Server.handleConnection
- */
 export class WormholeDO extends DurableObject<Env> {
 	private runtime: ManagedRuntime.ManagedRuntime<SessionStore.SessionStore, never>;
+	private activeHandler: Server.MuxHandler | null = null;
+	private activeWs: WebSocket | null = null;
 
 	constructor(ctx: DurableObjectState, env: Env) {
 		super(ctx, env);
@@ -69,11 +16,25 @@ export class WormholeDO extends DurableObject<Env> {
 		const sessionStoreLayer = SessionStore.SessionStore.Default.pipe(
 			Layer.provide(PtySandbox),
 			Layer.provide(sandboxLayer),
-			// ConfigError from Config.number → crash on invalid config (DO shouldn't start)
 			Layer.orDie,
 		);
 
 		this.runtime = ManagedRuntime.make(sessionStoreLayer);
+	}
+
+	private cleanupConnection(): void {
+		if (this.activeHandler) {
+			this.runtime.runFork(this.activeHandler.cleanup);
+		}
+		if (this.activeWs) {
+			try {
+				this.activeWs.close(1000, "Replaced by new connection");
+			} catch {
+				/* already closed */
+			}
+		}
+		this.activeHandler = null;
+		this.activeWs = null;
 	}
 
 	async fetch(request: Request): Promise<Response> {
@@ -83,24 +44,51 @@ export class WormholeDO extends DurableObject<Env> {
 
 		const pair = new WebSocketPair();
 		const [client, server] = Object.values(pair);
+
+		this.cleanupConnection();
 		server.accept();
 
-		// Convert CF WebSocket to Effect Socket, run wormhole connection handler
-		this.runtime.runFork(
-			Effect.gen(function* () {
-				console.log("[WormholeDO] handleConnection starting");
-				const socket = yield* cfWebSocketToSocket(server);
-				yield* Server.handleConnection(socket);
-			}).pipe(
-				Effect.catchAllCause((cause) =>
-					Effect.sync(() => {
-						console.error("[WormholeDO] handleConnection failed:", cause.toString());
-						try { server.close(1011, "Internal error"); } catch { /* already closed */ }
-					}),
-				),
-				Effect.scoped,
-			),
-		);
+		const send = (data: Uint8Array) =>
+			Effect.sync(() => {
+				try {
+					server.send(data);
+				} catch {
+					/* ws already closed */
+				}
+			});
+		const close = (code: number, reason: string) =>
+			Effect.sync(() => {
+				try {
+					server.close(code, reason);
+				} catch {
+					/* ws already closed */
+				}
+			});
+
+		const handler = await this.runtime.runPromise(Server.makeMuxHandler({send, close}));
+		this.activeHandler = handler;
+		this.activeWs = server;
+
+		server.addEventListener("message", (evt: MessageEvent) => {
+			const data =
+				evt.data instanceof ArrayBuffer
+					? new Uint8Array(evt.data)
+					: new TextEncoder().encode(evt.data as string);
+			this.runtime.runFork(handler.handleMessage(data));
+		});
+
+		server.addEventListener("close", () => {
+			this.cleanupConnection();
+		});
+
+		server.addEventListener("error", () => {
+			try {
+				server.close(1011, "Internal error");
+			} catch {
+				/* already closed */
+			}
+			this.cleanupConnection();
+		});
 
 		return new Response(null, {status: 101, webSocket: client});
 	}

@@ -23,3 +23,4 @@ Feature directory with completion status. Each feature follows the [spec-driven 
 - [x] **[web-page-parser-refactor](./web-page-parser-refactor/)** - Linkedom-centered parsing with Readability + selector fallback
 - [x] **[spellbook-keyvaluestore](./spellbook-keyvaluestore/)** - DO-backed @effect/platform KeyValueStore implementation
 - [x] **[kampus-spellbook](./kampus-spellbook/)** - @kampus/spellbook package: shared DO infrastructure layers
+- [ ] **[wormhole-multiplexed-sessions](./wormhole-multiplexed-sessions/)** - Multiplexed terminal sessions with tiled panes

@@ -1,11 +1,12 @@
-import {it} from "@effect/vitest";
 import * as Socket from "@effect/platform/Socket";
-import {Deferred, Effect, Fiber, Layer, Queue, Ref, Stream} from "effect";
+import {it} from "@effect/vitest";
+import {Effect, Fiber, Queue, Ref, Stream} from "effect";
 import {describe, expect} from "vitest";
 
-import {Pty, type PtyProcess} from "../src/Pty.ts";
+import {make as makeMuxHandlerFn} from "../src/internal/muxHandler.ts";
 import {handleConnection} from "../src/internal/server.ts";
-import {SessionStore} from "../src/SessionStore.ts";
+import {CONTROL_CHANNEL, encodeBinaryFrame, parseBinaryFrame} from "../src/Protocol.ts";
+import {type PtyControls, makeControlledSessionStore} from "./_helpers.ts";
 
 // ── Mock Socket ──────────────────────────────────────────────────────
 
@@ -36,43 +37,37 @@ const makeMockSocket = Effect.gen(function* () {
 	};
 });
 
-// ── Mock PTY ─────────────────────────────────────────────────────────
+// ── Mux Handler Mock ────────────────────────────────────────────────
 
-interface PtyControls {
-	emitOutput: (data: string) => Effect.Effect<boolean>;
-	triggerExit: (code: number) => Effect.Effect<void>;
-	getInput: Effect.Effect<string>;
-}
+const makeMuxMockHandler = Effect.gen(function* () {
+	const outgoing = yield* Queue.unbounded<Uint8Array>();
 
-const makeTestLayers = (controlsRef: Ref.Ref<PtyControls | null>) => {
-	const testPty = Layer.succeed(Pty, {
-		spawn: () =>
-			Effect.gen(function* () {
-				const inputQueue = yield* Queue.unbounded<string>();
-				const outputQueue = yield* Queue.unbounded<string>();
-				const exitDeferred = yield* Deferred.make<number>();
+	const send = (data: Uint8Array) => Queue.offer(outgoing, data).pipe(Effect.asVoid);
+	const close = (_code: number, _reason: string) => Effect.void;
 
-				yield* Ref.set(controlsRef, {
-					emitOutput: (data) => Queue.offer(outputQueue, data),
-					triggerExit: (code) =>
-						Effect.all([
-							Deferred.succeed(exitDeferred, code),
-							Queue.shutdown(outputQueue),
-						]).pipe(Effect.asVoid),
-					getInput: Queue.take(inputQueue),
-				});
+	const handler = yield* makeMuxHandlerFn({send, close});
 
-				return {
-					output: Stream.fromQueue(outputQueue),
-					awaitExit: Deferred.await(exitDeferred),
-					write: (data) => Queue.offer(inputQueue, data).pipe(Effect.asVoid),
-					resize: () => Effect.void,
-				} satisfies PtyProcess;
-			}),
-	});
-
-	return SessionStore.Default.pipe(Layer.provide(testPty));
-};
+	return {
+		sendControl: (msg: object) => {
+			const frame = encodeBinaryFrame(CONTROL_CHANNEL, new TextEncoder().encode(JSON.stringify(msg)));
+			return handler.handleMessage(frame);
+		},
+		sendData: (channel: number, data: string) => {
+			const frame = encodeBinaryFrame(channel, new TextEncoder().encode(data));
+			return handler.handleMessage(frame);
+		},
+		receiveControl: Effect.gen(function* () {
+			const frame = yield* Queue.take(outgoing);
+			const {payload} = parseBinaryFrame(frame);
+			return JSON.parse(new TextDecoder().decode(payload));
+		}),
+		receiveData: Effect.gen(function* () {
+			const frame = yield* Queue.take(outgoing);
+			return parseBinaryFrame(frame);
+		}),
+		cleanup: handler.cleanup,
+	};
+});
 
 const attachMsg = (sessionId: string | null = null, cols = 80, rows = 24) =>
 	JSON.stringify({type: "attach", sessionId, cols, rows});
@@ -86,7 +81,7 @@ describe("Server handler", () => {
 			const {socket, send, receive} = yield* makeMockSocket;
 
 			const fiber = yield* handleConnection(socket).pipe(
-				Effect.provide(makeTestLayers(controlsRef)),
+				Effect.provide(makeControlledSessionStore(controlsRef)),
 				Effect.fork,
 			);
 
@@ -106,7 +101,7 @@ describe("Server handler", () => {
 			const {socket, send, receive, close} = yield* makeMockSocket;
 
 			const fiber = yield* handleConnection(socket).pipe(
-				Effect.provide(makeTestLayers(controlsRef)),
+				Effect.provide(makeControlledSessionStore(controlsRef)),
 				Effect.fork,
 			);
 
@@ -128,14 +123,13 @@ describe("Server handler", () => {
 			const {socket, send, receive, close} = yield* makeMockSocket;
 
 			const fiber = yield* handleConnection(socket).pipe(
-				Effect.provide(makeTestLayers(controlsRef)),
+				Effect.provide(makeControlledSessionStore(controlsRef)),
 				Effect.fork,
 			);
 
 			yield* send(attachMsg());
 			yield* receive; // consume session response
 
-			// PTY controls are now available (spawn happened during attach)
 			const controls = yield* Ref.get(controlsRef);
 			expect(controls).not.toBeNull();
 
@@ -154,17 +148,15 @@ describe("Server handler", () => {
 			const {socket, send, receive, close} = yield* makeMockSocket;
 
 			const fiber = yield* handleConnection(socket).pipe(
-				Effect.provide(makeTestLayers(controlsRef)),
+				Effect.provide(makeControlledSessionStore(controlsRef)),
 				Effect.fork,
 			);
 
 			yield* send(attachMsg());
 			yield* receive; // consume session response
 
-			// Send resize — should not crash
 			yield* send(JSON.stringify({type: "resize", cols: 120, rows: 40}));
 
-			// Verify handler is still alive by sending raw text
 			const controls = yield* Ref.get(controlsRef);
 			yield* send("echo test");
 			const input = yield* controls!.getInput;
@@ -181,7 +173,7 @@ describe("Server handler", () => {
 			const {socket, send, receive, close} = yield* makeMockSocket;
 
 			const fiber = yield* handleConnection(socket).pipe(
-				Effect.provide(makeTestLayers(controlsRef)),
+				Effect.provide(makeControlledSessionStore(controlsRef)),
 				Effect.fork,
 			);
 
@@ -195,6 +187,228 @@ describe("Server handler", () => {
 
 			yield* close;
 			yield* Fiber.join(fiber);
+		}),
+	);
+});
+
+// ── Mux Server Tests ────────────────────────────────────────────────
+
+describe("Mux server handler", () => {
+	it.effect("session_create creates session and responds with channel", () =>
+		Effect.gen(function* () {
+			const controlsRef = yield* Ref.make<PtyControls | null>(null);
+			const {sendControl, receiveControl, cleanup} = yield* makeMuxMockHandler.pipe(
+				Effect.provide(makeControlledSessionStore(controlsRef)),
+			);
+
+			yield* sendControl({type: "session_create", cols: 80, rows: 24});
+			const response = yield* receiveControl;
+			expect(response.type).toBe("session_created");
+			expect(response.channel).toBe(0);
+			expect(typeof response.sessionId).toBe("string");
+
+			yield* cleanup;
+		}),
+	);
+
+	it.effect("PTY output arrives on assigned channel as binary", () =>
+		Effect.gen(function* () {
+			const controlsRef = yield* Ref.make<PtyControls | null>(null);
+			const {sendControl, receiveControl, receiveData, cleanup} = yield* makeMuxMockHandler.pipe(
+				Effect.provide(makeControlledSessionStore(controlsRef)),
+			);
+
+			yield* sendControl({type: "session_create", cols: 80, rows: 24});
+			const created = yield* receiveControl;
+
+			const controls = yield* Ref.get(controlsRef);
+			yield* controls!.emitOutput("hello world");
+
+			const data = yield* receiveData;
+			expect(data.channel).toBe(created.channel);
+			expect(new TextDecoder().decode(data.payload)).toBe("hello world");
+
+			yield* cleanup;
+		}),
+	);
+
+	it.effect("binary input routed to correct session", () =>
+		Effect.gen(function* () {
+			const controlsRef = yield* Ref.make<PtyControls | null>(null);
+			const {sendControl, sendData, receiveControl, cleanup} = yield* makeMuxMockHandler.pipe(
+				Effect.provide(makeControlledSessionStore(controlsRef)),
+			);
+
+			yield* sendControl({type: "session_create", cols: 80, rows: 24});
+			const created = yield* receiveControl;
+
+			const controls = yield* Ref.get(controlsRef);
+			yield* sendData(created.channel, "ls -la");
+			const input = yield* controls!.getInput;
+			expect(input).toBe("ls -la");
+
+			yield* cleanup;
+		}),
+	);
+
+	it.effect("session_exit sent when PTY exits", () =>
+		Effect.gen(function* () {
+			const controlsRef = yield* Ref.make<PtyControls | null>(null);
+			const {sendControl, receiveControl, cleanup} = yield* makeMuxMockHandler.pipe(
+				Effect.provide(makeControlledSessionStore(controlsRef)),
+			);
+
+			yield* sendControl({type: "session_create", cols: 80, rows: 24});
+			yield* receiveControl; // consume session_created
+
+			const controls = yield* Ref.get(controlsRef);
+			yield* controls!.triggerExit(0);
+
+			const exit = yield* receiveControl;
+			expect(exit.type).toBe("session_exit");
+			expect(exit.exitCode).toBe(0);
+
+			yield* cleanup;
+		}),
+	);
+
+	it.effect("session_list_request lists active sessions", () =>
+		Effect.gen(function* () {
+			const controlsRef = yield* Ref.make<PtyControls | null>(null);
+			const {sendControl, receiveControl, cleanup} = yield* makeMuxMockHandler.pipe(
+				Effect.provide(makeControlledSessionStore(controlsRef)),
+			);
+
+			yield* sendControl({type: "session_create", cols: 80, rows: 24});
+			yield* receiveControl; // consume session_created
+
+			yield* sendControl({type: "session_list_request"});
+			const list = yield* receiveControl;
+			expect(list.type).toBe("session_list");
+			expect(list.sessions.length).toBe(1);
+
+			yield* cleanup;
+		}),
+	);
+
+	it.effect("session persists in store after PTY exit", () =>
+		Effect.gen(function* () {
+			const controlsRef = yield* Ref.make<PtyControls | null>(null);
+			const {sendControl, receiveControl, cleanup} = yield* makeMuxMockHandler.pipe(
+				Effect.provide(makeControlledSessionStore(controlsRef)),
+			);
+
+			yield* sendControl({type: "session_create", cols: 80, rows: 24});
+			const created = yield* receiveControl;
+
+			const controls = yield* Ref.get(controlsRef);
+			yield* controls!.triggerExit(0);
+			yield* receiveControl; // consume session_exit
+
+			yield* sendControl({type: "session_attach", sessionId: created.sessionId, cols: 80, rows: 24});
+			const reattached = yield* receiveControl;
+			expect(reattached.type).toBe("session_created");
+			expect(reattached.sessionId).toBe(created.sessionId);
+
+			yield* cleanup;
+		}),
+	);
+
+	it.effect("reattach to exited session respawns PTY with working I/O", () =>
+		Effect.gen(function* () {
+			const controlsRef = yield* Ref.make<PtyControls | null>(null);
+			const {sendControl, sendData, receiveControl, receiveData, cleanup} =
+				yield* makeMuxMockHandler.pipe(Effect.provide(makeControlledSessionStore(controlsRef)));
+
+			// Create and kill session
+			yield* sendControl({type: "session_create", cols: 80, rows: 24});
+			const created = yield* receiveControl;
+			const oldControls = yield* Ref.get(controlsRef);
+			yield* oldControls!.triggerExit(0);
+			yield* receiveControl; // consume session_exit
+
+			// Reattach — triggers respawn
+			yield* sendControl({type: "session_attach", sessionId: created.sessionId, cols: 80, rows: 24});
+			const reattached = yield* receiveControl;
+			const channel = reattached.channel;
+
+			// New PTY should work — controlsRef now points to the new generation
+			const newControls = yield* Ref.get(controlsRef);
+			expect(newControls).not.toBe(oldControls);
+
+			yield* newControls!.emitOutput("new shell output");
+
+			// Drain any replay frames before seeing new output
+			let found = false;
+			for (let i = 0; i < 10; i++) {
+				const data = yield* receiveData;
+				const text = new TextDecoder().decode(data.payload);
+				if (text === "new shell output") {
+					expect(data.channel).toBe(channel);
+					found = true;
+					break;
+				}
+			}
+			expect(found).toBe(true);
+
+			// Input should route to new PTY
+			yield* sendData(channel, "echo hello");
+			const input = yield* newControls!.getInput;
+			expect(input).toBe("echo hello");
+
+			yield* cleanup;
+		}),
+	);
+
+	it.effect("scrollback including restart separator replayed on reattach", () =>
+		Effect.gen(function* () {
+			const controlsRef = yield* Ref.make<PtyControls | null>(null);
+			const {sendControl, receiveControl, receiveData, cleanup} = yield* makeMuxMockHandler.pipe(
+				Effect.provide(makeControlledSessionStore(controlsRef)),
+			);
+
+			yield* sendControl({type: "session_create", cols: 80, rows: 24});
+			const created = yield* receiveControl;
+
+			const controls = yield* Ref.get(controlsRef);
+			yield* controls!.emitOutput("original output");
+			yield* receiveData; // drain
+
+			yield* controls!.triggerExit(0);
+			yield* receiveControl; // consume session_exit
+
+			yield* sendControl({type: "session_attach", sessionId: created.sessionId, cols: 80, rows: 24});
+			yield* receiveControl; // consume session_created
+
+			// Replay: first frame = original output, second = restart separator
+			const replay1 = yield* receiveData;
+			expect(new TextDecoder().decode(replay1.payload)).toBe("original output");
+
+			const replay2 = yield* receiveData;
+			expect(new TextDecoder().decode(replay2.payload)).toContain("shell restarted");
+
+			yield* cleanup;
+		}),
+	);
+
+	it.effect("session_destroy removes session from store", () =>
+		Effect.gen(function* () {
+			const controlsRef = yield* Ref.make<PtyControls | null>(null);
+			const {sendControl, receiveControl, cleanup} = yield* makeMuxMockHandler.pipe(
+				Effect.provide(makeControlledSessionStore(controlsRef)),
+			);
+
+			yield* sendControl({type: "session_create", cols: 80, rows: 24});
+			const created = yield* receiveControl;
+
+			yield* sendControl({type: "session_destroy", sessionId: created.sessionId});
+
+			yield* sendControl({type: "session_list_request"});
+			const list = yield* receiveControl;
+			expect(list.type).toBe("session_list");
+			expect(list.sessions.length).toBe(0);
+
+			yield* cleanup;
 		}),
 	);
 });

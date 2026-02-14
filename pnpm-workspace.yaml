@@ -32,6 +32,7 @@ catalog:
   '@types/react-relay': ^18.2.1
   '@types/relay-runtime': ^20.1.0
   '@usirin/forge': ^0.2.0
+  '@usirin/layout-tree': ^0.2.0
   better-auth: ^1.4.7
   bluebun: ^0.0.34
   dompurify: ^3.3.1
@@ -47,6 +48,7 @@ catalog:
   normalize-url: ^8.1.0
   react: 19.2.3
   react-relay: ^20.1.1
+  react-resizable-panels: ^4.6.2
   react-router: ^7.11.0
   relay-compiler: ^20.1.1
   relay-runtime: ^20.1.1

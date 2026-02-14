@@ -19,3 +19,14 @@ export class SessionNotFoundError extends Schema.TaggedError<SessionNotFoundErro
 		sessionId: Schema.String,
 	},
 ) {}
+
+/**
+ * @since 0.0.2
+ * @category errors
+ */
+export class ChannelExhaustedError extends Schema.TaggedError<ChannelExhaustedError>()(
+	"ChannelExhaustedError",
+	{
+		maxChannels: Schema.Number,
+	},
+) {}
