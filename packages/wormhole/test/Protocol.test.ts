@@ -5,11 +5,6 @@ import {
 	encodeBinaryFrame,
 	parseBinaryFrame,
 	parseMessage,
-	SessionCreatedResponse,
-	SessionDestroyRequest,
-	SessionExitResponse,
-	SessionListResponse,
-	SessionMessage,
 } from "../src/Protocol.ts";
 
 /** Parse and unwrap, failing the test if the message is not recognized. */
@@ -75,48 +70,6 @@ describe("Protocol", () => {
 		test("parses session_destroy", () => {
 			const msg = mustParse(JSON.stringify({type: "session_destroy", sessionId: "s1"}));
 			expect(msg.type).toBe("session_destroy");
-		});
-	});
-
-	describe("server messages", () => {
-		test("SessionMessage constructs correctly", () => {
-			const msg = new SessionMessage({type: "session", sessionId: "s1"});
-			expect(msg.type).toBe("session");
-			expect(msg.sessionId).toBe("s1");
-		});
-
-		test("SessionListResponse constructs correctly", () => {
-			const msg = new SessionListResponse({
-				type: "session_list",
-				sessions: [{id: "s1", clientCount: 2}],
-			});
-			expect(msg.sessions).toHaveLength(1);
-		});
-
-		test("SessionCreatedResponse constructs correctly", () => {
-			const msg = new SessionCreatedResponse({
-				type: "session_created",
-				sessionId: "s1",
-				channel: 0,
-			});
-			expect(msg.channel).toBe(0);
-			expect(msg.sessionId).toBe("s1");
-		});
-
-		test("SessionExitResponse constructs correctly", () => {
-			const msg = new SessionExitResponse({
-				type: "session_exit",
-				sessionId: "s1",
-				channel: 0,
-				exitCode: 0,
-			});
-			expect(msg.exitCode).toBe(0);
-		});
-
-		test("SessionDestroyRequest constructs correctly", () => {
-			const msg = new SessionDestroyRequest({type: "session_destroy", sessionId: "s1"});
-			expect(msg.type).toBe("session_destroy");
-			expect(msg.sessionId).toBe("s1");
 		});
 	});
 

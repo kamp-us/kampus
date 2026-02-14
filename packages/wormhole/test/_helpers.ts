@@ -1,9 +1,8 @@
 /**
  * Shared test helpers for @kampus/wormhole.
  *
- * Three mock PTY variants, from simplest to most controllable:
+ * Two mock PTY variants:
  *
- *   StubPty      – static no-op process (shape-checking only)
  *   SimplePty    – independent spawns, no external controls
  *   MockPty      – exposes PtyControls via Ref for driving tests
  */
@@ -18,19 +17,6 @@ export interface PtyControls {
 	readonly triggerExit: (code: number) => Effect.Effect<void>;
 	readonly getInput: Effect.Effect<string>;
 }
-
-// ── StubPty: static no-op process ───────────────────────────────
-
-const stubProcess: PtyProcess = {
-	output: Stream.empty,
-	awaitExit: Effect.succeed(0),
-	write: () => Effect.void,
-	resize: () => Effect.void,
-};
-
-export const StubPty = Layer.succeed(Pty, {
-	spawn: () => Effect.succeed(stubProcess),
-});
 
 // ── SimplePty: independent spawns, no external controls ─────────
 
