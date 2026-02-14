@@ -67,6 +67,7 @@ export function WormholeGateway({url, children}: {url: string; children: ReactNo
 	const [status, setStatus] = useState<GatewayStatus>("disconnected");
 	const wsRef = useRef<WebSocket | null>(null);
 	const channelListeners = useRef(new Map<number, Set<(data: Uint8Array) => void>>());
+	const channelBuffers = useRef(new Map<number, Uint8Array[]>());
 	const createdListeners = useRef(new Set<(e: SessionCreatedEvent) => void>());
 	const exitListeners = useRef(new Set<(e: SessionExitEvent) => void>());
 	const listListeners = useRef(new Set<(s: SessionInfo[]) => void>());
@@ -89,6 +90,14 @@ export function WormholeGateway({url, children}: {url: string; children: ReactNo
 			channelListeners.current.set(channel, new Set());
 		}
 		channelListeners.current.get(channel)?.add(listener);
+
+		// Flush any data that arrived before this subscriber registered
+		const buffered = channelBuffers.current.get(channel);
+		if (buffered) {
+			channelBuffers.current.delete(channel);
+			for (const data of buffered) listener(data);
+		}
+
 		return () => {
 			channelListeners.current.get(channel)?.delete(listener);
 		};
@@ -149,8 +158,14 @@ export function WormholeGateway({url, children}: {url: string; children: ReactNo
 			}
 
 			const listeners = channelListeners.current.get(channel);
-			if (listeners) {
+			if (listeners && listeners.size > 0) {
 				for (const listener of listeners) listener(payload);
+			} else {
+				// Buffer data until a subscriber registers (e.g. terminal mount)
+				if (!channelBuffers.current.has(channel)) {
+					channelBuffers.current.set(channel, []);
+				}
+				channelBuffers.current.get(channel)!.push(payload);
 			}
 		};
 
