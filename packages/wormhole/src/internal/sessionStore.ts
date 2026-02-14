@@ -55,10 +55,26 @@ export const make = Effect.gen(function* () {
 
 	const list = Effect.gen(function* () {
 		const map = yield* Ref.get(entries);
-		const result: Array<{id: string; clientCount: number}> = [];
+		const result: Array<{
+			id: string;
+			clientCount: number;
+			isExited: boolean;
+			name: string | null;
+			cwd: string | null;
+			lastActiveAt: number;
+		}> = [];
 		for (const {session} of map.values()) {
 			const count = yield* session.clientCount;
-			result.push({id: session.id, clientCount: count});
+			const exited = yield* session.isExited;
+			const meta = yield* session.metadata;
+			result.push({
+				id: session.id,
+				clientCount: count,
+				isExited: exited,
+				name: meta.name,
+				cwd: meta.cwd,
+				lastActiveAt: Date.now(),
+			});
 		}
 		return result;
 	});

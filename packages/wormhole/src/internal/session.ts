@@ -4,6 +4,7 @@ import type {PtySpawnError} from "../Errors.ts";
 import {Pty, type PtyProcess} from "../Pty.ts";
 import {RingBuffer} from "../RingBuffer.ts";
 import type {ClientHandle, MakeOptions, Session, SessionMetadata} from "../Session.ts";
+import {SessionCheckpoint} from "../SessionCheckpoint.ts";
 
 const DEFAULT_BUFFER_CAPACITY = 100 * 1024; // 100KB
 
@@ -154,5 +155,15 @@ export const make = (
 					buffer.push("\r\n\x1b[33m--- shell restarted ---\x1b[0m\r\n");
 					yield* spawnGeneration(cols, rows);
 				}),
+			checkpoint: Effect.gen(function* () {
+				const meta = yield* Ref.get(metadataRef);
+				return new SessionCheckpoint({
+					id: options.id,
+					name: meta.name,
+					cwd: meta.cwd,
+					createdAt: meta.createdAt,
+					buffer: buffer.serialize(),
+				});
+			}),
 		} satisfies Session;
 	});

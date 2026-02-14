@@ -168,6 +168,12 @@ export const make = (options: {
 						yield* store.destroy(sessionId);
 						return;
 					}
+					case "session_rename": {
+						const session = yield* store.get(msg.sessionId as string);
+						if (!session) return;
+						yield* session.setName(msg.name as string);
+						return;
+					}
 					default:
 						return;
 				}

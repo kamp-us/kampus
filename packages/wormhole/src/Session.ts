@@ -7,6 +7,7 @@ import type {Deferred, Effect, Scope, Stream} from "effect";
 import type {PtySpawnError} from "./Errors.ts";
 import * as internal from "./internal/session.ts";
 import type {Pty} from "./Pty.ts";
+import type {SessionCheckpoint} from "./SessionCheckpoint.ts";
 
 /**
  * @since 0.0.1
@@ -54,6 +55,7 @@ export interface Session {
 	readonly metadata: Effect.Effect<SessionMetadata>;
 	readonly setName: (name: string) => Effect.Effect<void>;
 	readonly respawn: (cols: number, rows: number) => Effect.Effect<void, PtySpawnError>;
+	readonly checkpoint: Effect.Effect<SessionCheckpoint>;
 }
 
 /**
