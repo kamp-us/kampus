@@ -71,7 +71,7 @@ export function useWormholeLayout() {
 			const window = node as LT.Window;
 			const info = paneMap.current.get(window.key);
 			if (info) {
-				gateway.detachSession(info.sessionId);
+				gateway.destroySession(info.sessionId);
 				paneMap.current.delete(window.key);
 			}
 			setTree((prev) => LT.remove(prev, path));
