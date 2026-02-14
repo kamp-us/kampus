@@ -1,8 +1,8 @@
-import {it} from "@effect/vitest";
 import type {Sandbox} from "@cloudflare/sandbox";
+import {it} from "@effect/vitest";
+import {Pty} from "@kampus/wormhole/Pty";
 import {Chunk, Effect, Fiber, Layer, type Scope, Stream} from "effect";
 import {beforeEach, describe, expect} from "vitest";
-import {Pty} from "@kampus/wormhole/Pty";
 import {PtySandbox} from "./PtySandbox";
 import {SandboxBinding} from "./SandboxBinding";
 
@@ -10,42 +10,37 @@ import {SandboxBinding} from "./SandboxBinding";
 let mockServerWs: WebSocket;
 let mockClientMessages: string[];
 
-const MockSandboxBinding = Layer.succeed(
-	SandboxBinding,
-	{
-		idFromName: () => ({toString: () => "mock-sandbox"}) as unknown as DurableObjectId,
-		get: () =>
-			({
-				fetch: async (_request: Request): Promise<Response> => {
-					const pair = new WebSocketPair();
-					const [client, server] = Object.values(pair);
-					server.accept();
+const MockSandboxBinding = Layer.succeed(SandboxBinding, {
+	idFromName: () => ({toString: () => "mock-sandbox"}) as unknown as DurableObjectId,
+	get: () =>
+		({
+			fetch: async (_request: Request): Promise<Response> => {
+				const pair = new WebSocketPair();
+				const [client, server] = Object.values(pair);
+				server.accept();
 
-					server.addEventListener("message", (evt: MessageEvent) => {
-						mockClientMessages.push(
-							typeof evt.data === "string"
-								? evt.data
-								: new TextDecoder().decode(evt.data as ArrayBuffer),
-						);
-					});
+				server.addEventListener("message", (evt: MessageEvent) => {
+					mockClientMessages.push(
+						typeof evt.data === "string"
+							? evt.data
+							: new TextDecoder().decode(evt.data as ArrayBuffer),
+					);
+				});
 
-					mockServerWs = server;
-					return new Response(null, {status: 101, webSocket: client});
-				},
-			}) as unknown as DurableObjectStub,
-	} as unknown as DurableObjectNamespace<Sandbox>,
-);
+				mockServerWs = server;
+				return new Response(null, {status: 101, webSocket: client});
+			},
+		}) as unknown as DurableObjectStub,
+} as unknown as DurableObjectNamespace<Sandbox>);
 
 const TestLayer = PtySandbox.pipe(Layer.provide(MockSandboxBinding));
 
 // Effect.sleep doesn't work in workers vitest pool — use setTimeout
-const delay = (ms: number) =>
-	Effect.promise<void>(() => new Promise((r) => setTimeout(r, ms)));
+const delay = (ms: number) => Effect.promise<void>(() => new Promise((r) => setTimeout(r, ms)));
 
 // Helper: wrap with explicit Effect.scoped since it.scoped hangs in workers pool
-const scoped = <A, E>(
-	effect: Effect.Effect<A, E, Pty | Scope.Scope>,
-): Effect.Effect<A, E, never> => Effect.scoped(effect).pipe(Effect.provide(TestLayer));
+const scoped = <A, E>(effect: Effect.Effect<A, E, Pty | Scope.Scope>): Effect.Effect<A, E, never> =>
+	Effect.scoped(effect).pipe(Effect.provide(TestLayer));
 
 // ── Tests ────────────────────────────────────────────────────
 
@@ -110,9 +105,7 @@ describe("PtySandbox", () => {
 				const pty = yield* Pty;
 				const proc = yield* pty.spawn({cols: 80, rows: 24});
 
-				const fiber = yield* proc.output
-					.pipe(Stream.take(1), Stream.runCollect)
-					.pipe(Effect.fork);
+				const fiber = yield* proc.output.pipe(Stream.take(1), Stream.runCollect).pipe(Effect.fork);
 				yield* delay(50);
 
 				mockServerWs.send(new TextEncoder().encode("hello world"));

@@ -56,11 +56,10 @@ export const make = (
 						Effect.gen(function* () {
 							buffer.push(data);
 							const map = yield* Ref.get(clients);
-							yield* Effect.forEach(
-								map.values(),
-								(entry) => Queue.offer(entry.queue, data),
-								{concurrency: "unbounded", discard: true},
-							);
+							yield* Effect.forEach(map.values(), (entry) => Queue.offer(entry.queue, data), {
+								concurrency: "unbounded",
+								discard: true,
+							});
 						}),
 					),
 					Effect.forkIn(sessionScope),
@@ -73,11 +72,10 @@ export const make = (
 					Effect.tap(() =>
 						Effect.gen(function* () {
 							const map = yield* Ref.get(clients);
-							yield* Effect.forEach(
-								map.values(),
-								(entry) => Queue.shutdown(entry.queue),
-								{concurrency: "unbounded", discard: true},
-							);
+							yield* Effect.forEach(map.values(), (entry) => Queue.shutdown(entry.queue), {
+								concurrency: "unbounded",
+								discard: true,
+							});
 						}),
 					),
 					Effect.forkIn(sessionScope),
