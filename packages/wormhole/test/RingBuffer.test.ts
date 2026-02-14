@@ -73,4 +73,72 @@ describe("RingBuffer", () => {
 		expect(snap1).toEqual(["hello"]);
 		expect(snap2).toEqual(["hello", " world"]);
 	});
+
+	describe("serialize / fromSnapshot", () => {
+		test("round-trip preserves entries, totalBytes, and capacity", () => {
+			const buf = new RingBuffer(1024);
+			buf.push("hello");
+			buf.push(" world");
+
+			const serialized = buf.serialize();
+			const restored = RingBuffer.fromSnapshot(serialized);
+
+			expect(restored.snapshot()).toEqual(buf.snapshot());
+			expect(restored.size).toBe(buf.size);
+			expect(restored.capacity).toBe(buf.capacity);
+			expect(restored.serialize()).toEqual(serialized);
+		});
+
+		test("round-trip on empty buffer", () => {
+			const buf = new RingBuffer(256);
+			const serialized = buf.serialize();
+
+			expect(serialized).toEqual({ entries: [], totalBytes: 0, capacity: 256 });
+
+			const restored = RingBuffer.fromSnapshot(serialized);
+			expect(restored.snapshot()).toEqual([]);
+			expect(restored.size).toBe(0);
+			expect(restored.capacity).toBe(256);
+		});
+
+		test("round-trip on buffer at capacity", () => {
+			const buf = new RingBuffer(10);
+			buf.push("aaaa");
+			buf.push("bbbb");
+			buf.push("cccc"); // evicts "aaaa", total = 8
+
+			const serialized = buf.serialize();
+			expect(serialized.entries).toEqual(["bbbb", "cccc"]);
+			expect(serialized.totalBytes).toBe(8);
+			expect(serialized.capacity).toBe(10);
+
+			const restored = RingBuffer.fromSnapshot(serialized);
+			expect(restored.snapshot()).toEqual(["bbbb", "cccc"]);
+			expect(restored.size).toBe(8);
+			expect(restored.capacity).toBe(10);
+
+			// restored buffer should continue working correctly
+			restored.push("ee");
+			expect(restored.snapshot()).toEqual(["bbbb", "cccc", "ee"]);
+			expect(restored.size).toBe(10);
+		});
+
+		test("serialize returns copies, not references", () => {
+			const buf = new RingBuffer(1024);
+			buf.push("data");
+			const s1 = buf.serialize();
+			buf.push("more");
+			const s2 = buf.serialize();
+
+			expect(s1.entries).toEqual(["data"]);
+			expect(s2.entries).toEqual(["data", "more"]);
+		});
+
+		test("fromSnapshot does not alias the input array", () => {
+			const data = { entries: ["a", "b"], totalBytes: 2, capacity: 100 };
+			const restored = RingBuffer.fromSnapshot(data);
+			data.entries.push("c");
+			expect(restored.snapshot()).toEqual(["a", "b"]);
+		});
+	});
 });

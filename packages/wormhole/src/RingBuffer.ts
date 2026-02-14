@@ -4,6 +4,13 @@
  * @since 0.0.1
  * @category models
  */
+/** Serialized shape of a RingBuffer, suitable for JSON / DO storage. */
+export interface RingBufferSnapshot {
+	entries: string[];
+	totalBytes: number;
+	capacity: number;
+}
+
 export class RingBuffer {
 	private entries: string[] = [];
 	private totalBytes = 0;
@@ -13,6 +20,31 @@ export class RingBuffer {
 
 	constructor(capacity: number) {
 		this.capacity = capacity;
+	}
+
+	/**
+	 * Serialize the buffer into a plain object for persistence.
+	 *
+	 * @since 0.0.2
+	 */
+	serialize(): RingBufferSnapshot {
+		return {
+			entries: this.entries.slice(),
+			totalBytes: this.totalBytes,
+			capacity: this.capacity,
+		};
+	}
+
+	/**
+	 * Restore a RingBuffer from a previously serialized snapshot.
+	 *
+	 * @since 0.0.2
+	 */
+	static fromSnapshot(data: RingBufferSnapshot): RingBuffer {
+		const buf = new RingBuffer(data.capacity);
+		buf.entries = data.entries.slice();
+		buf.totalBytes = data.totalBytes;
+		return buf;
 	}
 
 	/**

@@ -3,7 +3,7 @@ import {Deferred, Effect, Queue, Ref, Scope, Stream} from "effect";
 import type {PtySpawnError} from "../Errors.ts";
 import {Pty, type PtyProcess} from "../Pty.ts";
 import {RingBuffer} from "../RingBuffer.ts";
-import type {ClientHandle, MakeOptions, Session} from "../Session.ts";
+import type {ClientHandle, MakeOptions, Session, SessionMetadata} from "../Session.ts";
 
 const DEFAULT_BUFFER_CAPACITY = 100 * 1024; // 100KB
 
@@ -25,6 +25,11 @@ export const make = (
 		const clients = yield* Ref.make<Map<string, ClientEntry>>(new Map());
 		const procRef = yield* Ref.make<PtyProcess | null>(null);
 		const exitedRef = yield* Ref.make(yield* Deferred.make<number>());
+		const metadataRef = yield* Ref.make<SessionMetadata>({
+			name: null,
+			cwd: null,
+			createdAt: Date.now(),
+		});
 
 		const recomputeSize = Effect.gen(function* () {
 			const proc = yield* Ref.get(procRef);
@@ -135,6 +140,8 @@ export const make = (
 			clientCount: Ref.get(clients).pipe(Effect.map((map) => map.size)),
 			exited: initialExited,
 			isExited: Ref.get(procRef).pipe(Effect.map((p) => p === null)),
+			metadata: Ref.get(metadataRef),
+			setName: (name) => Ref.update(metadataRef, (m) => ({...m, name})),
 			attach,
 			write: (data) =>
 				Effect.gen(function* () {
