@@ -23,6 +23,17 @@ function parseBinaryFrame(frame: Uint8Array): {channel: number; payload: Uint8Ar
 	return {channel: frame[0], payload: frame.subarray(1)};
 }
 
+function useEventListeners<T>(): [React.RefObject<Set<(value: T) => void>>, (cb: (value: T) => void) => () => void] {
+	const ref = useRef(new Set<(value: T) => void>());
+	const subscribe = useCallback((cb: (value: T) => void) => {
+		ref.current.add(cb);
+		return () => {
+			ref.current.delete(cb);
+		};
+	}, []);
+	return [ref, subscribe];
+}
+
 export type GatewayStatus = "connecting" | "connected" | "disconnected";
 
 export interface SessionCreatedEvent {
@@ -63,14 +74,19 @@ export function useWormholeGateway(): WormholeGatewayValue {
 	return ctx;
 }
 
-export function WormholeGateway({url, children}: {url: string; children: ReactNode}) {
+interface WormholeGatewayProps {
+	url: string;
+	children: ReactNode;
+}
+
+export function WormholeGateway({url, children}: WormholeGatewayProps) {
 	const [status, setStatus] = useState<GatewayStatus>("disconnected");
 	const wsRef = useRef<WebSocket | null>(null);
 	const channelListeners = useRef(new Map<number, Set<(data: Uint8Array) => void>>());
 	const channelBuffers = useRef(new Map<number, Uint8Array[]>());
-	const createdListeners = useRef(new Set<(e: SessionCreatedEvent) => void>());
-	const exitListeners = useRef(new Set<(e: SessionExitEvent) => void>());
-	const listListeners = useRef(new Set<(s: SessionInfo[]) => void>());
+	const [createdListeners, onSessionCreated] = useEventListeners<SessionCreatedEvent>();
+	const [exitListeners, onSessionExit] = useEventListeners<SessionExitEvent>();
+	const [listListeners, onSessionList] = useEventListeners<SessionInfo[]>();
 
 	const sendControl = useCallback((msg: object) => {
 		const ws = wsRef.current;
@@ -100,27 +116,6 @@ export function WormholeGateway({url, children}: {url: string; children: ReactNo
 
 		return () => {
 			channelListeners.current.get(channel)?.delete(listener);
-		};
-	}, []);
-
-	const onSessionCreated = useCallback((cb: (e: SessionCreatedEvent) => void) => {
-		createdListeners.current.add(cb);
-		return () => {
-			createdListeners.current.delete(cb);
-		};
-	}, []);
-
-	const onSessionExit = useCallback((cb: (e: SessionExitEvent) => void) => {
-		exitListeners.current.add(cb);
-		return () => {
-			exitListeners.current.delete(cb);
-		};
-	}, []);
-
-	const onSessionList = useCallback((cb: (s: SessionInfo[]) => void) => {
-		listListeners.current.add(cb);
-		return () => {
-			listListeners.current.delete(cb);
 		};
 	}, []);
 

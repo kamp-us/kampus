@@ -38,7 +38,7 @@ export const make = (options: {
 		const entries = new Map<number, ChannelEntry>();
 		const {send, close} = options;
 
-		const sendControl = (msg: object) =>
+		const sendControl = (msg: object): Effect.Effect<void> =>
 			send(encodeBinaryFrame(CONTROL_CHANNEL, encoder.encode(JSON.stringify(msg))));
 
 		const startOutputFiber = (channel: number, sessionId: string, handle: ClientHandle) =>
@@ -57,91 +57,101 @@ export const make = (options: {
 				}
 			});
 
-		const handleControlMessage = (msg: any) =>
+		const registerEntry = (
+			channel: number,
+			sessionId: string,
+			session: Session,
+			handle: ClientHandle,
+		) =>
+			Effect.gen(function* () {
+				yield* sendControl(
+					new SessionCreatedResponse({type: "session_created", sessionId, channel}),
+				);
+				const fiber = yield* startOutputFiber(channel, sessionId, handle).pipe(
+					Effect.forkDaemon,
+				);
+				entries.set(channel, {session, handle, outputFiber: fiber});
+			});
+
+		const teardownEntry = (channel: number) =>
+			Effect.gen(function* () {
+				const entry = entries.get(channel);
+				if (!entry) return;
+				yield* entry.handle.close;
+				yield* Fiber.interrupt(entry.outputFiber);
+				entries.delete(channel);
+				yield* channelMap.release(channel);
+			});
+
+		const assignChannel = (sessionId: string) =>
+			channelMap.assign(sessionId).pipe(
+				Effect.catchTag("ChannelExhaustedError", () =>
+					close(4003, "Max channels exhausted").pipe(Effect.andThen(Effect.fail("bail" as const))),
+				),
+			);
+
+		const handleControlMessage = (msg: Record<string, unknown>) =>
 			Effect.gen(function* () {
 				switch (msg.type) {
 					case "session_create": {
 						const sessionId = crypto.randomUUID();
-						const session = yield* store.create(sessionId, msg.cols, msg.rows).pipe(
-							Effect.catchTag("PtySpawnError", (e) =>
-								Effect.gen(function* () {
-									yield* close(4002, `Failed to spawn PTY: ${e.shell}`);
-									return undefined as Session | undefined;
-								}),
-							),
-						);
-						if (!session) return;
+						const session = yield* store
+							.create(sessionId, msg.cols as number, msg.rows as number)
+							.pipe(
+								Effect.catchTag("PtySpawnError", (e) =>
+									close(4002, `Failed to spawn PTY: ${e.shell}`).pipe(
+										Effect.andThen(Effect.fail("bail" as const)),
+									),
+								),
+							);
 
-						const channelResult = yield* channelMap.assign(sessionId).pipe(Effect.either);
-						if (channelResult._tag === "Left") {
-							yield* close(4003, "Max channels exhausted");
-							return;
-						}
-						const channel = channelResult.right;
-						const handle = yield* session.attach(clientId, msg.cols, msg.rows);
-
-						yield* sendControl(
-							new SessionCreatedResponse({type: "session_created", sessionId, channel}),
+						const channel = yield* assignChannel(sessionId);
+						const handle = yield* session.attach(
+							clientId,
+							msg.cols as number,
+							msg.rows as number,
 						);
-						const fiber = yield* startOutputFiber(channel, sessionId, handle).pipe(
-							Effect.forkDaemon,
-						);
-						entries.set(channel, {session, handle, outputFiber: fiber});
+						yield* registerEntry(channel, sessionId, session, handle);
 						return;
 					}
 					case "session_attach": {
-						const existing = yield* store.get(msg.sessionId);
+						const sessionId = msg.sessionId as string;
+						const cols = msg.cols as number;
+						const rows = msg.rows as number;
+						const existing = yield* store.get(sessionId);
 						if (!existing) return;
 
-						const exited = yield* existing.isExited;
-						if (exited) {
-							const respawnResult = yield* existing.respawn(msg.cols, msg.rows).pipe(Effect.either);
-							if (respawnResult._tag === "Left") {
-								yield* close(4002, `Failed to respawn PTY: ${respawnResult.left.shell}`);
-								return;
-							}
+						if (yield* existing.isExited) {
+							yield* existing.respawn(cols, rows).pipe(
+								Effect.catchTag("PtySpawnError", (e) =>
+									close(4002, `Failed to respawn PTY: ${e.shell}`).pipe(
+										Effect.andThen(Effect.fail("bail" as const)),
+									),
+								),
+							);
 						}
 
-						const attachChannelResult = yield* channelMap.assign(msg.sessionId).pipe(Effect.either);
-						if (attachChannelResult._tag === "Left") {
-							yield* close(4003, "Max channels exhausted");
-							return;
-						}
-						const channel = attachChannelResult.right;
-						const handle = yield* existing.attach(clientId, msg.cols, msg.rows);
-
-						yield* sendControl(
-							new SessionCreatedResponse({
-								type: "session_created",
-								sessionId: msg.sessionId,
-								channel,
-							}),
-						);
-						const fiber = yield* startOutputFiber(channel, msg.sessionId, handle).pipe(
-							Effect.forkDaemon,
-						);
-						entries.set(channel, {session: existing, handle, outputFiber: fiber});
+						const channel = yield* assignChannel(sessionId);
+						const handle = yield* existing.attach(clientId, cols, rows);
+						yield* registerEntry(channel, sessionId, existing, handle);
 						return;
 					}
 					case "session_detach": {
-						const channelOpt = channelMap.getChannel(msg.sessionId);
+						const channelOpt = channelMap.getChannel(msg.sessionId as string);
 						if (Option.isNone(channelOpt)) return;
-						const channel = channelOpt.value;
-						const entry = entries.get(channel);
-						if (!entry) return;
-
-						yield* entry.handle.close;
-						yield* Fiber.interrupt(entry.outputFiber);
-						entries.delete(channel);
-						yield* channelMap.release(channel);
+						yield* teardownEntry(channelOpt.value);
 						return;
 					}
 					case "session_resize": {
-						const channelOpt = channelMap.getChannel(msg.sessionId);
+						const channelOpt = channelMap.getChannel(msg.sessionId as string);
 						if (Option.isNone(channelOpt)) return;
 						const entry = entries.get(channelOpt.value);
 						if (!entry) return;
-						yield* entry.session.clientResize(clientId, msg.cols, msg.rows);
+						yield* entry.session.clientResize(
+							clientId,
+							msg.cols as number,
+							msg.rows as number,
+						);
 						return;
 					}
 					case "session_list_request": {
@@ -150,24 +160,18 @@ export const make = (options: {
 						return;
 					}
 					case "session_destroy": {
-						const channelOpt = channelMap.getChannel(msg.sessionId);
+						const sessionId = msg.sessionId as string;
+						const channelOpt = channelMap.getChannel(sessionId);
 						if (Option.isSome(channelOpt)) {
-							const channel = channelOpt.value;
-							const entry = entries.get(channel);
-							if (entry) {
-								yield* entry.handle.close;
-								yield* Fiber.interrupt(entry.outputFiber);
-								entries.delete(channel);
-								yield* channelMap.release(channel);
-							}
+							yield* teardownEntry(channelOpt.value);
 						}
-						yield* store.destroy(msg.sessionId);
+						yield* store.destroy(sessionId);
 						return;
 					}
 					default:
 						return;
 				}
-			});
+			}).pipe(Effect.catchAll((bail) => (bail === "bail" ? Effect.void : Effect.fail(bail))));
 
 		const handleMessage = (data: Uint8Array): Effect.Effect<void> =>
 			Effect.gen(function* () {
@@ -180,12 +184,10 @@ export const make = (options: {
 					} catch {
 						return;
 					}
-					yield* handleControlMessage(json);
+					yield* handleControlMessage(json as Record<string, unknown>);
 					return;
 				}
 
-				const sessionIdOpt = channelMap.getSessionId(channel);
-				if (Option.isNone(sessionIdOpt)) return;
 				const entry = entries.get(channel);
 				if (!entry) return;
 				yield* entry.session.write(decoder.decode(payload));

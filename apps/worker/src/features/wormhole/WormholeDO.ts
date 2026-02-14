@@ -22,15 +22,7 @@ export class WormholeDO extends DurableObject<Env> {
 		this.runtime = ManagedRuntime.make(sessionStoreLayer);
 	}
 
-	async fetch(request: Request): Promise<Response> {
-		if (request.headers.get("Upgrade")?.toLowerCase() !== "websocket") {
-			return new Response("Expected WebSocket", {status: 400});
-		}
-
-		const pair = new WebSocketPair();
-		const [client, server] = Object.values(pair);
-
-		// Clean up previous connection
+	private cleanupConnection(): void {
 		if (this.activeHandler) {
 			this.runtime.runFork(this.activeHandler.cleanup);
 		}
@@ -41,7 +33,19 @@ export class WormholeDO extends DurableObject<Env> {
 				/* already closed */
 			}
 		}
+		this.activeHandler = null;
+		this.activeWs = null;
+	}
 
+	async fetch(request: Request): Promise<Response> {
+		if (request.headers.get("Upgrade")?.toLowerCase() !== "websocket") {
+			return new Response("Expected WebSocket", {status: 400});
+		}
+
+		const pair = new WebSocketPair();
+		const [client, server] = Object.values(pair);
+
+		this.cleanupConnection();
 		server.accept();
 
 		const send = (data: Uint8Array) =>
@@ -74,20 +78,16 @@ export class WormholeDO extends DurableObject<Env> {
 		});
 
 		server.addEventListener("close", () => {
-			this.runtime.runFork(handler.cleanup);
-			this.activeHandler = null;
-			this.activeWs = null;
+			this.cleanupConnection();
 		});
 
 		server.addEventListener("error", () => {
-			this.runtime.runFork(handler.cleanup);
 			try {
 				server.close(1011, "Internal error");
 			} catch {
 				/* already closed */
 			}
-			this.activeHandler = null;
-			this.activeWs = null;
+			this.cleanupConnection();
 		});
 
 		return new Response(null, {status: 101, webSocket: client});

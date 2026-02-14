@@ -78,18 +78,13 @@ const makeTestLayers = (controlsRef: Ref.Ref<PtyControls | null>) => {
 
 const makeMuxMockHandler = Effect.gen(function* () {
 	const outgoing = yield* Queue.unbounded<Uint8Array>();
-	let closed: {code: number; reason: string} | null = null;
 
 	const send = (data: Uint8Array) => Queue.offer(outgoing, data).pipe(Effect.asVoid);
-	const close = (code: number, reason: string) =>
-		Effect.sync(() => {
-			closed = {code, reason};
-		});
+	const close = (_code: number, _reason: string) => Effect.void;
 
 	const handler = yield* makeMuxHandlerFn({send, close});
 
 	return {
-		handler,
 		sendControl: (msg: object) => {
 			const json = JSON.stringify(msg);
 			const frame = encodeBinaryFrame(CONTROL_CHANNEL, new TextEncoder().encode(json));
@@ -108,7 +103,6 @@ const makeMuxMockHandler = Effect.gen(function* () {
 			const frame = yield* Queue.take(outgoing);
 			return parseBinaryFrame(frame);
 		}),
-		getClosed: () => closed,
 		cleanup: handler.cleanup,
 	};
 });
