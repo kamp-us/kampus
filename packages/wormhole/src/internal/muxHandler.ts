@@ -45,9 +45,7 @@ export const make = (options: {
 			Effect.gen(function* () {
 				yield* Effect.raceFirst(
 					handle.output.pipe(
-						Stream.runForEach((data) =>
-							send(encodeBinaryFrame(channel, encoder.encode(data))),
-						),
+						Stream.runForEach((data) => send(encodeBinaryFrame(channel, encoder.encode(data)))),
 					),
 					Deferred.await(handle.exited).pipe(Effect.asVoid),
 				);
@@ -97,18 +95,14 @@ export const make = (options: {
 
 						const exited = yield* existing.isExited;
 						if (exited) {
-							const respawnResult = yield* existing
-								.respawn(msg.cols, msg.rows)
-								.pipe(Effect.either);
+							const respawnResult = yield* existing.respawn(msg.cols, msg.rows).pipe(Effect.either);
 							if (respawnResult._tag === "Left") {
 								yield* close(4002, `Failed to respawn PTY: ${respawnResult.left.shell}`);
 								return;
 							}
 						}
 
-						const attachChannelResult = yield* channelMap
-							.assign(msg.sessionId)
-							.pipe(Effect.either);
+						const attachChannelResult = yield* channelMap.assign(msg.sessionId).pipe(Effect.either);
 						if (attachChannelResult._tag === "Left") {
 							yield* close(4003, "Max channels exhausted");
 							return;
