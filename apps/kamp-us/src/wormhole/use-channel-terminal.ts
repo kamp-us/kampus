@@ -1,6 +1,6 @@
 import {useTerminal} from "@kampus/ghostty-react";
 import type {ITheme} from "ghostty-web";
-import {useEffect} from "react";
+import {useCallback, useEffect, useRef} from "react";
 import {useMux} from "./MuxClient.tsx";
 
 export interface UseChannelTerminalOptions {
@@ -13,23 +13,37 @@ export interface UseChannelTerminalOptions {
 
 export function useChannelTerminal(options: UseChannelTerminalOptions) {
 	const {channel, sessionId, fontSize, fontFamily, theme} = options;
-	const mux = useMux();
+	const {sendTerminalData, resizePane, onTerminalData} = useMux();
+
+	// Stable refs so ghostty onData/onResize closures never go stale
+	const sendRef = useRef(sendTerminalData);
+	sendRef.current = sendTerminalData;
+	const resizeRef = useRef(resizePane);
+	resizeRef.current = resizePane;
+
+	const onData = useCallback(
+		(data: string) => sendRef.current(channel, new TextEncoder().encode(data)),
+		[channel],
+	);
+	const onResize = useCallback(
+		(size: {cols: number; rows: number}) => resizeRef.current(sessionId, size.cols, size.rows),
+		[sessionId],
+	);
 
 	const {ref, write, terminal, ready} = useTerminal({
 		fontSize,
 		fontFamily,
 		theme,
-		onData: (data) => mux.sendTerminalData(channel, new TextEncoder().encode(data)),
-		onResize: (size) => mux.resizePane(sessionId, size.cols, size.rows),
+		onData,
+		onResize,
 	});
 
 	useEffect(() => {
 		if (!ready) return;
-		return mux.onTerminalData(channel, (data) => write(data));
-	}, [ready, channel, mux, write]);
+		return onTerminalData(channel, (data) => write(data));
+	}, [ready, channel, onTerminalData, write]);
 
 	// Let layout keybindings (Ctrl+Shift combos) pass through the terminal
-	// ghostty-web: return true = "consumed, preventDefault (no stopPropagation)", false = "not handled"
 	useEffect(() => {
 		if (!terminal) return;
 		terminal.attachCustomKeyEventHandler((e: KeyboardEvent) => {
