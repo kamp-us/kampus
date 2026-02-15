@@ -1,4 +1,4 @@
-# Building Wormhole: A 7-Part Build Journal
+# Building Wormhole: A 7+1 Part Build Journal
 
 *Umut Sirin / February 2026*
 
@@ -103,3 +103,17 @@ machine that coordinates session creation with tree splits.
 
 **Topics**: wormhole, react, layout-tree, ghostty-web,
 frontend-architecture
+
+---
+
+### [Making Sessions Immortal](2026-02-14-making-sessions-immortal.md)
+
+*Umut Sirin / 2026-02-14*
+
+Sessions survive PTY death but not DO eviction. The plan for
+true immortality: checkpoint to DO Storage via alarm(), hydrate
+on wake, reconnection state machine that never gives up, and
+layout persistence in localStorage. From "why build this" to
+"it never dies."
+
+**Topics**: wormhole, durable-objects, persistence, effect-ts

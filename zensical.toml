@@ -14,6 +14,7 @@ nav = [
     { "5. When Your Fibers Die Silently" = "blog/2026-02-14-when-your-fibers-die-silently.md" },
     { "6. Killing Your Abstractions" = "blog/2026-02-14-killing-your-abstractions.md" },
     { "7. Tiled Terminals in the Browser" = "blog/2026-02-14-tiled-terminals-in-the-browser.md" },
+    { "8. Making Sessions Immortal" = "blog/2026-02-14-making-sessions-immortal.md" },
   ]}
 ]
 
