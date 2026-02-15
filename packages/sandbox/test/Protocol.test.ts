@@ -20,7 +20,7 @@ describe("Protocol", () => {
 		});
 
 		it("decodes pane_split message", () => {
-			const raw = {type: "pane_split", orientation: "horizontal", cols: 80, rows: 24};
+			const raw = {type: "pane_split", paneId: "pty-1", orientation: "horizontal", cols: 80, rows: 24};
 			const result = S.decodeUnknownSync(ClientMessage)(raw);
 			expect(result.type).toBe("pane_split");
 		});

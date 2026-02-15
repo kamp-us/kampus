@@ -87,6 +87,7 @@ export class TabSwitchMessage extends S.Class<TabSwitchMessage>("TabSwitchMessag
 /** @since 0.1.0 @category models */
 export class PaneSplitMessage extends S.Class<PaneSplitMessage>("PaneSplitMessage")({
 	type: S.Literal("pane_split"),
+	paneId: S.String,
 	orientation: S.Union(S.Literal("horizontal"), S.Literal("vertical")),
 	cols: S.Number,
 	rows: S.Number,

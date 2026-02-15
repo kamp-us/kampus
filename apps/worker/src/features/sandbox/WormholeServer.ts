@@ -307,7 +307,7 @@ export class WormholeServer extends DurableObject {
 		const ptyId = crypto.randomUUID();
 		await this.createTerminalWs(session.sandboxId, ptyId, msg.cols, msg.rows);
 
-		const result = TL.splitPane(this.layout, msg.orientation, ptyId);
+		const result = TL.splitPane(this.layout, msg.paneId, msg.orientation, ptyId);
 		this.layout = result.layout;
 
 		await this.persist();

@@ -126,20 +126,37 @@ export function renameTab(
 
 export function splitPane(
   layout: TabbedLayout,
+  paneId: string,
   orientation: LT.Orientation,
   newWindowKey: string,
 ): { layout: TabbedLayout; newPath: LT.StackPath } {
   const tab = getActiveTab(layout);
-  const libOrientation = toLibraryOrientation(orientation);
-  const newTree = LT.split(tab.tree, tab.focus, libOrientation);
 
-  // After split, the new pane is the sibling after the current focus.
-  // split() clones the focused window, so we need to update the clone's key.
-  const lastIdx = tab.focus[tab.focus.length - 1];
-  const newPath: LT.StackPath = [
-    ...tab.focus.slice(0, -1),
-    lastIdx + 1,
-  ];
+  // Find the target pane's path by key
+  const targetWindow = LT.find(tab.tree, (w) => w.key === paneId);
+  if (!targetWindow) return { layout, newPath: tab.focus };
+  const targetPath = LT.findWindowPath(tab.tree, targetWindow);
+  if (!targetPath) return { layout, newPath: tab.focus };
+
+  const libOrientation = toLibraryOrientation(orientation);
+  const newTree = LT.split(tab.tree, targetPath, libOrientation);
+
+  // split() has three behaviors depending on parent orientation vs requested:
+  // 1. Same orientation: replaces window with [window, clone] → clone at [...parent, idx+1]
+  // 2. Different orientation, single child: flips parent, sets [window, clone] → clone at [...parent, 1]
+  // 3. Different orientation, multiple children: wraps into sub-stack → clone at [...targetPath, 1]
+  const parentPath = targetPath.slice(0, -1);
+  const parent = LT.getAt(tab.tree.root, parentPath) as LT.Stack;
+  const lastIdx = targetPath[targetPath.length - 1];
+
+  let newPath: LT.StackPath;
+  if (libOrientation === parent.orientation || parent.children.length === 1) {
+    // Cases 1 & 2: clone is a sibling
+    newPath = [...parentPath, lastIdx + 1];
+  } else {
+    // Case 3: window was wrapped in a sub-stack, clone is at [...targetPath, 1]
+    newPath = [...targetPath, 1];
+  }
 
   const updatedTree = LT.updateWindow(newTree, newPath, newWindowKey);
 

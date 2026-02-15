@@ -25,7 +25,7 @@ export function TerminalPane({channel, sessionId, focused, onFocus, theme}: Term
 					type="button"
 					onClick={(e) => {
 						e.stopPropagation();
-						splitPane("vertical", 80, 24);
+						splitPane(sessionId, "vertical", 80, 24);
 					}}
 					title="Split right"
 				>
@@ -35,7 +35,7 @@ export function TerminalPane({channel, sessionId, focused, onFocus, theme}: Term
 					type="button"
 					onClick={(e) => {
 						e.stopPropagation();
-						splitPane("horizontal", 80, 24);
+						splitPane(sessionId, "horizontal", 80, 24);
 					}}
 					title="Split down"
 				>

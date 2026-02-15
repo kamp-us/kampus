@@ -70,7 +70,7 @@ describe("TabbedLayout", () => {
   describe("splitPane", () => {
     it("splits focused pane and returns new window key path", () => {
       const layout = createTabbedLayout("main", "pty-1");
-      const { layout: updated, newPath } = splitPane(layout, "horizontal", "pty-2");
+      const { layout: updated, newPath } = splitPane(layout, "pty-1", "horizontal", "pty-2");
       const keys = allWindowKeys(updated);
       expect(keys).toContain("pty-1");
       expect(keys).toContain("pty-2");
@@ -79,16 +79,34 @@ describe("TabbedLayout", () => {
 
     it("moves focus to the new pane", () => {
       const layout = createTabbedLayout("main", "pty-1");
-      const { layout: updated } = splitPane(layout, "horizontal", "pty-2");
+      const { layout: updated } = splitPane(layout, "pty-1", "horizontal", "pty-2");
       const focused = getFocusedWindow(updated);
       expect(focused?.key).toBe("pty-2");
+    });
+
+    it("splits in opposite direction after same-direction split", () => {
+      let layout = createTabbedLayout("main", "pty-1");
+      // Split horizontal twice (same direction)
+      const { layout: l2 } = splitPane(layout, "pty-1", "horizontal", "pty-2");
+      const { layout: l3 } = splitPane(l2, "pty-2", "horizontal", "pty-3");
+      expect(getFocusedWindow(l3)?.key).toBe("pty-3");
+
+      // Now split vertical (opposite direction) — this wraps into sub-stack
+      const { layout: l4 } = splitPane(l3, "pty-3", "vertical", "pty-4");
+      expect(getFocusedWindow(l4)?.key).toBe("pty-4");
+      expect(allWindowKeys(l4)).toHaveLength(4);
+
+      // Should still be able to split again
+      const { layout: l5 } = splitPane(l4, "pty-4", "horizontal", "pty-5");
+      expect(getFocusedWindow(l5)?.key).toBe("pty-5");
+      expect(allWindowKeys(l5)).toHaveLength(5);
     });
   });
 
   describe("closePane", () => {
     it("removes pane and updates focus", () => {
       const layout = createTabbedLayout("main", "pty-1");
-      const { layout: split } = splitPane(layout, "horizontal", "pty-2");
+      const { layout: split } = splitPane(layout, "pty-1", "horizontal", "pty-2");
       const focused = getFocusedWindow(split);
       const updated = closePane(split, split.tabs[split.activeTab].focus);
       expect(updated).not.toBeNull();
@@ -100,7 +118,7 @@ describe("TabbedLayout", () => {
   describe("moveFocus", () => {
     it("moves focus to sibling", () => {
       const layout = createTabbedLayout("main", "pty-1");
-      const { layout: split } = splitPane(layout, "horizontal", "pty-2");
+      const { layout: split } = splitPane(layout, "pty-1", "horizontal", "pty-2");
       // focus is on pty-2 (right), move left
       const updated = moveFocus(split, "left");
       const focused = getFocusedWindow(updated);
@@ -118,7 +136,7 @@ describe("TabbedLayout", () => {
   describe("per-tab focus", () => {
     it("each tab remembers its own focus", () => {
       let layout = createTabbedLayout("tab1", "pty-1");
-      const { layout: split } = splitPane(layout, "horizontal", "pty-2");
+      const { layout: split } = splitPane(layout, "pty-1", "horizontal", "pty-2");
       // tab1 focus is on pty-2
       layout = createTab(split, "tab2", "pty-3");
       // tab2 focus is on pty-3
@@ -132,7 +150,7 @@ describe("TabbedLayout", () => {
   describe("allWindowKeys", () => {
     it("returns all pty keys across all tabs", () => {
       let layout = createTabbedLayout("tab1", "pty-1");
-      const { layout: split } = splitPane(layout, "horizontal", "pty-2");
+      const { layout: split } = splitPane(layout, "pty-1", "horizontal", "pty-2");
       layout = createTab(split, "tab2", "pty-3");
       const keys = allWindowKeys(layout);
       expect(keys).toEqual(expect.arrayContaining(["pty-1", "pty-2", "pty-3"]));

@@ -52,7 +52,7 @@
 }
 
 .resizeHandle {
-	width: 4px;
+	flex: 0 0 4px;
 	background: #333;
 	transition: background 0.15s ease;
 }

@@ -41,7 +41,7 @@ interface WormholeClient {
 	closeTab: (tabId: string) => void;
 	switchTab: (tabId: string) => void;
 	renameTab: (tabId: string, name: string) => void;
-	splitPane: (orientation: "horizontal" | "vertical", cols: number, rows: number) => void;
+	splitPane: (paneId: string, orientation: "horizontal" | "vertical", cols: number, rows: number) => void;
 	closePane: (paneId: string) => void;
 	resizePane: (paneId: string, cols: number, rows: number) => void;
 	moveFocus: (direction: "left" | "right" | "up" | "down") => void;
@@ -161,8 +161,8 @@ export function useWormholeClient(
 		closeTab: (tabId) => sendControl({type: "tab_close", tabId}),
 		switchTab: (tabId) => sendControl({type: "tab_switch", tabId}),
 		renameTab: (tabId, name) => sendControl({type: "tab_rename", tabId, name}),
-		splitPane: (orientation, cols, rows) =>
-			sendControl({type: "pane_split", orientation, cols, rows}),
+		splitPane: (paneId, orientation, cols, rows) =>
+			sendControl({type: "pane_split", paneId, orientation, cols, rows}),
 		closePane: (paneId) => sendControl({type: "pane_close", paneId}),
 		resizePane: (paneId, cols, rows) => sendControl({type: "pane_resize", paneId, cols, rows}),
 		moveFocus: (direction) => sendControl({type: "pane_focus", direction}),
