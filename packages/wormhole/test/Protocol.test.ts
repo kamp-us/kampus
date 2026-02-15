@@ -71,6 +71,13 @@ describe("Protocol", () => {
 			const msg = mustParse(JSON.stringify({type: "session_destroy", sessionId: "s1"}));
 			expect(msg.type).toBe("session_destroy");
 		});
+
+		test("parses session_rename", () => {
+			const msg = mustParse(
+				JSON.stringify({type: "session_rename", sessionId: "s1", name: "my-session"}),
+			);
+			expect(msg.type).toBe("session_rename");
+		});
 	});
 
 	describe("binary framing", () => {

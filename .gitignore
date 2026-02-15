@@ -199,3 +199,6 @@ braindump
 
 # Personal scripts
 ralph*.sh
+
+# Zensical build output
+site/

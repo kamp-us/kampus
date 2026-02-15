@@ -79,6 +79,15 @@ export class SessionDestroyRequest extends Schema.Class<SessionDestroyRequest>(
 	sessionId: Schema.String,
 }) {}
 
+/** @since 0.0.3 @category models */
+export class SessionRenameRequest extends Schema.Class<SessionRenameRequest>(
+	"SessionRenameRequest",
+)({
+	type: Schema.Literal("session_rename"),
+	sessionId: Schema.String,
+	name: Schema.String,
+}) {}
+
 /** @since 0.0.1 @category models */
 export const ControlMessage = Schema.Union(
 	AttachMessage,
@@ -90,6 +99,7 @@ export const ControlMessage = Schema.Union(
 	SessionDetachRequest,
 	SessionResizeRequest,
 	SessionDestroyRequest,
+	SessionRenameRequest,
 );
 
 /** @since 0.0.1 @category models */
@@ -106,7 +116,16 @@ export class SessionMessage extends Schema.Class<SessionMessage>("SessionMessage
 /** @since 0.0.1 @category models */
 export class SessionListResponse extends Schema.Class<SessionListResponse>("SessionListResponse")({
 	type: Schema.Literal("session_list"),
-	sessions: Schema.Array(Schema.Struct({id: Schema.String, clientCount: Schema.Number})),
+	sessions: Schema.Array(
+		Schema.Struct({
+			id: Schema.String,
+			clientCount: Schema.Number,
+			isExited: Schema.Boolean,
+			name: Schema.NullOr(Schema.String),
+			cwd: Schema.NullOr(Schema.String),
+			lastActiveAt: Schema.Number,
+		}),
+	),
 }) {}
 
 /** @since 0.0.2 @category models */

@@ -34,7 +34,7 @@ function useEventListeners<T>(): [React.RefObject<Set<(value: T) => void>>, (cb:
 	return [ref, subscribe];
 }
 
-export type GatewayStatus = "connecting" | "connected" | "disconnected";
+export type GatewayStatus = "connecting" | "connected" | "reconnecting" | "disconnected";
 
 export interface SessionCreatedEvent {
 	sessionId: string;
@@ -57,6 +57,7 @@ export interface WormholeGatewayValue {
 	createSession: (cols: number, rows: number) => void;
 	attachSession: (sessionId: string, cols: number, rows: number) => void;
 	detachSession: (sessionId: string) => void;
+	destroySession: (sessionId: string) => void;
 	resizeSession: (sessionId: string, cols: number, rows: number) => void;
 	listSessions: () => void;
 	sendInput: (channel: number, data: string) => void;
@@ -121,58 +122,85 @@ export function WormholeGateway({url, children}: WormholeGatewayProps) {
 
 	useEffect(() => {
 		let disposed = false;
-		setStatus("connecting");
-		const ws = new WebSocket(url);
-		ws.binaryType = "arraybuffer";
-		wsRef.current = ws;
+		let attempt = 0;
+		let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 
-		ws.onopen = () => {
+		function connect(isReconnect: boolean) {
 			if (disposed) return;
-			setStatus("connected");
-		};
 
-		ws.onmessage = (event) => {
-			if (disposed) return;
-			const frame = new Uint8Array(event.data as ArrayBuffer);
-			const {channel, payload} = parseBinaryFrame(frame);
+			setStatus(isReconnect ? "reconnecting" : "connecting");
 
-			if (channel === CONTROL_CHANNEL) {
-				const msg = JSON.parse(decoder.decode(payload));
-				switch (msg.type) {
-					case "session_created":
-						for (const cb of createdListeners.current) cb(msg);
-						break;
-					case "session_exit":
-						for (const cb of exitListeners.current) cb(msg);
-						break;
-					case "session_list":
-						for (const cb of listListeners.current) cb(msg.sessions);
-						break;
-				}
-				return;
-			}
+			// Schedule actual WS creation after backoff (immediate on first connect)
+			const delay = isReconnect
+				? Math.min(1000 * 2 ** attempt, 30000) + Math.random() * 1000
+				: 0;
 
-			const listeners = channelListeners.current.get(channel);
-			if (listeners && listeners.size > 0) {
-				for (const listener of listeners) listener(payload);
-			} else {
-				// Buffer data until a subscriber registers (e.g. terminal mount)
-				if (!channelBuffers.current.has(channel)) {
-					channelBuffers.current.set(channel, []);
-				}
-				channelBuffers.current.get(channel)!.push(payload);
-			}
-		};
+			reconnectTimer = setTimeout(() => {
+				if (disposed) return;
+				reconnectTimer = null;
+				setStatus("connecting");
 
-		ws.onclose = () => {
-			if (disposed) return;
-			setStatus("disconnected");
-			wsRef.current = null;
-		};
+				const ws = new WebSocket(url);
+				ws.binaryType = "arraybuffer";
+				wsRef.current = ws;
+
+				ws.onopen = () => {
+					if (disposed) return;
+					attempt = 0;
+					setStatus("connected");
+				};
+
+				ws.onmessage = (event) => {
+					if (disposed) return;
+					const frame = new Uint8Array(event.data as ArrayBuffer);
+					const {channel, payload} = parseBinaryFrame(frame);
+
+					if (channel === CONTROL_CHANNEL) {
+						const msg = JSON.parse(decoder.decode(payload));
+						switch (msg.type) {
+							case "session_created":
+								for (const cb of createdListeners.current) cb(msg);
+								break;
+							case "session_exit":
+								for (const cb of exitListeners.current) cb(msg);
+								break;
+							case "session_list":
+								for (const cb of listListeners.current) cb(msg.sessions);
+								break;
+						}
+						return;
+					}
+
+					const listeners = channelListeners.current.get(channel);
+					if (listeners && listeners.size > 0) {
+						for (const listener of listeners) listener(payload);
+					} else {
+						if (!channelBuffers.current.has(channel)) {
+							channelBuffers.current.set(channel, []);
+						}
+						channelBuffers.current.get(channel)!.push(payload);
+					}
+				};
+
+				ws.onclose = () => {
+					if (disposed) return;
+					wsRef.current = null;
+					attempt++;
+					connect(true);
+				};
+
+				ws.onerror = () => {
+					// onerror is always followed by onclose — no action needed here
+				};
+			}, delay);
+		}
+
+		connect(false);
 
 		return () => {
 			disposed = true;
-			ws.close();
+			if (reconnectTimer != null) clearTimeout(reconnectTimer);
+			wsRef.current?.close();
 			wsRef.current = null;
 		};
 	}, [url]);
@@ -183,6 +211,7 @@ export function WormholeGateway({url, children}: WormholeGatewayProps) {
 		attachSession: (sessionId, cols, rows) =>
 			sendControl({type: "session_attach", sessionId, cols, rows}),
 		detachSession: (sessionId) => sendControl({type: "session_detach", sessionId}),
+		destroySession: (sessionId) => sendControl({type: "session_destroy", sessionId}),
 		resizeSession: (sessionId, cols, rows) =>
 			sendControl({type: "session_resize", sessionId, cols, rows}),
 		listSessions: () => sendControl({type: "session_list_request"}),

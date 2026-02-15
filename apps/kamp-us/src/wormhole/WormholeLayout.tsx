@@ -14,7 +14,7 @@ export function WormholeLayout() {
 
 	// Create first session or reattach existing ones on WS connect
 	useEffect(() => {
-		if (gateway.status === "disconnected") {
+		if (gateway.status === "disconnected" || gateway.status === "reconnecting") {
 			wasDisconnected.current = true;
 			return;
 		}

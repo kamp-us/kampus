@@ -4,6 +4,7 @@ import {SessionNotFoundError} from "../Errors.ts";
 import {Pty} from "../Pty.ts";
 import type {Session} from "../Session.ts";
 import * as SessionModule from "../Session.ts";
+import type {SessionCheckpoint} from "../SessionCheckpoint.ts";
 
 const DEFAULT_BUFFER_CAPACITY = 100 * 1024;
 
@@ -55,10 +56,26 @@ export const make = Effect.gen(function* () {
 
 	const list = Effect.gen(function* () {
 		const map = yield* Ref.get(entries);
-		const result: Array<{id: string; clientCount: number}> = [];
+		const result: Array<{
+			id: string;
+			clientCount: number;
+			isExited: boolean;
+			name: string | null;
+			cwd: string | null;
+			lastActiveAt: number;
+		}> = [];
 		for (const {session} of map.values()) {
 			const count = yield* session.clientCount;
-			result.push({id: session.id, clientCount: count});
+			const exited = yield* session.isExited;
+			const meta = yield* session.metadata;
+			result.push({
+				id: session.id,
+				clientCount: count,
+				isExited: exited,
+				name: meta.name,
+				cwd: meta.cwd,
+				lastActiveAt: Date.now(),
+			});
 		}
 		return result;
 	});
@@ -78,5 +95,20 @@ export const make = Effect.gen(function* () {
 			yield* Scope.close(entry.scope, Exit.void);
 		});
 
-	return {create, get, getOrFail, list: () => list, size, destroy};
+	const restore = (checkpoint: SessionCheckpoint) =>
+		Effect.gen(function* () {
+			const sessionScope = yield* Scope.make();
+			const session = yield* SessionModule.restore(checkpoint).pipe(
+				Effect.provideService(Pty, pty),
+				Effect.provideService(Scope.Scope, sessionScope),
+			);
+			yield* Ref.update(entries, (map) => {
+				const next = new Map(map);
+				next.set(checkpoint.id, {session, scope: sessionScope});
+				return next;
+			});
+			return session;
+		});
+
+	return {create, get, getOrFail, list: () => list, size, destroy, restore};
 });

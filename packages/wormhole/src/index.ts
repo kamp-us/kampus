@@ -20,5 +20,8 @@ export * as Server from "./Server.ts";
 /** @since 0.0.1 */
 export * as Session from "./Session.ts";
 
+/** @since 0.0.2 */
+export * as SessionCheckpoint from "./SessionCheckpoint.ts";
+
 /** @since 0.0.1 */
 export * as SessionStore from "./SessionStore.ts";
