@@ -19,12 +19,15 @@ interface PersistedState {
 }
 
 export class WormholeServer extends DurableObject {
+	private static MAX_BUFFER_SIZE = 64 * 1024; // 64KB per pty
+
 	private sessions: SessionRecord[] = [];
 	private layout: TL.TabbedLayout | null = null;
 	private channelMap = new ChannelMap();
 	private clients = new Set<WebSocket>();
 	private terminals = new Map<string, WebSocket>();
 	private tabToSession = new Map<string, string>();
+	private outputBuffers = new Map<string, Uint8Array[]>();
 
 	constructor(state: DurableObjectState, env: Env) {
 		super(state, env);
@@ -87,7 +90,7 @@ export class WormholeServer extends DurableObject {
 
 		if (channel === Protocol.CONTROL_CHANNEL) {
 			const msg = Protocol.decodeControlMessage(payload);
-			await this.handleControlMessage(msg);
+			await this.handleControlMessage(ws, msg);
 			return;
 		}
 
@@ -108,10 +111,10 @@ export class WormholeServer extends DurableObject {
 
 	// --- Control message dispatch ---
 
-	private async handleControlMessage(msg: Protocol.ClientMessage): Promise<void> {
+	private async handleControlMessage(ws: WebSocket, msg: Protocol.ClientMessage): Promise<void> {
 		switch (msg.type) {
 			case "connect":
-				return this.handleConnect(msg);
+				return this.handleConnect(ws, msg);
 			case "session_create":
 				return this.handleSessionCreate(msg);
 			case "session_destroy":
@@ -139,8 +142,9 @@ export class WormholeServer extends DurableObject {
 
 	// --- Handlers (stubs — filled in Task 8) ---
 
-	private async handleConnect(_msg: Protocol.ConnectMessage): Promise<void> {
+	private async handleConnect(ws: WebSocket, _msg: Protocol.ConnectMessage): Promise<void> {
 		await this.reconnectAllTerminals();
+		this.replayBuffers(ws);
 		this.broadcastState();
 	}
 
@@ -468,11 +472,12 @@ export class WormholeServer extends DurableObject {
 		}
 
 		// Bridge terminal output → all clients
+		// String messages from the container are control protocol (e.g. {"type":"ready"}),
+		// not terminal output. Only forward binary (ArrayBuffer) data.
 		ws.addEventListener("message", (evt: MessageEvent) => {
-			const data =
-				evt.data instanceof ArrayBuffer
-					? new Uint8Array(evt.data)
-					: new TextEncoder().encode(evt.data as string);
+			if (!(evt.data instanceof ArrayBuffer)) return;
+			const data = new Uint8Array(evt.data);
+			this.appendToBuffer(ptyId, data);
 			const frame = Protocol.encodeBinaryFrame(channel, data);
 			for (const client of this.clients) {
 				client.send(frame);
@@ -481,6 +486,7 @@ export class WormholeServer extends DurableObject {
 
 		ws.addEventListener("close", () => {
 			this.terminals.delete(ptyId);
+			this.outputBuffers.delete(ptyId);
 			const exitMsg = new Protocol.SessionExitMessage({
 				type: "session_exit",
 				sessionId: this.getSessionForPty(ptyId),
@@ -498,6 +504,31 @@ export class WormholeServer extends DurableObject {
 			this.terminals.delete(ptyId);
 			this.channelMap.release(channel);
 		});
+	}
+
+	private appendToBuffer(ptyId: string, data: Uint8Array): void {
+		let chunks = this.outputBuffers.get(ptyId);
+		if (!chunks) {
+			chunks = [];
+			this.outputBuffers.set(ptyId, chunks);
+		}
+		chunks.push(new Uint8Array(data));
+
+		let total = 0;
+		for (const c of chunks) total += c.byteLength;
+		while (total > WormholeServer.MAX_BUFFER_SIZE && chunks.length > 0) {
+			total -= chunks.shift()!.byteLength;
+		}
+	}
+
+	private replayBuffers(ws: WebSocket): void {
+		for (const [ptyId, chunks] of this.outputBuffers) {
+			const channel = this.channelMap.getChannel(ptyId);
+			if (channel === null) continue;
+			for (const chunk of chunks) {
+				ws.send(Protocol.encodeBinaryFrame(channel, chunk));
+			}
+		}
 	}
 
 	private async reconnectAllTerminals(): Promise<void> {

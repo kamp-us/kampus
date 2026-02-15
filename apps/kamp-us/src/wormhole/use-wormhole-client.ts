@@ -54,6 +54,7 @@ export function useWormholeClient(
 ): WormholeClient {
 	const wsRef = useRef<WebSocket | null>(null);
 	const terminalListeners = useRef(new Map<number, Set<(data: Uint8Array) => void>>());
+	const terminalBuffers = useRef(new Map<number, Uint8Array[]>());
 	const [state, setState] = useState<WormholeClientState>({
 		sessions: [],
 		tabs: [],
@@ -93,8 +94,15 @@ export function useWormholeClient(
 				handleServerMessage(msg);
 			} else {
 				const listeners = terminalListeners.current.get(channel);
-				if (listeners) {
+				if (listeners && listeners.size > 0) {
 					for (const cb of listeners) cb(payload);
+				} else {
+					// Buffer until a terminal component mounts and subscribes
+					if (!terminalBuffers.current.has(channel)) {
+						terminalBuffers.current.set(channel, []);
+					}
+					// biome-ignore lint/style/noNonNullAssertion: has() check above
+					terminalBuffers.current.get(channel)!.push(payload);
 				}
 			}
 		};
@@ -143,6 +151,14 @@ export function useWormholeClient(
 			}
 			// biome-ignore lint/style/noNonNullAssertion: has() check above guarantees entry
 			terminalListeners.current.get(channel)!.add(callback);
+
+			// Flush any data that arrived before this listener mounted
+			const buffered = terminalBuffers.current.get(channel);
+			if (buffered) {
+				for (const data of buffered) callback(data);
+				terminalBuffers.current.delete(channel);
+			}
+
 			return () => {
 				terminalListeners.current.get(channel)?.delete(callback);
 			};
