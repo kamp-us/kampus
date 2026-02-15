@@ -1,2 +1,0 @@
-FROM docker.io/cloudflare/sandbox:0.7.2
-EXPOSE 8080
