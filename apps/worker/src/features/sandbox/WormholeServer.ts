@@ -502,6 +502,7 @@ export class WormholeServer extends DurableObject {
 
 		ws.addEventListener("error", () => {
 			this.terminals.delete(ptyId);
+			this.outputBuffers.delete(ptyId);
 			this.channelMap.release(channel);
 		});
 	}
