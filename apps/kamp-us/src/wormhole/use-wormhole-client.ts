@@ -106,6 +106,8 @@ export function useWormholeClient(
 		return () => {
 			ws.close();
 		};
+	// sendControl is stable (empty deps). viewport intentionally excluded: send initial dimensions on connect, not reconnect on resize.
+	// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [url]);
 
 	function handleServerMessage(msg: ServerMessage) {

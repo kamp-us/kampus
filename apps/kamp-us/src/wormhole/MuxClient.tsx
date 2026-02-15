@@ -1,5 +1,5 @@
 // apps/kamp-us/src/wormhole/MuxClient.tsx
-import {createContext, useContext, type ReactNode} from "react";
+import {createContext, useContext} from "react";
 import {useWormholeClient} from "./use-wormhole-client.ts";
 import {SessionBar} from "./SessionBar.tsx";
 import {TabBar} from "./TabBar.tsx";

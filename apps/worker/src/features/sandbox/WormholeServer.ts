@@ -348,10 +348,9 @@ export class WormholeServer extends DurableObject {
 	}
 
 	private async handlePaneResize(msg: Protocol.PaneResizeMessage): Promise<void> {
-		// Forward resize to CF terminal — implementation depends on CF Sandbox API
-		const channel = this.channelMap.getChannel(msg.paneId);
-		if (channel === null) return;
-		// TODO Task 8: CF terminal resize
+		const termWs = this.terminals.get(msg.paneId);
+		if (!termWs) return;
+		termWs.send(JSON.stringify({type: "resize", cols: msg.cols, rows: msg.rows}));
 	}
 
 	private async handlePaneFocus(msg: Protocol.PaneFocusMessage): Promise<void> {
@@ -461,7 +460,12 @@ export class WormholeServer extends DurableObject {
 
 		// Assign channel and bridge output
 		const channel = this.channelMap.assign(ptyId);
-		if (channel === null) return;
+		if (channel === null) {
+			// No channels available — close the terminal WS to avoid resource leak
+			ws.close();
+			this.terminals.delete(ptyId);
+			return;
+		}
 
 		// Bridge terminal output → all clients
 		ws.addEventListener("message", (evt: MessageEvent) => {
@@ -488,6 +492,11 @@ export class WormholeServer extends DurableObject {
 			for (const client of this.clients) {
 				client.send(encoded);
 			}
+		});
+
+		ws.addEventListener("error", () => {
+			this.terminals.delete(ptyId);
+			this.channelMap.release(channel);
 		});
 	}
 
