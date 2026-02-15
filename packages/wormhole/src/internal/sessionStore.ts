@@ -4,6 +4,7 @@ import {SessionNotFoundError} from "../Errors.ts";
 import {Pty} from "../Pty.ts";
 import type {Session} from "../Session.ts";
 import * as SessionModule from "../Session.ts";
+import type {SessionCheckpoint} from "../SessionCheckpoint.ts";
 
 const DEFAULT_BUFFER_CAPACITY = 100 * 1024;
 
@@ -94,5 +95,20 @@ export const make = Effect.gen(function* () {
 			yield* Scope.close(entry.scope, Exit.void);
 		});
 
-	return {create, get, getOrFail, list: () => list, size, destroy};
+	const restore = (checkpoint: SessionCheckpoint) =>
+		Effect.gen(function* () {
+			const sessionScope = yield* Scope.make();
+			const session = yield* SessionModule.restore(checkpoint).pipe(
+				Effect.provideService(Pty, pty),
+				Effect.provideService(Scope.Scope, sessionScope),
+			);
+			yield* Ref.update(entries, (map) => {
+				const next = new Map(map);
+				next.set(checkpoint.id, {session, scope: sessionScope});
+				return next;
+			});
+			return session;
+		});
+
+	return {create, get, getOrFail, list: () => list, size, destroy, restore};
 });

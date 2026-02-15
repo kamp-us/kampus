@@ -65,3 +65,14 @@ export interface Session {
 export const make: (
 	options: MakeOptions,
 ) => Effect.Effect<Session, PtySpawnError, Pty | Scope.Scope> = internal.make;
+
+/**
+ * Restore a session from a checkpoint. The session starts in exited state
+ * (no PTY process). Call `respawn` to start a new PTY.
+ *
+ * @since 0.0.2
+ * @category constructors
+ */
+export const restore: (
+	checkpoint: SessionCheckpoint,
+) => Effect.Effect<Session, never, Pty | Scope.Scope> = internal.restore;
