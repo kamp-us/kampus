@@ -10,8 +10,8 @@ import {printSchemaSDL, schema} from "./graphql/schema";
 export {Library} from "./features/library/Library";
 export {Pasaport} from "./features/pasaport/pasaport";
 export {WebPageParser} from "./features/web-page-parser/WebPageParser";
-export {WormholeDO} from "./features/wormhole/WormholeDO";
-export {WormholeSandbox} from "./features/wormhole/WormholeSandbox";
+export {SandboxSandbox} from "./features/sandbox/SandboxSandbox";
+export {WormholeServer} from "./features/sandbox/WormholeServer";
 
 const app = new Hono<{Bindings: Env}>();
 
@@ -77,8 +77,8 @@ app.all("/rpc/library/*", async (c) => {
 	}
 });
 
-// WebSocket to wormhole — one DO per user (multiplexed sessions)
-app.all("/wormhole/ws", async (c) => {
+// WebSocket to sandbox — one DO per user (multiplexed sessions)
+app.all("/sandbox/ws", async (c) => {
 	let userId = "dev-user";
 
 	try {
@@ -88,11 +88,11 @@ app.all("/wormhole/ws", async (c) => {
 			userId = sessionData.user.id;
 		}
 	} catch {
-		// Auth unavailable (e.g. dev without Pasaport) — fall through to dev-user
+		// Auth unavailable — fall through to dev-user
 	}
 
-	const id = c.env.WORMHOLE_DO.idFromName(userId);
-	const stub = c.env.WORMHOLE_DO.get(id);
+	const id = c.env.SANDBOX_DO.idFromName(userId);
+	const stub = c.env.SANDBOX_DO.get(id);
 	return stub.fetch(c.req.raw);
 });
 
