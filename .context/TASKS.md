@@ -20,6 +20,10 @@ STRUCTURE RULES (see CONSTITUTION.md):
 -->
 
 ### Phase 1: [Name] `#priority:high`
+- [ ] Implement tab + focus wrapper on top of @usirin/layout-tree #priority:medium #added:2026-02-14-200550
+
+- [ ] Create Wormhole protocol implementation plan #priority:high #added:2026-02-14-200549
+
 - [ ] Task 1
 - [ ] Task 2
 
