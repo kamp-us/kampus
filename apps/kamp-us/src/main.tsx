@@ -13,7 +13,7 @@ import {Library} from "./pages/Library";
 import {Login} from "./pages/Login";
 import {ReaderPage} from "./pages/library/ReaderPage";
 import {TagManagement} from "./pages/library/TagManagement";
-import {Wormhole} from "./pages/Wormhole";
+import {Sandbox} from "./pages/Sandbox";
 import {environment} from "./relay/environment";
 import {RpcProvider} from "./rpc/Provider";
 
@@ -47,8 +47,8 @@ const router = createBrowserRouter([
 		element: <ReaderPage />,
 	},
 	{
-		path: "/wormhole",
-		element: <Wormhole />,
+		path: "/sandbox",
+		element: <Sandbox />,
 	},
 ]);
 

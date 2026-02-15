@@ -26,6 +26,7 @@
 		"@effect/rpc": "catalog:",
 		"@kampus/ghostty-react": "workspace:*",
 		"@kampus/library": "workspace:*",
+		"@kampus/sandbox": "workspace:*",
 		"@radix-ui/colors": "catalog:",
 		"@usirin/forge": "catalog:",
 		"@usirin/layout-tree": "catalog:",

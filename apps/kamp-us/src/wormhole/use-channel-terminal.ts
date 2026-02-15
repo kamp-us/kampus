@@ -1,7 +1,7 @@
 import {useTerminal} from "@kampus/ghostty-react";
 import type {ITheme} from "ghostty-web";
-import {useEffect} from "react";
-import {useWormholeGateway} from "./WormholeGateway.tsx";
+import {useCallback, useEffect, useRef} from "react";
+import {useMux} from "./MuxClient.tsx";
 
 export interface UseChannelTerminalOptions {
 	channel: number;
@@ -13,23 +13,37 @@ export interface UseChannelTerminalOptions {
 
 export function useChannelTerminal(options: UseChannelTerminalOptions) {
 	const {channel, sessionId, fontSize, fontFamily, theme} = options;
-	const gateway = useWormholeGateway();
+	const {sendTerminalData, resizePane, onTerminalData} = useMux();
+
+	// Stable refs so ghostty onData/onResize closures never go stale
+	const sendRef = useRef(sendTerminalData);
+	sendRef.current = sendTerminalData;
+	const resizeRef = useRef(resizePane);
+	resizeRef.current = resizePane;
+
+	const onData = useCallback(
+		(data: string) => sendRef.current(channel, new TextEncoder().encode(data)),
+		[channel],
+	);
+	const onResize = useCallback(
+		(size: {cols: number; rows: number}) => resizeRef.current(sessionId, size.cols, size.rows),
+		[sessionId],
+	);
 
 	const {ref, write, terminal, ready} = useTerminal({
 		fontSize,
 		fontFamily,
 		theme,
-		onData: (data) => gateway.sendInput(channel, data),
-		onResize: (size) => gateway.resizeSession(sessionId, size.cols, size.rows),
+		onData,
+		onResize,
 	});
 
 	useEffect(() => {
 		if (!ready) return;
-		return gateway.subscribe(channel, (data) => write(data));
-	}, [ready, channel, gateway, write]);
+		return onTerminalData(channel, (data) => write(data));
+	}, [ready, channel, onTerminalData, write]);
 
 	// Let layout keybindings (Ctrl+Shift combos) pass through the terminal
-	// ghostty-web: return true = "consumed, preventDefault (no stopPropagation)", false = "not handled"
 	useEffect(() => {
 		if (!terminal) return;
 		terminal.attachCustomKeyEventHandler((e: KeyboardEvent) => {

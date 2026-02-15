@@ -246,6 +246,9 @@ importers:
       '@kampus/library':
         specifier: workspace:*
         version: link:../../packages/library
+      '@kampus/sandbox':
+        specifier: workspace:*
+        version: link:../../packages/sandbox
       '@radix-ui/colors':
         specifier: 'catalog:'
         version: 3.0.0
@@ -367,6 +370,9 @@ importers:
       '@kampus/library':
         specifier: workspace:*
         version: link:../../packages/library
+      '@kampus/sandbox':
+        specifier: workspace:*
+        version: link:../../packages/sandbox
       '@kampus/spellbook':
         specifier: workspace:*
         version: link:../../packages/spellbook
@@ -382,6 +388,9 @@ importers:
       '@usirin/forge':
         specifier: 'catalog:'
         version: 0.2.0
+      '@usirin/layout-tree':
+        specifier: 'catalog:'
+        version: 0.2.0(typescript@5.9.3)
       better-auth:
         specifier: 'catalog:'
         version: 1.4.7(drizzle-kit@0.31.8)(drizzle-orm@0.45.1(@cloudflare/workers-types@4.20260131.0)(bun-types@1.3.5)(kysely@0.28.9))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(vitest@3.2.4(@types/node@25.0.3)(happy-dom@15.11.7)(tsx@4.21.0)(yaml@2.8.2))
@@ -481,6 +490,31 @@ importers:
       effect:
         specifier: 'catalog:'
         version: 3.19.13
+
+  packages/sandbox:
+    dependencies:
+      '@effect/platform':
+        specifier: 'catalog:'
+        version: 0.94.0(effect@3.19.13)
+      '@usirin/layout-tree':
+        specifier: 'catalog:'
+        version: 0.2.0(typescript@5.9.3)
+      effect:
+        specifier: 'catalog:'
+        version: 3.19.13
+    devDependencies:
+      '@effect/vitest':
+        specifier: 'catalog:'
+        version: 0.27.0(effect@3.19.13)(vitest@3.2.4(@types/node@25.0.3)(happy-dom@15.11.7)(tsx@4.21.0)(yaml@2.8.2))
+      '@types/node':
+        specifier: 'catalog:'
+        version: 25.0.3
+      typescript:
+        specifier: 'catalog:'
+        version: 5.9.3
+      vitest:
+        specifier: 'catalog:'
+        version: 3.2.4(@types/node@25.0.3)(happy-dom@15.11.7)(tsx@4.21.0)(yaml@2.8.2)
 
   packages/spellbook:
     dependencies:
