@@ -36,21 +36,27 @@ export class ChannelExhaustedError extends Error {
 
 export class SandboxSleepError extends Error {
   readonly _tag = "SandboxSleepError";
-  constructor(readonly sessionId: string) {
+  readonly sessionId: string;
+  constructor(sessionId: string) {
     super(`Sandbox for session ${sessionId} has gone to sleep`);
+    this.sessionId = sessionId;
   }
 }
 
 export class SessionNotFoundError extends Error {
   readonly _tag = "SessionNotFoundError";
-  constructor(readonly sessionId: string) {
+  readonly sessionId: string;
+  constructor(sessionId: string) {
     super(`Session ${sessionId} not found`);
+    this.sessionId = sessionId;
   }
 }
 
 export class TabNotFoundError extends Error {
   readonly _tag = "TabNotFoundError";
-  constructor(readonly tabId: string) {
+  readonly tabId: string;
+  constructor(tabId: string) {
     super(`Tab ${tabId} not found`);
+    this.tabId = tabId;
   }
 }

@@ -19,7 +19,7 @@ describe("ChannelMap", () => {
 		const map = new ChannelMap();
 		map.assign("pty-1"); // 0
 		const ch1 = map.assign("pty-2"); // 1
-		map.release(ch1);
+		map.release(ch1!);
 		const ch2 = map.assign("pty-3");
 		expect(ch2).toBe(1); // recycled
 	});

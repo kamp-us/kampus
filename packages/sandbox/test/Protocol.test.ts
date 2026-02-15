@@ -14,7 +14,9 @@ describe("Protocol", () => {
 			const raw = {type: "connect", width: 1200, height: 800};
 			const result = S.decodeUnknownSync(ClientMessage)(raw);
 			expect(result.type).toBe("connect");
-			expect(result.width).toBe(1200);
+			if (result.type === "connect") {
+				expect(result.width).toBe(1200);
+			}
 		});
 
 		it("decodes pane_split message", () => {
@@ -27,14 +29,18 @@ describe("Protocol", () => {
 			const raw = {type: "session_create", name: "dev"};
 			const result = S.decodeUnknownSync(ClientMessage)(raw);
 			expect(result.type).toBe("session_create");
-			expect(result.name).toBe("dev");
+			if (result.type === "session_create") {
+				expect(result.name).toBe("dev");
+			}
 		});
 
 		it("decodes pane_resize message with explicit paneId", () => {
 			const raw = {type: "pane_resize", paneId: "win-abc", cols: 120, rows: 40};
 			const result = S.decodeUnknownSync(ClientMessage)(raw);
 			expect(result.type).toBe("pane_resize");
-			expect(result.paneId).toBe("win-abc");
+			if (result.type === "pane_resize") {
+				expect(result.paneId).toBe("win-abc");
+			}
 		});
 
 		it("rejects unknown message type", () => {
