@@ -46,7 +46,11 @@ function renderChildren(
 		const childPath = [...path, i];
 		return (
 			<Fragment key={child.id}>
-				{i > 0 && <Separator className={styles.resizeHandle} />}
+				{i > 0 && (
+				<Separator
+					className={stack.orientation === "horizontal" ? styles.resizeHandleH : styles.resizeHandleV}
+				/>
+			)}
 				<Panel>
 					{child.tag === "window" ? (
 						renderWindow(child as LT.Window, childPath, focus, channels)

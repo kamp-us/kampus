@@ -51,12 +51,21 @@
 	color: #fff;
 }
 
-.resizeHandle {
-	flex: 0 0 4px;
+.resizeHandleH,
+.resizeHandleV {
 	background: #333;
 	transition: background 0.15s ease;
 }
 
-.resizeHandle:hover {
+.resizeHandleH:hover,
+.resizeHandleV:hover {
 	background: #555;
+}
+
+.resizeHandleH {
+	width: 2px;
+}
+
+.resizeHandleV {
+	height: 2px;
 }
