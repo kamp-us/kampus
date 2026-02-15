@@ -3,6 +3,7 @@
 <!-- INDEX:START -->
 | Date | Learning |
 |------|--------|
+| 2026-02-14 | DO non-hibernation reconnect needs server-side replay |
 | 2026-02-14 | useMux() object identity churn breaks terminal lifecycle |
 | 2026-02-14 | ghostty-web container element must have no children |
 | 2026-02-14 | Subagent-driven dev: always verify field signatures after restore |
@@ -10,6 +11,16 @@
 | 2026-02-14 | CF Sandbox API: reconnectable sandboxes with server-side buffering |
 | 2026-02-14 | Zensical explicit nav is full override |
 <!-- INDEX:END -->
+
+## [2026-02-14-233231] DO non-hibernation reconnect needs server-side replay
+
+**Context**: Page reload doesn't hibernate the DO. reconnectAllTerminals() checks this.terminals.has() and skips. Frontend gets blank terminals because no ring buffer replay happens from CF Sandbox.
+
+**Lesson**: CF Sandbox ring buffer replay only triggers on NEW WS connections. If DO stays alive, terminal WSes persist and no replay occurs. The DO itself must buffer output and replay to reconnecting clients.
+
+**Application**: WormholeServer.outputBuffers (64KB/pty) captures all terminal output. replayBuffers(ws) sends it to connecting clients in handleConnect. Client-side terminalBuffers catches data before React mounts listeners.
+
+---
 
 ## [2026-02-14-222747] useMux() object identity churn breaks terminal lifecycle
 
@@ -57,7 +68,7 @@
 
 **Lesson**: getSandbox(binding, sandboxId) with same ID always returns same instance — sandboxes are reconnectable. CF provides server-side ring buffer for output (reconnect replays history). Containers sleep after ~10 min inactivity and shell state resets on wake. Sessions within a sandbox share filesystem but have independent shell state (env, cwd, history).
 
-**Application**: Don't reimplement buffering or session state persistence — CF handles it. Design for container sleep as a normal event, not an error. Use sandboxId as stable identifier for reconnection. Treat sessions as lightweight (shared filesystem) and sandboxes as heavyweight (isolated environments).
+**Application**: Don't reimplement buffering or session state persistence — CF handles it at the container level. But note: CF's ring buffer only replays on NEW WS connections. If the DO stays alive (non-hibernation page reload), you still need a DO-level output buffer for client reconnect. Design for container sleep as a normal event, not an error. Use sandboxId as stable identifier for reconnection.
 
 ---
 

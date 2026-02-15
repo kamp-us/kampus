@@ -24,9 +24,9 @@ STRUCTURE RULES (see CONSTITUTION.md):
 
 - [ ] Handle stale sessions on reconnect — detect dead terminal WSes and show session expired state instead of blank pane #added:2026-02-14-222749
 
-- [ ] Implement tab + focus wrapper on top of @usirin/layout-tree #priority:medium #added:2026-02-14-200550
+- [x] Implement tab + focus wrapper on top of @usirin/layout-tree #priority:medium #added:2026-02-14-200550 #done:2026-02-14
 
-- [ ] Create Wormhole protocol implementation plan #priority:high #added:2026-02-14-200549
+- [x] Create Wormhole protocol implementation plan #priority:high #added:2026-02-14-200549 #done:2026-02-14
 
 - [ ] Task 1
 - [ ] Task 2

@@ -3,6 +3,7 @@
 <!-- INDEX:START -->
 | Date | Decision |
 |------|--------|
+| 2026-02-14 | Server-side output buffer in DO for reconnect replay |
 | 2026-02-14 | Render all tabs simultaneously with CSS visibility:hidden on inactive tabs |
 | 2026-02-14 | DO authoritative over layout with per-tab focus |
 | 2026-02-14 | No Effect services in v1 — plain TS + Effect Schema only |
@@ -21,6 +22,20 @@ For lightweight decisions, a single statement suffices:
 ## Full Format
 
 For significant decisions:
+
+## [2026-02-14-233233] Server-side output buffer in DO for reconnect replay
+
+**Status**: Accepted
+
+**Context**: Page reload doesn't hibernate DO. CF Sandbox ring buffer only replays on new WS connection. Existing terminal WSes persist but frontend has no history.
+
+**Decision**: Server-side output buffer in DO for reconnect replay
+
+**Rationale**: Alternatives: (1) force-close terminal WSes and reconnect to trigger CF replay — disruptive, loses in-flight data. (2) Per-client terminal WSes — wasteful N*terminals connections. Chose DO-level 64KB ring buffer per pty because it's simple, works for both hibernation and non-hibernation cases.
+
+**Consequences**: Memory scales with pty count (64KB each). Buffer is in-memory only — lost on hibernation, but that case falls back to CF Sandbox replay. Two-layer buffering: server-side for reconnect history, client-side for React mount timing.
+
+---
 
 ## [2026-02-14-222748] Render all tabs simultaneously with CSS visibility:hidden on inactive tabs
 
