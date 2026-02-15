@@ -3,6 +3,7 @@
 <!-- INDEX:START -->
 | Date | Decision |
 |------|--------|
+| 2026-02-14 | Render all tabs simultaneously with CSS visibility:hidden on inactive tabs |
 | 2026-02-14 | DO authoritative over layout with per-tab focus |
 | 2026-02-14 | No Effect services in v1 — plain TS + Effect Schema only |
 | 2026-02-14 | Wormhole protocol = thin mux server over CF Sandbox |
@@ -20,6 +21,20 @@ For lightweight decisions, a single statement suffices:
 ## Full Format
 
 For significant decisions:
+
+## [2026-02-14-222748] Render all tabs simultaneously with CSS visibility:hidden on inactive tabs
+
+**Status**: Accepted
+
+**Context**: Switching tabs unmounted ghostty-web terminals, losing output buffer. CF Sandbox has no server-side replay.
+
+**Decision**: Render all tabs simultaneously with CSS visibility:hidden on inactive tabs
+
+**Rationale**: CSS visibility keeps DOM alive so ghostty preserves its buffer. Alternative was server-side ring buffer replay, but CF Sandbox owns buffering and we'd duplicate logic.
+
+**Consequences**: All tab terminals stay mounted in DOM. Memory scales with tab count. Simpler than replay.
+
+---
 
 ## [2026-02-14-200548] DO authoritative over layout with per-tab focus
 

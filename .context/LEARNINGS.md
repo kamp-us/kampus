@@ -3,11 +3,33 @@
 <!-- INDEX:START -->
 | Date | Learning |
 |------|--------|
+| 2026-02-14 | useMux() object identity churn breaks terminal lifecycle |
+| 2026-02-14 | ghostty-web container element must have no children |
 | 2026-02-14 | Subagent-driven dev: always verify field signatures after restore |
 | 2026-02-14 | layout-tree split() new pane path is implicit |
 | 2026-02-14 | CF Sandbox API: reconnectable sandboxes with server-side buffering |
 | 2026-02-14 | Zensical explicit nav is full override |
 <!-- INDEX:END -->
+
+## [2026-02-14-222747] useMux() object identity churn breaks terminal lifecycle
+
+**Context**: use-channel-terminal depended on useMux() object in useEffect deps, causing constant listener cleanup/re-register and dead panes after split
+
+**Lesson**: Context hooks returning objects with state create new references every render. Effects depending on the whole object churn and break during tree restructure.
+
+**Application**: Destructure stable useCallback refs from context hooks. Use useRef for callbacks passed to ghostty-web.
+
+---
+
+## [2026-02-14-222745] ghostty-web container element must have no children
+
+**Context**: Added split/close buttons as children of ghostty terminal ref div, terminal rendered as cursor at 0x0
+
+**Lesson**: ghostty-web requires sole ownership of its container element. Child elements break terminal rendering.
+
+**Application**: Render ghostty ref on a standalone div. Use sibling div with position:absolute for overlays.
+
+---
 
 ## [2026-02-14-213217] Subagent-driven dev: always verify field signatures after restore
 
