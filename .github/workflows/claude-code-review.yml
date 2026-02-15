@@ -31,6 +31,15 @@ jobs:
         with:
           fetch-depth: 1
 
+      - name: Find existing review comment
+        id: find-comment
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          COMMENT_ID=$(gh api repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/comments \
+            --jq '.[] | select(.body | startswith("<!-- claude-code-review -->")) | .id' | tail -1)
+          echo "comment_id=${COMMENT_ID:-}" >> "$GITHUB_OUTPUT"
+
       - name: Run Claude Code Review
         id: claude-review
         uses: anthropics/claude-code-action@v1
@@ -39,19 +48,23 @@ jobs:
           prompt: |
             REPO: ${{ github.repository }}
             PR NUMBER: ${{ github.event.pull_request.number }}
+            COMMIT: ${{ github.event.pull_request.head.sha }}
+            EXISTING_COMMENT_ID: ${{ steps.find-comment.outputs.comment_id }}
 
-            Please review this pull request and provide feedback on:
-            - Code quality and best practices
+            Review this pull request. Focus on:
             - Potential bugs or issues
-            - Performance considerations
             - Security concerns
-            - Test coverage
+            - Performance considerations
 
-            Use the repository's CLAUDE.md for guidance on style and conventions. Be constructive and helpful in your feedback.
+            Use the repository's CLAUDE.md for guidance on style and conventions. Be concise and actionable — skip praise, skip nitpicks.
 
-            Use `gh pr comment` with your Bash tool to leave your review as a comment on the PR.
+            Format your review as markdown. Start with `<!-- claude-code-review -->` on the first line (this is a hidden marker for comment updates). Include the commit SHA in the header like: `**Reviewed commit:** \`abc1234\``
 
-          # See https://github.com/anthropics/claude-code-action/blob/main/docs/usage.md
-          # or https://code.claude.com/docs/en/cli-reference for available options
-          claude_args: '--allowed-tools "Bash(gh issue view:*),Bash(gh search:*),Bash(gh issue list:*),Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr list:*)"'
+            To post the review:
+            - If EXISTING_COMMENT_ID is not empty, update that comment:
+              `gh api repos/${{ github.repository }}/issues/comments/EXISTING_COMMENT_ID -X PATCH -f body='...'`
+            - If EXISTING_COMMENT_ID is empty, create a new comment:
+              `gh pr comment ${{ github.event.pull_request.number }} --repo ${{ github.repository }} --body '...'`
+
+          claude_args: '--allowed-tools "Bash(gh issue view:*),Bash(gh search:*),Bash(gh issue list:*),Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr list:*),Bash(gh api:*)"'
 
