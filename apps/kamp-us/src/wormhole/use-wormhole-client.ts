@@ -1,12 +1,13 @@
 // apps/kamp-us/src/wormhole/use-wormhole-client.ts
-import {useCallback, useEffect, useRef, useState} from "react";
+
 import {
-	CONTROL_CHANNEL,
-	parseBinaryFrame,
-	encodeBinaryFrame,
-	type ServerMessage,
 	type ClientMessage,
+	CONTROL_CHANNEL,
+	encodeBinaryFrame,
+	parseBinaryFrame,
+	type ServerMessage,
 } from "@kampus/sandbox/Protocol";
+import {useCallback, useEffect, useRef, useState} from "react";
 
 interface SessionRecord {
 	id: string;
@@ -42,7 +43,12 @@ interface WormholeClient {
 	closeTab: (tabId: string) => void;
 	switchTab: (tabId: string) => void;
 	renameTab: (tabId: string, name: string) => void;
-	splitPane: (paneId: string, orientation: "horizontal" | "vertical", cols: number, rows: number) => void;
+	splitPane: (
+		paneId: string,
+		orientation: "horizontal" | "vertical",
+		cols: number,
+		rows: number,
+	) => void;
 	closePane: (paneId: string) => void;
 	resizePane: (paneId: string, cols: number, rows: number) => void;
 	moveFocus: (direction: "left" | "right" | "up" | "down") => void;
@@ -116,8 +122,8 @@ export function useWormholeClient(
 		return () => {
 			ws.close();
 		};
-	// sendControl is stable (empty deps). viewport intentionally excluded: send initial dimensions on connect, not reconnect on resize.
-	// eslint-disable-next-line react-hooks/exhaustive-deps
+		// sendControl is stable (empty deps). viewport intentionally excluded: send initial dimensions on connect, not reconnect on resize.
+		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [url]);
 
 	function handleServerMessage(msg: ServerMessage) {
@@ -146,27 +152,24 @@ export function useWormholeClient(
 		}
 	}
 
-	const onTerminalData = useCallback(
-		(channel: number, callback: (data: Uint8Array) => void) => {
-			if (!terminalListeners.current.has(channel)) {
-				terminalListeners.current.set(channel, new Set());
-			}
-			// biome-ignore lint/style/noNonNullAssertion: has() check above guarantees entry
-			terminalListeners.current.get(channel)!.add(callback);
+	const onTerminalData = useCallback((channel: number, callback: (data: Uint8Array) => void) => {
+		if (!terminalListeners.current.has(channel)) {
+			terminalListeners.current.set(channel, new Set());
+		}
+		// biome-ignore lint/style/noNonNullAssertion: has() check above guarantees entry
+		terminalListeners.current.get(channel)!.add(callback);
 
-			// Flush any data that arrived before this listener mounted
-			const buffered = terminalBuffers.current.get(channel);
-			if (buffered) {
-				for (const data of buffered) callback(data);
-				terminalBuffers.current.delete(channel);
-			}
+		// Flush any data that arrived before this listener mounted
+		const buffered = terminalBuffers.current.get(channel);
+		if (buffered) {
+			for (const data of buffered) callback(data);
+			terminalBuffers.current.delete(channel);
+		}
 
-			return () => {
-				terminalListeners.current.get(channel)?.delete(callback);
-			};
-		},
-		[],
-	);
+		return () => {
+			terminalListeners.current.get(channel)?.delete(callback);
+		};
+	}, []);
 
 	return {
 		state,

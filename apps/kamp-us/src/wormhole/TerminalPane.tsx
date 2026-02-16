@@ -1,6 +1,6 @@
 import type {ITheme} from "ghostty-web";
-import {useChannelTerminal} from "./use-channel-terminal.ts";
 import {useMux} from "./MuxClient.tsx";
+import {useChannelTerminal} from "./use-channel-terminal.ts";
 import styles from "./WormholeLayout.module.css";
 
 interface TerminalPaneProps {
@@ -12,7 +12,14 @@ interface TerminalPaneProps {
 	theme?: ITheme;
 }
 
-export function TerminalPane({channel, sessionId, focused, connected, onFocus, theme}: TerminalPaneProps) {
+export function TerminalPane({
+	channel,
+	sessionId,
+	focused,
+	connected,
+	onFocus,
+	theme,
+}: TerminalPaneProps) {
 	const {ref} = useChannelTerminal({channel, sessionId, theme});
 	const {splitPane, closePane} = useMux();
 

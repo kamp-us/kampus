@@ -1,7 +1,7 @@
 import {DurableObject} from "cloudflare:workers";
 import {ChannelMap} from "@kampus/sandbox/ChannelMap";
-import * as TL from "@kampus/sandbox/TabbedLayout";
 import * as Protocol from "@kampus/sandbox/Protocol";
+import * as TL from "@kampus/sandbox/TabbedLayout";
 import * as LT from "@usirin/layout-tree";
 
 interface SessionRecord {
@@ -456,7 +456,12 @@ export class WormholeServer extends DurableObject {
 		return keys;
 	}
 
-	private async createTerminalWs(sandboxId: string, ptyId: string, cols: number, rows: number): Promise<void> {
+	private async createTerminalWs(
+		sandboxId: string,
+		ptyId: string,
+		cols: number,
+		rows: number,
+	): Promise<void> {
 		const id = this.env.SANDBOX.idFromName(sandboxId);
 		const stub = this.env.SANDBOX.get(id);
 

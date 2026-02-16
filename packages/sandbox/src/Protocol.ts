@@ -177,11 +177,7 @@ export class SessionsResetMessage extends S.Class<SessionsResetMessage>("Session
 }) {}
 
 /** @since 0.1.0 @category models */
-export const ServerMessage = S.Union(
-	StateMessage,
-	LayoutUpdateMessage,
-	SessionsResetMessage,
-);
+export const ServerMessage = S.Union(StateMessage, LayoutUpdateMessage, SessionsResetMessage);
 
 /** @since 0.1.0 @category models */
 export type ServerMessage = S.Schema.Type<typeof ServerMessage>;
