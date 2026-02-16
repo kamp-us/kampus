@@ -497,24 +497,16 @@ export class WormholeServer extends DurableObject {
 
 		ws.addEventListener("close", () => {
 			this.terminals.delete(ptyId);
-			this.outputBuffers.delete(ptyId);
-			const exitMsg = new Protocol.SessionExitMessage({
-				type: "session_exit",
-				sessionId: this.getSessionForPty(ptyId),
-				ptyId,
-				channel,
-				exitCode: 0,
-			});
-			const encoded = Protocol.encodeControlMessage(exitMsg);
-			for (const client of this.clients) {
-				client.send(encoded);
-			}
+			// Keep outputBuffers — pane retains last visible output
+			// Keep channel assigned — frontend can still send data to trigger reconnect
+			// Broadcast layout update so clients see connected: false
+			this.broadcastLayoutUpdate();
 		});
 
 		ws.addEventListener("error", () => {
 			this.terminals.delete(ptyId);
-			this.outputBuffers.delete(ptyId);
-			this.channelMap.release(channel);
+			// Keep buffers and channel, same as close
+			this.broadcastLayoutUpdate();
 		});
 	}
 
