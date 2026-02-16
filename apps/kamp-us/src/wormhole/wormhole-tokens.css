@@ -1,0 +1,41 @@
+[data-wormhole] {
+	/* backgrounds */
+	--wh-bg-base: #0e0e0e;
+	--wh-bg-surface: #141414;
+	--wh-bg-elevated: #1a1a1a;
+	--wh-bg-hover: #222;
+	--wh-bg-active: #1e1e1e;
+
+	/* text */
+	--wh-text-primary: #c8c8c8;
+	--wh-text-secondary: #686868;
+	--wh-text-muted: #404040;
+	--wh-text-bright: #e8e8e8;
+
+	/* accent */
+	--wh-accent: #c9a24d;
+	--wh-accent-dim: rgba(201, 162, 77, 0.08);
+	--wh-accent-hover: #d4ad58;
+	--wh-accent-glow: rgba(201, 162, 77, 0.15);
+
+	/* borders */
+	--wh-border: #1e1e1e;
+	--wh-border-subtle: #1a1a1a;
+
+	/* danger */
+	--wh-danger: #b34040;
+	--wh-danger-hover: #cc4c4c;
+
+	/* typography */
+	--wh-font: "JetBrains Mono", monospace;
+
+	/* dimensions */
+	--wh-chrome-height: 34px;
+	--wh-radius: 2px;
+
+	/* base styles */
+	font-family: var(--wh-font);
+	background: var(--wh-bg-base);
+	color: var(--wh-text-primary);
+	-webkit-font-smoothing: antialiased;
+}

@@ -1,9 +1,8 @@
 // apps/kamp-us/src/wormhole/MuxClient.tsx
 import {createContext, useContext} from "react";
-import {useWormholeClient} from "./use-wormhole-client.ts";
-import {SessionBar} from "./SessionBar.tsx";
-import {TabBar} from "./TabBar.tsx";
+import {ChromeBar} from "./ChromeBar.tsx";
 import {PaneLayout} from "./PaneLayout.tsx";
+import {useWormholeClient} from "./use-wormhole-client.ts";
 import styles from "./WormholeLayout.module.css";
 
 type WormholeClient = ReturnType<typeof useWormholeClient>;
@@ -24,14 +23,20 @@ export function MuxClient({url, viewport}: MuxClientProps) {
 	const client = useWormholeClient(url, viewport);
 
 	if (!client.state.connected) {
-		return <div className={styles.container}>Connecting...</div>;
+		return (
+			<div className={styles.container} data-wormhole>
+				<div className={styles.connecting}>
+					<div className={styles.connectingSpinner} />
+					<span className={styles.connectingText}>Connecting...</span>
+				</div>
+			</div>
+		);
 	}
 
 	return (
 		<MuxContext.Provider value={client}>
-			<div className={styles.container}>
-				<SessionBar />
-				<TabBar />
+			<div className={styles.container} data-wormhole>
+				<ChromeBar />
 				<PaneLayout />
 			</div>
 		</MuxContext.Provider>

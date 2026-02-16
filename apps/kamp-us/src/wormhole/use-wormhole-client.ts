@@ -52,6 +52,7 @@ interface WormholeClient {
 	closePane: (paneId: string) => void;
 	resizePane: (paneId: string, cols: number, rows: number) => void;
 	moveFocus: (direction: "left" | "right" | "up" | "down") => void;
+	focusPane: (path: number[]) => void;
 	onTerminalData: (channel: number, callback: (data: Uint8Array) => void) => () => void;
 }
 
@@ -187,5 +188,10 @@ export function useWormholeClient(
 		closePane: (paneId) => sendControl({type: "pane_close", paneId}),
 		resizePane: (paneId, cols, rows) => sendControl({type: "pane_resize", paneId, cols, rows}),
 		moveFocus: (direction) => sendControl({type: "pane_focus", direction}),
+		focusPane: (path) =>
+			setState((s) => ({
+				...s,
+				tabs: s.tabs.map((t) => (t.id === s.activeTab ? {...t, focus: path} : t)),
+			})),
 	};
 }

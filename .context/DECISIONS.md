@@ -3,6 +3,7 @@
 <!-- INDEX:START -->
 | Date | Decision |
 |------|--------|
+| 2026-02-15 | Click-to-focus uses optimistic local state |
 | 2026-02-15 | Track pane dimensions in paneSizes Map |
 | 2026-02-14 | Server-side output buffer in DO for reconnect replay |
 | 2026-02-14 | Render all tabs simultaneously with CSS visibility:hidden on inactive tabs |
@@ -23,6 +24,20 @@ For lightweight decisions, a single statement suffices:
 ## Full Format
 
 For significant decisions:
+
+## [2026-02-15-225807] Click-to-focus uses optimistic local state
+
+**Status**: Accepted
+
+**Context**: Protocol only supports directional pane_focus (left/right/up/down), no click-by-path
+
+**Decision**: Click-to-focus uses optimistic local state
+
+**Rationale**: Simplest fix without protocol changes; server layout_update can override
+
+**Consequences**: If we later want server-authoritative click focus, add a pane_focus_path message type to the protocol
+
+---
 
 ## [2026-02-15-180300] Track pane dimensions in paneSizes Map
 

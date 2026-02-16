@@ -3,6 +3,9 @@
 <!-- INDEX:START -->
 | Date | Learning |
 |------|--------|
+| 2026-02-15 | base-ui Tabs.Root needs flex styles in flex parents |
+| 2026-02-15 | ghostty-web canvas ref must have zero CSS transitions |
+| 2026-02-15 | react-resizable-panels Panel inner div sizing |
 | 2026-02-15 | paneSizes must be tracked at every terminal creation site |
 | 2026-02-14 | DO non-hibernation reconnect needs server-side replay |
 | 2026-02-14 | useMux() object identity churn breaks terminal lifecycle |
@@ -12,6 +15,36 @@
 | 2026-02-14 | CF Sandbox API: reconnectable sandboxes with server-side buffering |
 | 2026-02-14 | Zensical explicit nav is full override |
 <!-- INDEX:END -->
+
+## [2026-02-15-225805] base-ui Tabs.Root needs flex styles in flex parents
+
+**Context**: ChromeBar tab bar floating outside chrome bar
+
+**Lesson**: base-ui Tabs.Root renders a plain div wrapper. In a flex parent, it needs className with display:flex and flex:1 to stretch properly.
+
+**Application**: Always add flex styles to Tabs.Root when embedding in a flex layout.
+
+---
+
+## [2026-02-15-225804] ghostty-web canvas ref must have zero CSS transitions
+
+**Context**: Wormhole terminal garbled after split
+
+**Lesson**: CSS transitions on the div that ghostty-web attaches to cause garbled canvas on resize. Separate the animation wrapper from the canvas ref div.
+
+**Application**: When wrapping ghostty-web, put transitions on a parent wrapper, never on the ref div itself.
+
+---
+
+## [2026-02-15-225803] react-resizable-panels Panel inner div sizing
+
+**Context**: Wormhole UI pane sizing bug
+
+**Lesson**: react-resizable-panels Panel inner div is not display:flex. Child elements must use width/height:100% instead of flex:1 to fill the panel.
+
+**Application**: Any component rendered inside a Panel needs explicit percentage sizing, not flex properties.
+
+---
 
 ## [2026-02-15-180258] paneSizes must be tracked at every terminal creation site
 

@@ -7,10 +7,10 @@ import {TerminalPane} from "./TerminalPane.tsx";
 import styles from "./WormholeLayout.module.css";
 
 export function PaneLayout() {
-	const {state} = useMux();
+	const {state, focusPane} = useMux();
 
 	return (
-		<div style={{flex: 1, position: "relative"}}>
+		<div className={styles.paneArea}>
 			{state.tabs.map((tab) => {
 				const tree = tab.layout as LT.Tree;
 				if (!tree || !tree.root) return null;
@@ -27,7 +27,14 @@ export function PaneLayout() {
 						}}
 					>
 						<Group orientation={tree.root.orientation}>
-							{renderChildren(tree.root, [], tab.focus, state.channels, state.paneConnected)}
+							{renderChildren(
+								tree.root,
+								[],
+								tab.focus,
+								state.channels,
+								state.paneConnected,
+								focusPane,
+							)}
 						</Group>
 					</div>
 				);
@@ -42,6 +49,7 @@ function renderChildren(
 	focus: number[],
 	channels: Record<string, number>,
 	paneConnected: Record<string, boolean>,
+	focusPane: (path: number[]) => void,
 ) {
 	return stack.children.map((child, i) => {
 		const childPath = [...path, i];
@@ -56,10 +64,17 @@ function renderChildren(
 				)}
 				<Panel>
 					{child.tag === "window" ? (
-						renderWindow(child as LT.Window, childPath, focus, channels, paneConnected)
+						renderWindow(child as LT.Window, childPath, focus, channels, paneConnected, focusPane)
 					) : (
 						<Group orientation={(child as LT.Stack).orientation}>
-							{renderChildren(child as LT.Stack, childPath, focus, channels, paneConnected)}
+							{renderChildren(
+								child as LT.Stack,
+								childPath,
+								focus,
+								channels,
+								paneConnected,
+								focusPane,
+							)}
 						</Group>
 					)}
 				</Panel>
@@ -74,6 +89,7 @@ function renderWindow(
 	focus: number[],
 	channels: Record<string, number>,
 	paneConnected: Record<string, boolean>,
+	focusPane: (path: number[]) => void,
 ) {
 	const channel = channels[window.key];
 	if (channel === undefined) return <div>Loading...</div>;
@@ -87,9 +103,7 @@ function renderWindow(
 			sessionId={window.key}
 			focused={isFocused}
 			connected={isConnected}
-			onFocus={() => {
-				/* focus is managed by DO */
-			}}
+			onFocus={() => focusPane(path)}
 		/>
 	);
 }
