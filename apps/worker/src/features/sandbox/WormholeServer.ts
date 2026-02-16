@@ -98,7 +98,12 @@ export class WormholeServer extends DurableObject {
 		const ptyId = this.channelMap.getPtyId(channel);
 		if (ptyId) {
 			const termWs = this.terminals.get(ptyId);
-			if (termWs) termWs.send(payload);
+			if (termWs) {
+				termWs.send(payload);
+			} else {
+				// Terminal disconnected — lazy reconnect
+				await this.reconnectTerminal(ptyId, payload);
+			}
 		}
 	}
 
@@ -533,6 +538,23 @@ export class WormholeServer extends DurableObject {
 				ws.send(Protocol.encodeBinaryFrame(channel, chunk));
 			}
 		}
+	}
+
+	private async reconnectTerminal(ptyId: string, bufferedInput?: Uint8Array): Promise<void> {
+		const sessionId = this.getSessionForPty(ptyId);
+		if (!sessionId) return;
+		const session = this.sessions.find((s) => s.id === sessionId);
+		if (!session) return;
+
+		await this.createTerminalWs(session.sandboxId, ptyId, 80, 24);
+
+		// Send the keystroke that triggered the reconnect
+		if (bufferedInput) {
+			const termWs = this.terminals.get(ptyId);
+			if (termWs) termWs.send(bufferedInput);
+		}
+
+		this.broadcastLayoutUpdate();
 	}
 
 	private async reconnectAllTerminals(): Promise<void> {
