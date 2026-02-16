@@ -79,7 +79,7 @@ function renderWindow(
 	if (channel === undefined) return <div>Loading...</div>;
 
 	const isFocused = JSON.stringify(path) === JSON.stringify(focus);
-	const isConnected = paneConnected[window.key] ?? false;
+	const isConnected = paneConnected[window.key] ?? true;
 
 	return (
 		<TerminalPane
