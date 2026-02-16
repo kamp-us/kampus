@@ -169,6 +169,7 @@ export class WormholeServer extends DurableObject {
 
 		// Create first terminal
 		const ptyId = crypto.randomUUID();
+		this.paneSizes.set(ptyId, {cols: 80, rows: 24});
 		await this.createTerminalWs(sandboxId, ptyId, 80, 24);
 
 		// Create layout with one tab + one pane
@@ -243,6 +244,7 @@ export class WormholeServer extends DurableObject {
 		if (!session) return;
 
 		const ptyId = crypto.randomUUID();
+		this.paneSizes.set(ptyId, {cols: 80, rows: 24});
 		await this.createTerminalWs(session.sandboxId, ptyId, 80, 24);
 
 		this.layout = TL.createTab(this.layout, msg.name, ptyId);
