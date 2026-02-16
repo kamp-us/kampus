@@ -15,6 +15,11 @@ nav = [
     { "6. Killing Your Abstractions" = "blog/2026-02-14-killing-your-abstractions.md" },
     { "7. Tiled Terminals in the Browser" = "blog/2026-02-14-tiled-terminals-in-the-browser.md" },
     { "8. Making Sessions Immortal" = "blog/2026-02-14-making-sessions-immortal.md" },
+    { "9. The Great Deletion" = "blog/2026-02-15-the-great-deletion.md" },
+    { "10. Zombie Panes and Lazy Reconnect" = "blog/2026-02-15-zombie-panes-and-lazy-reconnect.md" },
+  ]},
+  { "Plans" = [
+    { "Session Resurrection" = "plans/2026-02-12-session-resurrection.md" },
   ]}
 ]
 
