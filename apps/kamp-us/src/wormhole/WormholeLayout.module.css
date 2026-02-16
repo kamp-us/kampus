@@ -1,87 +1,595 @@
+@import "./wormhole-tokens.css";
+
+/* ========================================
+   LAYOUT SHELL
+   ======================================== */
 .container {
-	display: flex;
-	flex-direction: column;
-	width: 100%;
-	height: 100vh;
-	background: #1e1e1e;
-	color: #d4d4d4;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100vh;
+  overflow: hidden;
 }
 
+/* ========================================
+   CUSTOM SCROLLBARS
+   ======================================== */
+.container ::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.container ::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.container ::-webkit-scrollbar-thumb {
+  background: #2a2a2a;
+  border-radius: 3px;
+}
+
+.container ::-webkit-scrollbar-thumb:hover {
+  background: #3a3a3a;
+}
+
+.container ::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* ========================================
+   SELECTION
+   ======================================== */
+.container ::selection {
+  background: rgba(201, 162, 77, 0.25);
+  color: var(--wh-text-bright);
+}
+
+/* ========================================
+   CLOSE ICON (shared SVG style)
+   ======================================== */
+.closeIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  border: none;
+  background: none;
+  color: var(--wh-text-muted);
+  cursor: pointer;
+  padding: 0;
+  border-radius: var(--wh-radius);
+  transition: all 0.12s ease;
+  flex-shrink: 0;
+}
+
+.closeIcon:hover {
+  color: var(--wh-danger);
+  background: rgba(179, 64, 64, 0.1);
+}
+
+.closeIcon svg {
+  width: 8px;
+  height: 8px;
+}
+
+/* ========================================
+   CHROME BAR (unified session + tabs)
+   ======================================== */
+.chromeBar {
+  display: flex;
+  align-items: stretch;
+  height: var(--wh-chrome-height);
+  padding: 0 12px;
+  background: var(--wh-bg-surface);
+  border-bottom: 1px solid var(--wh-border);
+  flex-shrink: 0;
+  user-select: none;
+  gap: 0;
+  animation: fadeDown 0.3s ease both;
+  animation-delay: 0.1s;
+}
+
+/* ── session selector (left zone) ── */
+.sessionSelector {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 10px 0 0;
+  margin-right: 4px;
+  border-right: 1px solid var(--wh-border);
+  position: relative;
+  flex-shrink: 0;
+}
+
+.sessionLabel {
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--wh-text-muted);
+}
+
+.sessionTrigger {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  color: var(--wh-text-primary);
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: var(--wh-radius);
+  transition: all 0.12s ease;
+  border: none;
+  background: none;
+  font-family: var(--wh-font);
+}
+
+.sessionTrigger:hover {
+  background: var(--wh-bg-hover);
+}
+
+.chevron {
+  display: inline-block;
+  width: 0;
+  height: 0;
+  border-left: 3.5px solid transparent;
+  border-right: 3.5px solid transparent;
+  border-top: 4px solid var(--wh-text-muted);
+  transition: transform 0.15s ease;
+}
+
+.sessionTrigger[data-popup-open] .chevron {
+  transform: rotate(180deg);
+}
+
+/* ── session dropdown ── */
+.sessionPositioner {
+  z-index: 100;
+}
+
+.sessionPopup {
+  min-width: 180px;
+  background: var(--wh-bg-elevated);
+  border: 1px solid var(--wh-border);
+  border-radius: var(--wh-radius);
+  padding: 4px 0;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  transform-origin: var(--transform-origin);
+  transition:
+    opacity 0.12s ease,
+    transform 0.12s ease;
+}
+
+.sessionPopup[data-starting-style],
+.sessionPopup[data-ending-style] {
+  opacity: 0;
+  transform: scale(0.95);
+}
+
+.sessionItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 12px;
+  font-size: 12px;
+  color: var(--wh-text-secondary);
+  cursor: pointer;
+  transition: all 0.1s ease;
+}
+
+.sessionItem[data-highlighted] {
+  background: var(--wh-bg-hover);
+  color: var(--wh-text-primary);
+}
+
+.sessionItem[data-active] {
+  color: var(--wh-text-primary);
+}
+
+.sessionItem[data-active]::before {
+  content: "";
+  display: inline-block;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--wh-accent);
+  margin-right: 8px;
+  flex-shrink: 0;
+}
+
+.sessionItem .closeIcon {
+  opacity: 0;
+  margin-left: 8px;
+}
+
+.sessionItem:hover .closeIcon,
+.sessionItem[data-highlighted] .closeIcon {
+  opacity: 1;
+}
+
+.sessionDivider {
+  height: 1px;
+  background: var(--wh-border);
+  margin: 4px 0;
+}
+
+.sessionAction {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  font-size: 11px;
+  color: var(--wh-text-muted);
+  cursor: pointer;
+  transition: all 0.1s ease;
+}
+
+.sessionAction[data-highlighted] {
+  background: var(--wh-bg-hover);
+  color: var(--wh-text-secondary);
+}
+
+/* ── tabs (middle zone) ── */
+.tabList {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  flex: 1;
+  min-width: 0;
+}
+
+.tabItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+  font-size: 11px;
+  color: var(--wh-text-muted);
+  cursor: pointer;
+  transition: all 0.12s ease;
+  position: relative;
+  border: none;
+  background: none;
+  font-family: var(--wh-font);
+  border-bottom: 1px solid transparent;
+  margin-bottom: -1px;
+  flex-shrink: 0;
+}
+
+.tabItem:hover {
+  color: var(--wh-text-secondary);
+  background: var(--wh-bg-elevated);
+}
+
+.tabItem[data-active] {
+  color: var(--wh-text-primary);
+  background: var(--wh-bg-base);
+  border-bottom-color: var(--wh-bg-base);
+}
+
+.tabItem .closeIcon {
+  opacity: 0;
+  transition: all 0.12s ease;
+}
+
+.tabItem:hover .closeIcon {
+  opacity: 1;
+}
+
+.tabAdd {
+  display: flex;
+  align-items: center;
+  font-size: 12px;
+  color: var(--wh-text-muted);
+  cursor: pointer;
+  border: none;
+  background: none;
+  padding: 0 10px;
+  font-family: var(--wh-font);
+  transition: all 0.12s ease;
+}
+
+.tabAdd:hover {
+  color: var(--wh-text-secondary);
+}
+
+/* ── status dot (right zone) ── */
+.chromeStatus {
+  display: flex;
+  align-items: center;
+  margin-left: auto;
+  padding-left: 12px;
+  flex-shrink: 0;
+}
+
+.statusDot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--wh-accent);
+  box-shadow: 0 0 4px var(--wh-accent-glow);
+}
+
+.statusDot[data-disconnected] {
+  background: var(--wh-danger);
+  box-shadow: 0 0 4px rgba(179, 64, 64, 0.3);
+  animation: pulseDot 2s ease-in-out infinite;
+}
+
+/* ========================================
+   PANE AREA
+   ======================================== */
+.paneArea {
+  flex: 1;
+  position: relative;
+  min-height: 0;
+  animation: fadeUp 0.4s ease both;
+  animation-delay: 0.2s;
+}
+
+/* ========================================
+   TERMINAL PANE
+   ======================================== */
 .pane {
-	position: relative;
-	display: flex;
-	flex-direction: column;
-	width: 100%;
-	height: 100%;
-	opacity: 0.65;
-	transition: opacity 0.15s ease;
+  position: relative;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background: var(--wh-bg-base);
+  min-height: 0;
+  overflow: hidden;
+  outline: 1px solid transparent;
+  outline-offset: -1px;
+  transition:
+    outline-color 0.15s ease,
+    box-shadow 0.2s ease;
 }
 
 .pane[data-focused] {
-	opacity: 1;
+  outline-color: var(--wh-accent);
+  box-shadow:
+    inset 0 0 30px rgba(201, 162, 77, 0.03),
+    0 0 1px var(--wh-accent);
+  z-index: 1;
 }
 
+.pane:not([data-focused]) .terminalContent {
+  opacity: 0.55;
+  transition: opacity 0.2s ease;
+}
+
+.pane:hover:not([data-focused]) .terminalContent {
+  opacity: 0.75;
+}
+
+.terminalContent {
+  flex: 1;
+  min-height: 0;
+  transition: opacity 0.2s ease;
+}
+
+/* ========================================
+   PANE CONTROLS
+   ======================================== */
 .paneControls {
-	position: absolute;
-	top: 4px;
-	right: 4px;
-	z-index: 10;
-	display: flex;
-	gap: 2px;
-	opacity: 0;
-	transition: opacity 0.15s ease;
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  z-index: 10;
+  display: flex;
+  gap: 2px;
+  opacity: 0;
+  transition: opacity 0.12s ease;
 }
 
 .pane:hover .paneControls {
-	opacity: 1;
+  opacity: 1;
 }
 
 .paneControls button {
-	background: rgba(0, 0, 0, 0.6);
-	border: 1px solid #555;
-	color: #ccc;
-	cursor: pointer;
-	font-size: 12px;
-	padding: 2px 6px;
-	line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  background: rgba(14, 14, 14, 0.85);
+  border: 1px solid var(--wh-border);
+  color: var(--wh-text-secondary);
+  cursor: pointer;
+  border-radius: var(--wh-radius);
+  transition: all 0.1s ease;
+  padding: 0;
+  backdrop-filter: blur(8px);
 }
 
 .paneControls button:hover {
-	background: rgba(0, 0, 0, 0.8);
-	color: #fff;
+  background: var(--wh-bg-hover);
+  color: var(--wh-text-primary);
+  border-color: #333;
 }
 
+.paneControls button.closeBtn:hover {
+  color: var(--wh-danger-hover);
+  border-color: rgba(179, 64, 64, 0.3);
+}
+
+.paneControls button svg {
+  width: 11px;
+  height: 11px;
+}
+
+/* ========================================
+   RESIZE HANDLES
+   ======================================== */
 .resizeHandleH,
 .resizeHandleV {
-	background: #333;
-	transition: background 0.15s ease;
+  background: var(--wh-border);
+  transition: background 0.15s ease;
+  flex-shrink: 0;
+  position: relative;
+}
+
+.resizeHandleH {
+  width: 1px;
+  cursor: col-resize;
+  padding: 0 3px;
+  margin: 0 -3px;
+}
+
+.resizeHandleV {
+  height: 1px;
+  cursor: row-resize;
+  padding: 3px 0;
+  margin: -3px 0;
 }
 
 .resizeHandleH:hover,
 .resizeHandleV:hover {
-	background: #555;
+  background: var(--wh-accent);
 }
 
-.resizeHandleH {
-	width: 2px;
+/* grab dots */
+.resizeHandleH::after,
+.resizeHandleV::after {
+  content: "";
+  position: absolute;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  pointer-events: none;
 }
 
-.resizeHandleV {
-	height: 2px;
+.resizeHandleH:hover::after,
+.resizeHandleV:hover::after {
+  opacity: 1;
 }
 
+.resizeHandleH::after {
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 3px;
+  height: 20px;
+  background: radial-gradient(circle, var(--wh-accent) 1px, transparent 1px)
+    center / 3px 5px repeat-y;
+}
+
+.resizeHandleV::after {
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 20px;
+  height: 3px;
+  background: radial-gradient(circle, var(--wh-accent) 1px, transparent 1px)
+    center / 5px 3px repeat-x;
+}
+
+/* ========================================
+   DISCONNECTED OVERLAY
+   ======================================== */
 .disconnectedOverlay {
-	position: absolute;
-	inset: 0;
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	background: rgba(0, 0, 0, 0.6);
-	z-index: 5;
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(14, 14, 14, 0.75);
+  z-index: 5;
+  backdrop-filter: blur(1px);
 }
 
-.disconnectedOverlay span {
-	color: #888;
-	font-size: 13px;
-	font-family: monospace;
+.disconnectedCard {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.disconnectedDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--wh-accent);
+  animation: pulseDot 2s ease-in-out infinite;
+}
+
+.disconnectedTitle {
+  font-size: 12px;
+  color: var(--wh-text-secondary);
+  letter-spacing: 0.04em;
+}
+
+.disconnectedHint {
+  font-size: 10px;
+  color: var(--wh-text-muted);
+}
+
+/* ========================================
+   CONNECTING STATE
+   ======================================== */
+.connecting {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  gap: 12px;
+}
+
+.connectingSpinner {
+  width: 16px;
+  height: 16px;
+  border: 1.5px solid var(--wh-border);
+  border-top-color: var(--wh-accent);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+.connectingText {
+  font-size: 12px;
+  color: var(--wh-text-muted);
+  letter-spacing: 0.04em;
+}
+
+/* ========================================
+   ANIMATIONS
+   ======================================== */
+@keyframes fadeDown {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pulseDot {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.4;
+    transform: scale(0.85);
+  }
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
