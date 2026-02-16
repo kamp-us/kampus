@@ -10,7 +10,7 @@ export function PaneLayout() {
 	const {state} = useMux();
 
 	return (
-		<div style={{flex: 1, position: "relative"}}>
+		<div className={styles.paneArea}>
 			{state.tabs.map((tab) => {
 				const tree = tab.layout as LT.Tree;
 				if (!tree || !tree.root) return null;

@@ -46,7 +46,13 @@ export function TerminalPane({
 					}}
 					title="Split right"
 				>
-					<svg viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.3">
+					<svg
+						aria-hidden="true"
+						viewBox="0 0 14 14"
+						fill="none"
+						stroke="currentColor"
+						strokeWidth="1.3"
+					>
 						<rect x="1.5" y="1.5" width="4.5" height="11" rx="0.5" />
 						<rect x="8" y="1.5" width="4.5" height="11" rx="0.5" />
 					</svg>
@@ -59,7 +65,13 @@ export function TerminalPane({
 					}}
 					title="Split down"
 				>
-					<svg viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.3">
+					<svg
+						aria-hidden="true"
+						viewBox="0 0 14 14"
+						fill="none"
+						stroke="currentColor"
+						strokeWidth="1.3"
+					>
 						<rect x="1.5" y="1.5" width="11" height="4.5" rx="0.5" />
 						<rect x="1.5" y="8" width="11" height="4.5" rx="0.5" />
 					</svg>
@@ -73,7 +85,13 @@ export function TerminalPane({
 					}}
 					title="Close pane"
 				>
-					<svg viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5">
+					<svg
+						aria-hidden="true"
+						viewBox="0 0 14 14"
+						fill="none"
+						stroke="currentColor"
+						strokeWidth="1.5"
+					>
 						<line x1="3.5" y1="3.5" x2="10.5" y2="10.5" />
 						<line x1="10.5" y1="3.5" x2="3.5" y2="10.5" />
 					</svg>
