@@ -1,0 +1,1004 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Wormhole — Refined Industrial</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  /* ========================================
+     DESIGN TOKENS
+     ======================================== */
+  :root {
+    --bg-base: #0e0e0e;
+    --bg-surface: #141414;
+    --bg-elevated: #1a1a1a;
+    --bg-hover: #222;
+    --bg-active: #1e1e1e;
+
+    --text-primary: #c8c8c8;
+    --text-secondary: #686868;
+    --text-muted: #404040;
+    --text-bright: #e8e8e8;
+
+    --accent: #c9a24d;
+    --accent-hover: #d4ad58;
+    --accent-dim: rgba(201, 162, 77, 0.08);
+    --accent-glow: rgba(201, 162, 77, 0.15);
+
+    --border: #1e1e1e;
+    --border-subtle: #1a1a1a;
+
+    --danger: #b34040;
+    --danger-hover: #cc4c4c;
+
+    --font: "JetBrains Mono", monospace;
+    --chrome-height: 34px;
+    --radius: 2px;
+
+    /* terminal colors */
+    --t-green: #7ec87e;
+    --t-blue: #6ca6d4;
+    --t-yellow: #d4c46c;
+    --t-cyan: #6cc8c8;
+    --t-magenta: #c87ec8;
+    --t-red: #d46c6c;
+    --t-dim: #555;
+  }
+
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  body {
+    font-family: var(--font);
+    background: var(--bg-base);
+    color: var(--text-primary);
+    overflow: hidden;
+    height: 100vh;
+    width: 100vw;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ========================================
+     CUSTOM SCROLLBARS
+     ======================================== */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: #2a2a2a;
+    border-radius: 3px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: #3a3a3a;
+  }
+
+  ::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+
+  /* ========================================
+     SELECTION
+     ======================================== */
+  ::selection {
+    background: rgba(201, 162, 77, 0.25);
+    color: var(--text-bright);
+  }
+
+  /* ========================================
+     LAYOUT SHELL
+     ======================================== */
+  .shell {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    width: 100vw;
+  }
+
+  /* ========================================
+     CLOSE ICON (shared SVG style)
+     ======================================== */
+  .close-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 14px;
+    height: 14px;
+    border: none;
+    background: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 0;
+    border-radius: var(--radius);
+    transition: all 0.12s ease;
+    flex-shrink: 0;
+  }
+
+  .close-icon:hover {
+    color: var(--danger);
+    background: rgba(179, 64, 64, 0.1);
+  }
+
+  .close-icon svg {
+    width: 8px;
+    height: 8px;
+  }
+
+  /* ========================================
+     CHROME BAR (unified session + tabs)
+     ======================================== */
+  .chrome-bar {
+    display: flex;
+    align-items: stretch;
+    height: var(--chrome-height);
+    padding: 0 12px;
+    background: var(--bg-surface);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+    user-select: none;
+    gap: 0;
+  }
+
+  /* ── session selector (left zone) ── */
+  .session-selector {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0 10px 0 0;
+    margin-right: 4px;
+    border-right: 1px solid var(--border);
+    position: relative;
+    flex-shrink: 0;
+  }
+
+  .session-selector__label {
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+  }
+
+  .session-selector__current {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 12px;
+    color: var(--text-primary);
+    cursor: pointer;
+    padding: 4px 6px;
+    border-radius: var(--radius);
+    transition: all 0.12s ease;
+    border: none;
+    background: none;
+    font-family: var(--font);
+  }
+
+  .session-selector__current:hover {
+    background: var(--bg-hover);
+  }
+
+  .session-selector__chevron {
+    display: inline-block;
+    width: 0;
+    height: 0;
+    border-left: 3.5px solid transparent;
+    border-right: 3.5px solid transparent;
+    border-top: 4px solid var(--text-muted);
+    transition: transform 0.15s ease;
+  }
+
+  .session-selector[data-open] .session-selector__chevron {
+    transform: rotate(180deg);
+  }
+
+  /* ── session dropdown ── */
+  .session-dropdown {
+    position: absolute;
+    top: calc(100% + 1px);
+    left: 0;
+    min-width: 180px;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 4px 0;
+    z-index: 100;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(-4px);
+    transition: all 0.12s ease;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  }
+
+  .session-selector[data-open] .session-dropdown {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+  }
+
+  .session-dropdown__item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 12px;
+    font-size: 12px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.1s ease;
+  }
+
+  .session-dropdown__item:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+  }
+
+  .session-dropdown__item[data-active] {
+    color: var(--text-primary);
+  }
+
+  .session-dropdown__item[data-active]::before {
+    content: "";
+    display: inline-block;
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: var(--accent);
+    margin-right: 8px;
+    flex-shrink: 0;
+  }
+
+  .session-dropdown__item .close-icon {
+    opacity: 0;
+    margin-left: 8px;
+  }
+
+  .session-dropdown__item:hover .close-icon {
+    opacity: 1;
+  }
+
+  .session-dropdown__divider {
+    height: 1px;
+    background: var(--border);
+    margin: 4px 0;
+  }
+
+  .session-dropdown__action {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    font-size: 11px;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: all 0.1s ease;
+  }
+
+  .session-dropdown__action:hover {
+    background: var(--bg-hover);
+    color: var(--text-secondary);
+  }
+
+  /* ── tabs (middle zone) ── */
+  .tabs {
+    display: flex;
+    align-items: stretch;
+    gap: 0;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .tab-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0 12px;
+    font-size: 11px;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: all 0.12s ease;
+    position: relative;
+    border-bottom: 1px solid transparent;
+    margin-bottom: -1px;
+    flex-shrink: 0;
+  }
+
+  .tab-item:hover {
+    color: var(--text-secondary);
+    background: var(--bg-elevated);
+  }
+
+  .tab-item[data-active] {
+    color: var(--text-primary);
+    background: var(--bg-base);
+    border-bottom-color: var(--bg-base);
+  }
+
+  .tab-item .close-icon {
+    opacity: 0;
+    transition: all 0.12s ease;
+  }
+
+  .tab-item:hover .close-icon {
+    opacity: 1;
+  }
+
+  .tabs__add {
+    display: flex;
+    align-items: center;
+    font-size: 12px;
+    color: var(--text-muted);
+    cursor: pointer;
+    border: none;
+    background: none;
+    padding: 0 10px;
+    font-family: var(--font);
+    transition: all 0.12s ease;
+  }
+
+  .tabs__add:hover {
+    color: var(--text-secondary);
+  }
+
+  /* ── status dot (right zone) ── */
+  .chrome-bar__status {
+    display: flex;
+    align-items: center;
+    margin-left: auto;
+    padding-left: 12px;
+    flex-shrink: 0;
+  }
+
+  .status-dot {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 4px var(--accent-glow);
+  }
+
+  .status-dot[data-disconnected] {
+    background: var(--danger);
+    box-shadow: 0 0 4px rgba(179, 64, 64, 0.3);
+    animation: pulse-dot 2s ease-in-out infinite;
+  }
+
+  /* ========================================
+     PANE AREA
+     ======================================== */
+  .pane-area {
+    flex: 1;
+    display: flex;
+    min-height: 0;
+    background: var(--border);
+    gap: 1px;
+  }
+
+  .pane-column {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-width: 0;
+    gap: 1px;
+  }
+
+  /* ========================================
+     TERMINAL PANE
+     ======================================== */
+  .pane {
+    position: relative;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    background: var(--bg-base);
+    min-height: 0;
+    overflow: hidden;
+    outline: 1px solid transparent;
+    outline-offset: -1px;
+    transition: outline-color 0.15s ease, box-shadow 0.2s ease;
+  }
+
+  .pane[data-focused] {
+    outline-color: var(--accent);
+    box-shadow:
+      inset 0 0 30px rgba(201, 162, 77, 0.03),
+      0 0 1px var(--accent);
+    z-index: 1;
+  }
+
+  .pane:not([data-focused]) .terminal-content {
+    opacity: 0.55;
+    transition: opacity 0.2s ease;
+  }
+
+  .pane:hover:not([data-focused]) .terminal-content {
+    opacity: 0.75;
+  }
+
+  .terminal-content {
+    flex: 1;
+    padding: 6px 10px;
+    font-size: 13px;
+    line-height: 1.45;
+    overflow-y: auto;
+    overflow-x: hidden;
+    transition: opacity 0.2s ease;
+  }
+
+  /* ========================================
+     CURSOR BLINK
+     ======================================== */
+  .cursor {
+    display: inline-block;
+    width: 0.6em;
+    height: 1.1em;
+    background: var(--accent);
+    vertical-align: text-bottom;
+    animation: blink 1s step-end infinite;
+  }
+
+  .pane:not([data-focused]) .cursor {
+    animation: none;
+    opacity: 0.3;
+  }
+
+  @keyframes blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0; }
+  }
+
+  /* ========================================
+     PANE CONTROLS
+     ======================================== */
+  .pane-controls {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    z-index: 10;
+    display: flex;
+    gap: 2px;
+    opacity: 0;
+    transition: opacity 0.12s ease;
+  }
+
+  .pane:hover .pane-controls {
+    opacity: 1;
+  }
+
+  .pane-controls button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    background: rgba(14, 14, 14, 0.85);
+    border: 1px solid var(--border);
+    color: var(--text-secondary);
+    cursor: pointer;
+    border-radius: var(--radius);
+    transition: all 0.1s ease;
+    padding: 0;
+    backdrop-filter: blur(8px);
+  }
+
+  .pane-controls button:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+    border-color: #333;
+  }
+
+  .pane-controls button.pane-close-btn:hover {
+    color: var(--danger-hover);
+    border-color: rgba(179, 64, 64, 0.3);
+  }
+
+  .pane-controls button svg {
+    width: 11px;
+    height: 11px;
+  }
+
+  /* ========================================
+     RESIZE HANDLE
+     ======================================== */
+  .resize-handle {
+    background: var(--border);
+    transition: background 0.15s ease;
+    flex-shrink: 0;
+    position: relative;
+  }
+
+  .resize-handle--h {
+    width: 1px;
+    cursor: col-resize;
+  }
+
+  .resize-handle--v {
+    height: 1px;
+    cursor: row-resize;
+  }
+
+  .resize-handle:hover {
+    background: var(--accent);
+  }
+
+  /* grab dots */
+  .resize-handle::after {
+    content: "";
+    position: absolute;
+    opacity: 0;
+    transition: opacity 0.15s ease;
+    pointer-events: none;
+  }
+
+  .resize-handle:hover::after {
+    opacity: 1;
+  }
+
+  .resize-handle--h::after {
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 3px;
+    height: 20px;
+    background:
+      radial-gradient(circle, var(--accent) 1px, transparent 1px) center / 3px 5px repeat-y;
+  }
+
+  .resize-handle--v::after {
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 20px;
+    height: 3px;
+    background:
+      radial-gradient(circle, var(--accent) 1px, transparent 1px) center / 5px 3px repeat-x;
+  }
+
+  /* widen hover target */
+  .resize-handle--h {
+    padding: 0 3px;
+    margin: 0 -3px;
+  }
+
+  .resize-handle--v {
+    padding: 3px 0;
+    margin: -3px 0;
+  }
+
+  /* ========================================
+     DISCONNECTED OVERLAY
+     ======================================== */
+  .disconnected-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(14, 14, 14, 0.75);
+    z-index: 5;
+    backdrop-filter: blur(1px);
+  }
+
+  .disconnected-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .disconnected-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--accent);
+    animation: pulse-dot 2s ease-in-out infinite;
+  }
+
+  .disconnected-card__title {
+    font-size: 12px;
+    color: var(--text-secondary);
+    letter-spacing: 0.04em;
+  }
+
+  .disconnected-card__hint {
+    font-size: 10px;
+    color: var(--text-muted);
+  }
+
+  @keyframes pulse-dot {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.4; transform: scale(0.85); }
+  }
+
+  /* ========================================
+     CONNECTING STATE
+     ======================================== */
+  .connecting {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+    gap: 12px;
+  }
+
+  .connecting__spinner {
+    width: 16px;
+    height: 16px;
+    border: 1.5px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+
+  .connecting__text {
+    font-size: 12px;
+    color: var(--text-muted);
+    letter-spacing: 0.04em;
+  }
+
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+
+  /* ========================================
+     TERMINAL SYNTAX COLORS
+     ======================================== */
+  .t-green { color: var(--t-green); }
+  .t-blue { color: var(--t-blue); }
+  .t-yellow { color: var(--t-yellow); }
+  .t-cyan { color: var(--t-cyan); }
+  .t-magenta { color: var(--t-magenta); }
+  .t-red { color: var(--t-red); }
+  .t-dim { color: var(--t-dim); }
+  .t-bright { color: var(--text-bright); }
+  .t-bold { font-weight: 600; }
+  .t-prompt { color: var(--accent); }
+
+  /* ========================================
+     KEYBOARD HINTS (tooltip on hover)
+     ======================================== */
+  .pane-controls button[data-tooltip] {
+    position: relative;
+  }
+
+  .pane-controls button[data-tooltip]::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    top: calc(100% + 4px);
+    right: 0;
+    font-size: 9px;
+    color: var(--text-muted);
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    padding: 2px 5px;
+    border-radius: var(--radius);
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.1s ease;
+    font-family: var(--font);
+  }
+
+  .pane-controls button[data-tooltip]:hover::after {
+    opacity: 1;
+  }
+
+  /* ========================================
+     SCENE TRANSITIONS (page load stagger)
+     ======================================== */
+  .chrome-bar {
+    animation: fade-down 0.3s ease both;
+    animation-delay: 0.1s;
+  }
+
+  .pane-area {
+    animation: fade-up 0.4s ease both;
+    animation-delay: 0.2s;
+  }
+
+  @keyframes fade-down {
+    from { opacity: 0; transform: translateY(-4px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes fade-up {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+</style>
+</head>
+<body>
+
+<div class="shell">
+
+  <!-- UNIFIED CHROME BAR -->
+  <div class="chrome-bar">
+
+    <!-- session selector -->
+    <div class="session-selector" id="sessionSelector">
+      <span class="session-selector__label">wormhole</span>
+      <button class="session-selector__current" id="sessionToggle">
+        <span>kampus</span>
+        <span class="session-selector__chevron"></span>
+      </button>
+
+      <!-- dropdown -->
+      <div class="session-dropdown">
+        <div class="session-dropdown__item" data-active data-session="kampus">
+          <span>kampus</span>
+          <button class="close-icon" aria-label="Destroy session">
+            <svg viewBox="0 0 8 8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+              <line x1="1" y1="1" x2="7" y2="7"/><line x1="7" y1="1" x2="1" y2="7"/>
+            </svg>
+          </button>
+        </div>
+        <div class="session-dropdown__item" data-session="sandbox-sdk">
+          <span>sandbox-sdk</span>
+          <button class="close-icon" aria-label="Destroy session">
+            <svg viewBox="0 0 8 8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+              <line x1="1" y1="1" x2="7" y2="7"/><line x1="7" y1="1" x2="1" y2="7"/>
+            </svg>
+          </button>
+        </div>
+        <div class="session-dropdown__divider"></div>
+        <div class="session-dropdown__action">
+          <span>+ New Session</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- tabs -->
+    <div class="tabs">
+      <div class="tab-item" data-active>
+        <span>dev</span>
+        <button class="close-icon" aria-label="Close tab">
+          <svg viewBox="0 0 8 8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+            <line x1="1" y1="1" x2="7" y2="7"/><line x1="7" y1="1" x2="1" y2="7"/>
+          </svg>
+        </button>
+      </div>
+      <div class="tab-item">
+        <span>logs</span>
+        <button class="close-icon" aria-label="Close tab">
+          <svg viewBox="0 0 8 8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+            <line x1="1" y1="1" x2="7" y2="7"/><line x1="7" y1="1" x2="1" y2="7"/>
+          </svg>
+        </button>
+      </div>
+      <div class="tab-item">
+        <span>git</span>
+        <button class="close-icon" aria-label="Close tab">
+          <svg viewBox="0 0 8 8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+            <line x1="1" y1="1" x2="7" y2="7"/><line x1="7" y1="1" x2="1" y2="7"/>
+          </svg>
+        </button>
+      </div>
+      <button class="tabs__add" aria-label="New tab">+</button>
+    </div>
+
+    <!-- status -->
+    <div class="chrome-bar__status">
+      <div class="status-dot" title="Connected"></div>
+    </div>
+
+  </div>
+
+  <!-- PANE AREA -->
+  <div class="pane-area">
+
+    <!-- LEFT PANE (focused) -->
+    <div class="pane" data-focused>
+      <div class="terminal-content">
+<pre><span class="t-prompt">~/kampus</span> <span class="t-dim">on</span> <span class="t-magenta">umut/stale-sessions</span> <span class="t-dim">via</span> <span class="t-green">node v22</span>
+<span class="t-prompt">$</span> <span class="t-bright">turbo run typecheck</span>
+
+<span class="t-dim">  Tasks:    3 successful, 3 total
+  Cached:   2 cached, 3 total
+  Time:     4.2s</span>
+
+<span class="t-prompt">~/kampus</span> <span class="t-dim">on</span> <span class="t-magenta">umut/stale-sessions</span>
+<span class="t-prompt">$</span> <span class="t-bright">git log --oneline -5</span>
+
+<span class="t-yellow">e7fe645</span> feat(sandbox): Wormhole protocol: mux server over CF Sandbox
+<span class="t-yellow">491d019</span> feat(wormhole): Phase 1: Immortal Sessions
+<span class="t-yellow">89e2008</span> initialize ctx
+<span class="t-yellow">5c5b86b</span> feat(wormhole): multiplexed terminal sessions
+<span class="t-yellow">5d6b86c</span> feat: wormhole: personal multi-device terminal
+
+<span class="t-prompt">~/kampus</span> <span class="t-dim">on</span> <span class="t-magenta">umut/stale-sessions</span>
+<span class="t-prompt">$</span> <span class="cursor"></span></pre>
+      </div>
+
+      <div class="pane-controls">
+        <button data-tooltip="Split Right">
+          <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.3">
+            <rect x="1.5" y="1.5" width="4.5" height="11" rx="0.5"/>
+            <rect x="8" y="1.5" width="4.5" height="11" rx="0.5"/>
+          </svg>
+        </button>
+        <button data-tooltip="Split Down">
+          <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.3">
+            <rect x="1.5" y="1.5" width="11" height="4.5" rx="0.5"/>
+            <rect x="1.5" y="8" width="11" height="4.5" rx="0.5"/>
+          </svg>
+        </button>
+        <button class="pane-close-btn" data-tooltip="Close">
+          <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5">
+            <line x1="3.5" y1="3.5" x2="10.5" y2="10.5"/>
+            <line x1="10.5" y1="3.5" x2="3.5" y2="10.5"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <div class="resize-handle resize-handle--h"></div>
+
+    <!-- RIGHT COLUMN -->
+    <div class="pane-column">
+
+      <!-- TOP-RIGHT PANE (unfocused) -->
+      <div class="pane">
+        <div class="terminal-content">
+<pre><span class="t-prompt">~/kampus</span> <span class="t-dim">on</span> <span class="t-magenta">umut/stale-sessions</span>
+<span class="t-prompt">$</span> <span class="t-bright">pnpm turbo run dev --filter=@kampus/worker</span>
+
+<span class="t-cyan">@kampus/worker:dev:</span> <span class="t-dim">ready in 1.2s</span>
+<span class="t-cyan">@kampus/worker:dev:</span> <span class="t-dim">listening on</span> <span class="t-blue">http://localhost:8787</span>
+<span class="t-cyan">@kampus/worker:dev:</span>
+<span class="t-cyan">@kampus/worker:dev:</span> <span class="t-green">[mf:inf]</span> GET /sandbox/ws 101 Switching Protocols
+<span class="t-cyan">@kampus/worker:dev:</span> <span class="t-green">[mf:inf]</span> GET /sandbox/ws 101 Switching Protocols
+<span class="t-cyan">@kampus/worker:dev:</span> <span class="t-dim">[WormholeServer]</span> client connected, 2 sessions
+<span class="t-cyan">@kampus/worker:dev:</span> <span class="t-dim">[WormholeServer]</span> terminal WS opened for pty-a1b2
+<span class="t-cyan">@kampus/worker:dev:</span> <span class="t-dim">[WormholeServer]</span> terminal WS opened for pty-c3d4
+<span class="t-cyan">@kampus/worker:dev:</span> <span class="t-yellow">[WormholeServer]</span> terminal WS closed for pty-e5f6
+<span class="t-cyan">@kampus/worker:dev:</span> <span class="t-dim">[WormholeServer]</span> reconnecting pty-e5f6...
+<span class="t-cyan">@kampus/worker:dev:</span> <span class="t-green">[WormholeServer]</span> reconnected pty-e5f6</pre>
+        </div>
+
+        <div class="pane-controls">
+          <button data-tooltip="Split Right">
+            <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.3">
+              <rect x="1.5" y="1.5" width="4.5" height="11" rx="0.5"/>
+              <rect x="8" y="1.5" width="4.5" height="11" rx="0.5"/>
+            </svg>
+          </button>
+          <button data-tooltip="Split Down">
+            <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.3">
+              <rect x="1.5" y="1.5" width="11" height="4.5" rx="0.5"/>
+              <rect x="1.5" y="8" width="11" height="4.5" rx="0.5"/>
+            </svg>
+          </button>
+          <button class="pane-close-btn" data-tooltip="Close">
+            <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5">
+              <line x1="3.5" y1="3.5" x2="10.5" y2="10.5"/>
+              <line x1="10.5" y1="3.5" x2="3.5" y2="10.5"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="resize-handle resize-handle--v"></div>
+
+      <!-- BOTTOM-RIGHT PANE (disconnected) -->
+      <div class="pane">
+        <div class="terminal-content">
+<pre><span class="t-prompt">~/sandbox-sdk</span> <span class="t-dim">on</span> <span class="t-magenta">main</span>
+<span class="t-prompt">$</span> <span class="t-bright">pnpm test</span>
+
+<span class="t-dim"> PASS </span> <span class="t-green">src/sandbox.test.ts</span>
+  <span class="t-green">&#10003;</span> creates sandbox instance <span class="t-dim">(12ms)</span>
+  <span class="t-green">&#10003;</span> opens terminal session <span class="t-dim">(8ms)</span>
+  <span class="t-green">&#10003;</span> reconnects after sleep <span class="t-dim">(45ms)</span>
+  <span class="t-green">&#10003;</span> buffers output on disconnect <span class="t-dim">(23ms)</span>
+
+<span class="t-dim">Tests:   4 passed, 4 total
+Time:    0.8s</span></pre>
+        </div>
+
+        <div class="disconnected-overlay">
+          <div class="disconnected-card">
+            <div class="disconnected-dot"></div>
+            <span class="disconnected-card__title">Disconnected</span>
+            <span class="disconnected-card__hint">press any key to reconnect</span>
+          </div>
+        </div>
+
+        <div class="pane-controls">
+          <button data-tooltip="Split Right">
+            <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.3">
+              <rect x="1.5" y="1.5" width="4.5" height="11" rx="0.5"/>
+              <rect x="8" y="1.5" width="4.5" height="11" rx="0.5"/>
+            </svg>
+          </button>
+          <button data-tooltip="Split Down">
+            <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.3">
+              <rect x="1.5" y="1.5" width="11" height="4.5" rx="0.5"/>
+              <rect x="1.5" y="8" width="11" height="4.5" rx="0.5"/>
+            </svg>
+          </button>
+          <button class="pane-close-btn" data-tooltip="Close">
+            <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5">
+              <line x1="3.5" y1="3.5" x2="10.5" y2="10.5"/>
+              <line x1="10.5" y1="3.5" x2="3.5" y2="10.5"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+
+</div>
+
+<script>
+  // Session dropdown toggle
+  const selector = document.getElementById('sessionSelector');
+  const toggle = document.getElementById('sessionToggle');
+
+  toggle.addEventListener('click', (e) => {
+    e.stopPropagation();
+    selector.toggleAttribute('data-open');
+  });
+
+  // Close dropdown on outside click
+  document.addEventListener('click', (e) => {
+    if (!selector.contains(e.target)) {
+      selector.removeAttribute('data-open');
+    }
+  });
+
+  // Session switching
+  document.querySelectorAll('.session-dropdown__item').forEach(item => {
+    item.addEventListener('click', (e) => {
+      if (e.target.closest('.close-icon')) return;
+      const name = item.dataset.session;
+      document.querySelectorAll('.session-dropdown__item').forEach(s => s.removeAttribute('data-active'));
+      item.setAttribute('data-active', '');
+      toggle.querySelector('span').textContent = name;
+      selector.removeAttribute('data-open');
+    });
+  });
+
+  // Tab switching
+  document.querySelectorAll('.tab-item').forEach(item => {
+    item.addEventListener('click', (e) => {
+      if (e.target.closest('.close-icon')) return;
+      document.querySelectorAll('.tab-item').forEach(t => t.removeAttribute('data-active'));
+      item.setAttribute('data-active', '');
+    });
+  });
+
+  // Pane focus
+  document.querySelectorAll('.pane').forEach(pane => {
+    pane.addEventListener('click', () => {
+      document.querySelectorAll('.pane').forEach(p => p.removeAttribute('data-focused'));
+      pane.setAttribute('data-focused', '');
+    });
+  });
+
+  // Reconnect simulation
+  const overlay = document.querySelector('.disconnected-overlay');
+  if (overlay) {
+    overlay.addEventListener('click', () => {
+      overlay.style.transition = 'opacity 0.3s ease';
+      overlay.style.opacity = '0';
+      setTimeout(() => overlay.style.display = 'none', 300);
+    });
+  }
+</script>
+
+</body>
+</html>

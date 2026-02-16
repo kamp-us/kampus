@@ -147,3 +147,21 @@ message. No reconnect button. You just type.
 
 **Topics**: wormhole, cloudflare-sandbox, reconnection,
 protocol-design
+
+---
+
+## Standalone Essays
+
+---
+
+### [You're Not Listening to Understand, You're Listening to Judge](2026-02-15-listening-to-judge.md)
+
+*Umut Sirin / 2026-02-15*
+
+Neutral listening doesn't exist. Your brain sorts incoming speech
+into agree/disagree before the sentence ends. This essay breaks
+down the mechanics of judgment-listening as a closed feedback loop,
+why it persists, what understanding-listening actually looks like,
+and why the alternative is genuinely costly.
+
+**Topics**: communication, listening, systems-thinking
