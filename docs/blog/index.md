@@ -1,4 +1,4 @@
-# Building Wormhole: A 7+1 Part Build Journal
+# Building Wormhole: A Build Journal
 
 *Umut Sirin / February 2026*
 
@@ -117,3 +117,33 @@ layout persistence in localStorage. From "why build this" to
 "it never dies."
 
 **Topics**: wormhole, durable-objects, persistence, effect-ts
+
+---
+
+### [The Great Deletion](2026-02-15-the-great-deletion.md)
+
+*Umut Sirin / 2026-02-15*
+
+1,284 lines deleted, 14 modules collapsed to 6, Effect runtime
+removed from the Durable Object. CF Sandbox already handles
+buffering, reconnection, and container lifecycle. The custom stack
+was reimplementing the platform. Post 6 killed one abstraction;
+post 9 killed the whole layer.
+
+**Topics**: wormhole, cloudflare-sandbox, architecture-decisions,
+refactoring
+
+---
+
+### [Zombie Panes and Lazy Reconnect](2026-02-15-zombie-panes-and-lazy-reconnect.md)
+
+*Umut Sirin / 2026-02-15*
+
+Sandbox containers sleep after 10 minutes. Terminal WebSockets
+die. Panes become zombies: they look alive but drop every
+keystroke. The fix was to stop cleaning up channels, turning
+every keystroke into a reconnect trigger. No new protocol
+message. No reconnect button. You just type.
+
+**Topics**: wormhole, cloudflare-sandbox, reconnection,
+protocol-design
