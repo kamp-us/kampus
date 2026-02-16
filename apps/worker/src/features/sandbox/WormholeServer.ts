@@ -1,7 +1,7 @@
 import {DurableObject} from "cloudflare:workers";
 import {ChannelMap} from "@kampus/sandbox/ChannelMap";
-import * as TL from "@kampus/sandbox/TabbedLayout";
 import * as Protocol from "@kampus/sandbox/Protocol";
+import * as TL from "@kampus/sandbox/TabbedLayout";
 import * as LT from "@usirin/layout-tree";
 
 interface SessionRecord {
@@ -28,6 +28,8 @@ export class WormholeServer extends DurableObject {
 	private terminals = new Map<string, WebSocket>();
 	private tabToSession = new Map<string, string>();
 	private outputBuffers = new Map<string, Uint8Array[]>();
+	private reconnecting = new Set<string>();
+	private paneSizes = new Map<string, {cols: number; rows: number}>();
 
 	constructor(state: DurableObjectState, env: Env) {
 		super(state, env);
@@ -98,7 +100,12 @@ export class WormholeServer extends DurableObject {
 		const ptyId = this.channelMap.getPtyId(channel);
 		if (ptyId) {
 			const termWs = this.terminals.get(ptyId);
-			if (termWs) termWs.send(payload);
+			if (termWs) {
+				termWs.send(payload);
+			} else if (!this.reconnecting.has(ptyId)) {
+				// Terminal disconnected — lazy reconnect
+				await this.reconnectTerminal(ptyId, payload);
+			}
 		}
 	}
 
@@ -162,6 +169,7 @@ export class WormholeServer extends DurableObject {
 
 		// Create first terminal
 		const ptyId = crypto.randomUUID();
+		this.paneSizes.set(ptyId, {cols: 80, rows: 24});
 		await this.createTerminalWs(sandboxId, ptyId, 80, 24);
 
 		// Create layout with one tab + one pane
@@ -236,6 +244,7 @@ export class WormholeServer extends DurableObject {
 		if (!session) return;
 
 		const ptyId = crypto.randomUUID();
+		this.paneSizes.set(ptyId, {cols: 80, rows: 24});
 		await this.createTerminalWs(session.sandboxId, ptyId, 80, 24);
 
 		this.layout = TL.createTab(this.layout, msg.name, ptyId);
@@ -309,6 +318,7 @@ export class WormholeServer extends DurableObject {
 		if (!session) return;
 
 		const ptyId = crypto.randomUUID();
+		this.paneSizes.set(ptyId, {cols: msg.cols, rows: msg.rows});
 		await this.createTerminalWs(session.sandboxId, ptyId, msg.cols, msg.rows);
 
 		const result = TL.splitPane(this.layout, msg.paneId, msg.orientation, ptyId);
@@ -352,6 +362,7 @@ export class WormholeServer extends DurableObject {
 	}
 
 	private async handlePaneResize(msg: Protocol.PaneResizeMessage): Promise<void> {
+		this.paneSizes.set(msg.paneId, {cols: msg.cols, rows: msg.rows});
 		const termWs = this.terminals.get(msg.paneId);
 		if (!termWs) return;
 		termWs.send(JSON.stringify({type: "resize", cols: msg.cols, rows: msg.rows}));
@@ -365,6 +376,15 @@ export class WormholeServer extends DurableObject {
 	}
 
 	// --- Broadcast helpers ---
+
+	private buildConnectedRecord(): Record<string, boolean> {
+		const channels = this.channelMap.toRecord();
+		const connected: Record<string, boolean> = {};
+		for (const ptyId of Object.keys(channels)) {
+			connected[ptyId] = this.terminals.has(ptyId);
+		}
+		return connected;
+	}
 
 	private buildStateMessage(): Protocol.StateMessage {
 		return new Protocol.StateMessage({
@@ -380,6 +400,7 @@ export class WormholeServer extends DurableObject {
 				})) ?? [],
 			activeTab: this.layout?.tabs[this.layout.activeTab]?.id ?? null,
 			channels: this.channelMap.toRecord(),
+			connected: this.buildConnectedRecord(),
 		});
 	}
 
@@ -404,6 +425,7 @@ export class WormholeServer extends DurableObject {
 				})) ?? [],
 			activeTab: this.layout?.tabs[this.layout.activeTab]?.id ?? null,
 			channels: this.channelMap.toRecord(),
+			connected: this.buildConnectedRecord(),
 		});
 		const encoded = Protocol.encodeControlMessage(msg);
 		for (const ws of this.clients) {
@@ -440,7 +462,12 @@ export class WormholeServer extends DurableObject {
 		return keys;
 	}
 
-	private async createTerminalWs(sandboxId: string, ptyId: string, cols: number, rows: number): Promise<void> {
+	private async createTerminalWs(
+		sandboxId: string,
+		ptyId: string,
+		cols: number,
+		rows: number,
+	): Promise<void> {
 		const id = this.env.SANDBOX.idFromName(sandboxId);
 		const stub = this.env.SANDBOX.get(id);
 
@@ -486,24 +513,16 @@ export class WormholeServer extends DurableObject {
 
 		ws.addEventListener("close", () => {
 			this.terminals.delete(ptyId);
-			this.outputBuffers.delete(ptyId);
-			const exitMsg = new Protocol.SessionExitMessage({
-				type: "session_exit",
-				sessionId: this.getSessionForPty(ptyId),
-				ptyId,
-				channel,
-				exitCode: 0,
-			});
-			const encoded = Protocol.encodeControlMessage(exitMsg);
-			for (const client of this.clients) {
-				client.send(encoded);
-			}
+			// Keep outputBuffers — pane retains last visible output
+			// Keep channel assigned — frontend can still send data to trigger reconnect
+			// Broadcast layout update so clients see connected: false
+			this.broadcastLayoutUpdate();
 		});
 
 		ws.addEventListener("error", () => {
 			this.terminals.delete(ptyId);
-			this.outputBuffers.delete(ptyId);
-			this.channelMap.release(channel);
+			// Keep buffers and channel, same as close
+			this.broadcastLayoutUpdate();
 		});
 	}
 
@@ -532,6 +551,32 @@ export class WormholeServer extends DurableObject {
 		}
 	}
 
+	private async reconnectTerminal(ptyId: string, bufferedInput?: Uint8Array): Promise<void> {
+		if (this.reconnecting.has(ptyId)) return;
+		this.reconnecting.add(ptyId);
+		try {
+			const sessionId = this.getSessionForPty(ptyId);
+			if (!sessionId) return;
+			const session = this.sessions.find((s) => s.id === sessionId);
+			if (!session) return;
+
+			const size = this.paneSizes.get(ptyId) ?? {cols: 80, rows: 24};
+			await this.createTerminalWs(session.sandboxId, ptyId, size.cols, size.rows);
+
+			if (bufferedInput) {
+				const termWs = this.terminals.get(ptyId);
+				if (termWs) termWs.send(bufferedInput);
+			}
+
+			this.broadcastLayoutUpdate();
+		} catch (err) {
+			console.error("[WormholeServer] reconnectTerminal failed", {ptyId, err});
+			this.broadcastLayoutUpdate();
+		} finally {
+			this.reconnecting.delete(ptyId);
+		}
+	}
+
 	private async reconnectAllTerminals(): Promise<void> {
 		if (!this.layout) return;
 
@@ -545,7 +590,8 @@ export class WormholeServer extends DurableObject {
 				const keys = this.windowKeysForTab(tab);
 				for (const ptyId of keys) {
 					if (!this.terminals.has(ptyId)) {
-						await this.createTerminalWs(session.sandboxId, ptyId, 80, 24);
+						const size = this.paneSizes.get(ptyId) ?? {cols: 80, rows: 24};
+						await this.createTerminalWs(session.sandboxId, ptyId, size.cols, size.rows);
 					}
 				}
 			}

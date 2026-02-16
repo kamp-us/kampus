@@ -3,6 +3,7 @@
 <!-- INDEX:START -->
 | Date | Learning |
 |------|--------|
+| 2026-02-15 | paneSizes must be tracked at every terminal creation site |
 | 2026-02-14 | DO non-hibernation reconnect needs server-side replay |
 | 2026-02-14 | useMux() object identity churn breaks terminal lifecycle |
 | 2026-02-14 | ghostty-web container element must have no children |
@@ -11,6 +12,16 @@
 | 2026-02-14 | CF Sandbox API: reconnectable sandboxes with server-side buffering |
 | 2026-02-14 | Zensical explicit nav is full override |
 <!-- INDEX:END -->
+
+## [2026-02-15-180258] paneSizes must be tracked at every terminal creation site
+
+**Context**: Code review caught that handleSessionCreate and handleTabCreate call createTerminalWs without saving to paneSizes, so reconnect falls back to 80x24
+
+**Lesson**: Any code path that calls createTerminalWs should also call paneSizes.set(ptyId, {cols, rows}). There are 4 sites: handleSessionCreate, handleTabCreate, handlePaneSplit, and reconnectTerminal (which looks up existing size).
+
+**Application**: When adding new terminal creation paths, always pair with paneSizes.set. Grep for createTerminalWs to find all call sites.
+
+---
 
 ## [2026-02-14-233231] DO non-hibernation reconnect needs server-side replay
 

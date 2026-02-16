@@ -3,6 +3,7 @@
 <!-- INDEX:START -->
 | Date | Decision |
 |------|--------|
+| 2026-02-15 | Track pane dimensions in paneSizes Map |
 | 2026-02-14 | Server-side output buffer in DO for reconnect replay |
 | 2026-02-14 | Render all tabs simultaneously with CSS visibility:hidden on inactive tabs |
 | 2026-02-14 | DO authoritative over layout with per-tab focus |
@@ -22,6 +23,20 @@ For lightweight decisions, a single statement suffices:
 ## Full Format
 
 For significant decisions:
+
+## [2026-02-15-180300] Track pane dimensions in paneSizes Map
+
+**Status**: Accepted
+
+**Context**: reconnectTerminal needed actual cols/rows but layout tree does not store them and handlePaneResize only forwards to terminal WS without persisting
+
+**Decision**: Track pane dimensions in paneSizes Map
+
+**Rationale**: In-memory Map is simplest — lost on hibernation but so are terminal WSes. Persisting to storage is unnecessary since reconnect already creates fresh PTYs. Alternative: send dimensions from frontend on reconnect — adds protocol complexity for no gain.
+
+**Consequences**: paneSizes must be updated at all 4 createTerminalWs call sites. Falls back to 80x24 for panes created before tracking or after hibernation.
+
+---
 
 ## [2026-02-14-233233] Server-side output buffer in DO for reconnect replay
 
