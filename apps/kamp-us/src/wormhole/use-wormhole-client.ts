@@ -28,6 +28,7 @@ interface WormholeClientState {
 	tabs: TabRecord[];
 	activeTab: string | null;
 	channels: Record<string, number>;
+	paneConnected: Record<string, boolean>;
 	connected: boolean;
 }
 
@@ -60,6 +61,7 @@ export function useWormholeClient(
 		tabs: [],
 		activeTab: null,
 		channels: {},
+		paneConnected: {},
 		connected: false,
 	});
 
@@ -127,6 +129,7 @@ export function useWormholeClient(
 					tabs: msg.tabs as TabRecord[],
 					activeTab: msg.activeTab,
 					channels: msg.channels as Record<string, number>,
+					paneConnected: msg.connected as Record<string, boolean>,
 				}));
 				break;
 			case "layout_update":
@@ -135,9 +138,8 @@ export function useWormholeClient(
 					tabs: msg.tabs as TabRecord[],
 					activeTab: msg.activeTab,
 					channels: msg.channels as Record<string, number>,
+					paneConnected: msg.connected as Record<string, boolean>,
 				}));
-				break;
-			case "session_exit":
 				break;
 			case "sessions_reset":
 				break;
