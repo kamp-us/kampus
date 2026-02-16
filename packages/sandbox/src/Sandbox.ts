@@ -1,18 +1,28 @@
+/**
+ * @module
+ *
+ * Pure interface definitions for the Sandbox service. `Sandbox` is an
+ * Effect {@link Context.Tag} — consumers depend on the tag, and the
+ * concrete implementation (e.g. Cloudflare Sandbox SDK) is provided at the edge.
+ */
 import {Context, type Effect, type Stream} from "effect";
 
 // ── Options ────────────────────────────────────────────────
 
+/** Options for creating a new sandbox session. */
 export interface SessionOptions {
   readonly id?: string;
   readonly env?: Record<string, string>;
   readonly cwd?: string;
 }
 
+/** Initial dimensions for a terminal. */
 export interface TerminalOptions {
   readonly cols: number;
   readonly rows: number;
 }
 
+/** Options for one-shot command execution (`exec` / `execStream`). */
 export interface ExecOptions {
   readonly env?: Record<string, string>;
   readonly cwd?: string;
@@ -20,6 +30,7 @@ export interface ExecOptions {
   readonly stdin?: string;
 }
 
+/** Options for long-running background processes (`startProcess`). */
 export interface ProcessOptions {
   readonly processId?: string;
   readonly cwd?: string;
@@ -28,6 +39,7 @@ export interface ProcessOptions {
 
 // ── Result types ───────────────────────────────────────────
 
+/** Result of a completed one-shot command execution. */
 export interface ExecResult {
   readonly success: boolean;
   readonly stdout: string;
@@ -35,12 +47,14 @@ export interface ExecResult {
   readonly exitCode: number;
 }
 
+/** Streaming event emitted during `execStream`. Events arrive in order: `start`, then interleaved `stdout`/`stderr`, then `complete` or `error`. */
 export interface ExecEvent {
   readonly type: "start" | "stdout" | "stderr" | "complete" | "error";
   readonly data?: string;
   readonly exitCode?: number;
 }
 
+/** Handle to a long-running background process started via `startProcess`. */
 export interface ProcessHandle {
   readonly id: string;
   readonly kill: () => Effect.Effect<void>;
@@ -48,14 +62,16 @@ export interface ProcessHandle {
   readonly waitForExit: () => Effect.Effect<number>;
 }
 
+/** Snapshot of a background process's current state. */
 export interface ProcessInfo {
   readonly id: string;
   readonly command: string;
   readonly running: boolean;
 }
 
-// ── Terminal (replaces PtyProcess) ─────────────────────────
+// ── Terminal ─────────────────────────────────────────────
 
+/** An interactive terminal (PTY). `output` is a stream of raw terminal data; `write` sends keystrokes/data in. */
 export interface Terminal {
   readonly output: Stream.Stream<string>;
   readonly awaitExit: Effect.Effect<number>;
@@ -65,6 +81,14 @@ export interface Terminal {
 
 // ── Session (one isolated execution context) ───────────────
 
+/**
+ * One isolated execution context within a sandbox.
+ *
+ * - `terminal` — spawn an interactive PTY (for UI terminals)
+ * - `exec` — run a command and collect stdout/stderr (one-shot, buffered)
+ * - `execStream` — run a command and stream events as they arrive
+ * - `startProcess` — launch a long-running background process with a handle to kill/wait
+ */
 export interface Session {
   readonly id: string;
   readonly terminal: (
@@ -102,6 +126,12 @@ export interface Session {
 
 // ── Sandbox (the platform primitive) ───────────────────────
 
+/**
+ * Effect context tag for the sandbox service.
+ *
+ * Provides session lifecycle management: create, get, delete, and destroy.
+ * The concrete implementation is swapped at the composition root (e.g. Cloudflare Sandbox SDK).
+ */
 export class Sandbox extends Context.Tag("@kampus/sandbox/Sandbox")<
   Sandbox,
   {
