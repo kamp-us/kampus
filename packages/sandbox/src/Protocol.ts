@@ -158,6 +158,7 @@ export class StateMessage extends S.Class<StateMessage>("StateMessage")({
 	tabs: S.Array(TabRecord),
 	activeTab: S.NullOr(S.String),
 	channels: S.Record({key: S.String, value: S.Number}),
+	connected: S.Record({key: S.String, value: S.Boolean}),
 }) {}
 
 /** @since 0.1.0 @category models */
@@ -166,15 +167,7 @@ export class LayoutUpdateMessage extends S.Class<LayoutUpdateMessage>("LayoutUpd
 	tabs: S.Array(TabRecord),
 	activeTab: S.NullOr(S.String),
 	channels: S.Record({key: S.String, value: S.Number}),
-}) {}
-
-/** @since 0.1.0 @category models */
-export class SessionExitMessage extends S.Class<SessionExitMessage>("SessionExitMessage")({
-	type: S.Literal("session_exit"),
-	sessionId: S.String,
-	ptyId: S.String,
-	channel: S.Number,
-	exitCode: S.Number,
+	connected: S.Record({key: S.String, value: S.Boolean}),
 }) {}
 
 /** @since 0.1.0 @category models */
@@ -187,7 +180,6 @@ export class SessionsResetMessage extends S.Class<SessionsResetMessage>("Session
 export const ServerMessage = S.Union(
 	StateMessage,
 	LayoutUpdateMessage,
-	SessionExitMessage,
 	SessionsResetMessage,
 );
 
