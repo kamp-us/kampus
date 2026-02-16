@@ -4,23 +4,12 @@ import {useMux} from "./MuxClient.tsx";
 import styles from "./WormholeLayout.module.css";
 
 export function ChromeBar() {
-	const {
-		state,
-		createSession,
-		destroySession,
-		createTab,
-		closeTab,
-		switchTab,
-	} = useMux();
+	const {state, createSession, destroySession, createTab, closeTab, switchTab} = useMux();
 
 	// Derive active session from active tab
-	const activeTabRecord = state.tabs.find(
-		(t) => t.id === state.activeTab,
-	);
+	const activeTabRecord = state.tabs.find((t) => t.id === state.activeTab);
 	const activeSessionId = activeTabRecord?.sessionId;
-	const activeSession = state.sessions.find(
-		(s) => s.id === activeSessionId,
-	);
+	const activeSession = state.sessions.find((s) => s.id === activeSessionId);
 
 	// Tabs for the active session
 	const visibleTabs = activeSessionId
@@ -46,16 +35,12 @@ export function ChromeBar() {
 						>
 							<Menu.Popup className={styles.sessionPopup}>
 								{state.sessions.map((session) => {
-									const firstTab = state.tabs.find(
-										(t) => t.sessionId === session.id,
-									);
+									const firstTab = state.tabs.find((t) => t.sessionId === session.id);
 									return (
 										<Menu.Item
 											key={session.id}
 											className={styles.sessionItem}
-											data-active={
-												session.id === activeSessionId || undefined
-											}
+											data-active={session.id === activeSessionId || undefined}
 											onClick={() => {
 												if (firstTab) switchTab(firstTab.id);
 											}}
@@ -78,11 +63,7 @@ export function ChromeBar() {
 								<Menu.Separator className={styles.sessionDivider} />
 								<Menu.Item
 									className={styles.sessionAction}
-									onClick={() =>
-										createSession(
-											`session-${state.sessions.length + 1}`,
-										)
-									}
+									onClick={() => createSession(`session-${state.sessions.length + 1}`)}
 								>
 									+ New Session
 								</Menu.Item>
@@ -94,16 +75,13 @@ export function ChromeBar() {
 
 			{/* ── Tab Bar (middle zone) ── */}
 			<Tabs.Root
+				className={styles.tabsRoot}
 				value={state.activeTab}
 				onValueChange={(value) => switchTab(value as string)}
 			>
 				<Tabs.List className={styles.tabList}>
 					{visibleTabs.map((tab) => (
-						<Tabs.Tab
-							key={tab.id}
-							value={tab.id}
-							className={styles.tabItem}
-						>
+						<Tabs.Tab key={tab.id} value={tab.id} className={styles.tabItem}>
 							<span>{tab.name}</span>
 							<button
 								type="button"
@@ -122,12 +100,7 @@ export function ChromeBar() {
 						<button
 							type="button"
 							className={styles.tabAdd}
-							onClick={() =>
-								createTab(
-									activeSessionId,
-									`tab-${visibleTabs.length + 1}`,
-								)
-							}
+							onClick={() => createTab(activeSessionId, `tab-${visibleTabs.length + 1}`)}
 							aria-label="New tab"
 						>
 							+
@@ -151,6 +124,7 @@ export function ChromeBar() {
 function CloseIconSvg() {
 	return (
 		<svg
+			aria-hidden="true"
 			viewBox="0 0 8 8"
 			fill="none"
 			stroke="currentColor"

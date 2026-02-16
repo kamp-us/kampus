@@ -27,7 +27,9 @@ export function TerminalPane({
 		// biome-ignore lint/a11y/useKeyWithClickEvents: terminal handles keyboard events via ghostty-web
 		// biome-ignore lint/a11y/noStaticElementInteractions: terminal container, not a button
 		<div className={styles.pane} data-focused={focused || undefined} onClick={onFocus}>
-			<div ref={ref} className={styles.terminalContent} />
+			<div className={styles.terminalContent}>
+				<div ref={ref} style={{width: "100%", height: "100%"}} />
+			</div>
 			{!connected && (
 				<div className={styles.disconnectedOverlay}>
 					<div className={styles.disconnectedCard}>
