@@ -11,8 +11,6 @@ topics:
 
 # Zombie Panes and Lazy Reconnect
 
-![ctx](../images/ctx-banner.png)
-
 > Your terminal looks alive. The cursor blinks. The prompt is
 > there. You type a command and... nothing. The pane is a
 > zombie.
