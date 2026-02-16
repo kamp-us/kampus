@@ -1,7 +1,18 @@
+/**
+ * @module
+ *
+ * Immutable, tmux-like layout model built on `@usirin/layout-tree`.
+ * Manages a list of tabs, each containing a split-pane tree with per-tab focus tracking.
+ *
+ * **Orientation note:** This module uses user-facing orientation semantics
+ * ("horizontal" = side-by-side), which is the *inverse* of the layout-tree library's
+ * convention. The conversion happens in {@link toLibraryOrientation}.
+ */
 import * as LT from "@usirin/layout-tree";
 
 // --- Types ---
 
+/** A single tab: a named pane tree with independent focus state. */
 export interface Tab {
   id: string;
   name: string;
@@ -9,6 +20,7 @@ export interface Tab {
   focus: LT.StackPath;
 }
 
+/** Top-level layout state: an ordered list of tabs with one active. */
 export interface TabbedLayout {
   tabs: Tab[];
   activeTab: number;
@@ -35,10 +47,12 @@ function toLibraryOrientation(orientation: LT.Orientation): LT.Orientation {
   return orientation === "horizontal" ? "vertical" : "horizontal";
 }
 
+/** Return the currently active tab. */
 export function getActiveTab(layout: TabbedLayout): Tab {
   return layout.tabs[layout.activeTab];
 }
 
+/** Return the focused window (pane) in the active tab, or `null` if focus points at a stack. */
 export function getFocusedWindow(layout: TabbedLayout): LT.Window | null {
   const tab = getActiveTab(layout);
   const node = LT.getAt(tab.tree.root, tab.focus);
@@ -46,6 +60,7 @@ export function getFocusedWindow(layout: TabbedLayout): LT.Window | null {
   return null;
 }
 
+/** Collect all window keys across every tab. Useful for mapping pane IDs to channels. */
 export function allWindowKeys(layout: TabbedLayout): string[] {
   const keys: string[] = [];
   function walk(node: LT.Window | LT.Stack) {
@@ -63,6 +78,7 @@ export function allWindowKeys(layout: TabbedLayout): string[] {
 
 // --- Tab operations ---
 
+/** Create a fresh layout with a single tab containing one pane. */
 export function createTabbedLayout(
   tabName: string,
   windowKey: string,
@@ -75,6 +91,7 @@ export function createTabbedLayout(
   };
 }
 
+/** Append a new tab with a single pane and make it active. */
 export function createTab(
   layout: TabbedLayout,
   name: string,
@@ -89,6 +106,7 @@ export function createTab(
   };
 }
 
+/** Close a tab by index. Returns `null` if this is the last tab (can't close it). */
 export function closeTab(
   layout: TabbedLayout,
   tabIndex: number,
@@ -104,6 +122,7 @@ export function closeTab(
   return { tabs, activeTab };
 }
 
+/** Switch to a different tab by index. */
 export function switchTab(
   layout: TabbedLayout,
   tabIndex: number,
@@ -111,6 +130,7 @@ export function switchTab(
   return { ...layout, activeTab: tabIndex };
 }
 
+/** Rename a tab by index. */
 export function renameTab(
   layout: TabbedLayout,
   tabIndex: number,
@@ -124,6 +144,7 @@ export function renameTab(
 
 // --- Pane operations (scoped to active tab) ---
 
+/** Split a pane in the active tab. Returns the updated layout and the `StackPath` of the new pane. Focus moves to the new pane. */
 export function splitPane(
   layout: TabbedLayout,
   paneId: string,
@@ -167,6 +188,7 @@ export function splitPane(
   return { layout: { ...layout, tabs }, newPath };
 }
 
+/** Close a pane in the active tab. Returns `null` if the tab becomes empty. Focus moves to the nearest sibling. */
 export function closePane(
   layout: TabbedLayout,
   path: LT.StackPath,
@@ -210,6 +232,7 @@ export function closePane(
   return { ...layout, tabs };
 }
 
+/** Move focus to an adjacent pane in the given direction. No-op if there is no neighbor. */
 export function moveFocus(
   layout: TabbedLayout,
   direction: LT.Direction,
