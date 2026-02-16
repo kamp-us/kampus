@@ -28,6 +28,8 @@ export class WormholeServer extends DurableObject {
 	private terminals = new Map<string, WebSocket>();
 	private tabToSession = new Map<string, string>();
 	private outputBuffers = new Map<string, Uint8Array[]>();
+	private reconnecting = new Set<string>();
+	private paneSizes = new Map<string, {cols: number; rows: number}>();
 
 	constructor(state: DurableObjectState, env: Env) {
 		super(state, env);
@@ -100,7 +102,7 @@ export class WormholeServer extends DurableObject {
 			const termWs = this.terminals.get(ptyId);
 			if (termWs) {
 				termWs.send(payload);
-			} else {
+			} else if (!this.reconnecting.has(ptyId)) {
 				// Terminal disconnected — lazy reconnect
 				await this.reconnectTerminal(ptyId, payload);
 			}
@@ -314,6 +316,7 @@ export class WormholeServer extends DurableObject {
 		if (!session) return;
 
 		const ptyId = crypto.randomUUID();
+		this.paneSizes.set(ptyId, {cols: msg.cols, rows: msg.rows});
 		await this.createTerminalWs(session.sandboxId, ptyId, msg.cols, msg.rows);
 
 		const result = TL.splitPane(this.layout, msg.paneId, msg.orientation, ptyId);
@@ -357,6 +360,7 @@ export class WormholeServer extends DurableObject {
 	}
 
 	private async handlePaneResize(msg: Protocol.PaneResizeMessage): Promise<void> {
+		this.paneSizes.set(msg.paneId, {cols: msg.cols, rows: msg.rows});
 		const termWs = this.terminals.get(msg.paneId);
 		if (!termWs) return;
 		termWs.send(JSON.stringify({type: "resize", cols: msg.cols, rows: msg.rows}));
@@ -546,20 +550,29 @@ export class WormholeServer extends DurableObject {
 	}
 
 	private async reconnectTerminal(ptyId: string, bufferedInput?: Uint8Array): Promise<void> {
-		const sessionId = this.getSessionForPty(ptyId);
-		if (!sessionId) return;
-		const session = this.sessions.find((s) => s.id === sessionId);
-		if (!session) return;
+		if (this.reconnecting.has(ptyId)) return;
+		this.reconnecting.add(ptyId);
+		try {
+			const sessionId = this.getSessionForPty(ptyId);
+			if (!sessionId) return;
+			const session = this.sessions.find((s) => s.id === sessionId);
+			if (!session) return;
 
-		await this.createTerminalWs(session.sandboxId, ptyId, 80, 24);
+			const size = this.paneSizes.get(ptyId) ?? {cols: 80, rows: 24};
+			await this.createTerminalWs(session.sandboxId, ptyId, size.cols, size.rows);
 
-		// Send the keystroke that triggered the reconnect
-		if (bufferedInput) {
-			const termWs = this.terminals.get(ptyId);
-			if (termWs) termWs.send(bufferedInput);
+			if (bufferedInput) {
+				const termWs = this.terminals.get(ptyId);
+				if (termWs) termWs.send(bufferedInput);
+			}
+
+			this.broadcastLayoutUpdate();
+		} catch (err) {
+			console.error("[WormholeServer] reconnectTerminal failed", {ptyId, err});
+			this.broadcastLayoutUpdate();
+		} finally {
+			this.reconnecting.delete(ptyId);
 		}
-
-		this.broadcastLayoutUpdate();
 	}
 
 	private async reconnectAllTerminals(): Promise<void> {
@@ -575,7 +588,8 @@ export class WormholeServer extends DurableObject {
 				const keys = this.windowKeysForTab(tab);
 				for (const ptyId of keys) {
 					if (!this.terminals.has(ptyId)) {
-						await this.createTerminalWs(session.sandboxId, ptyId, 80, 24);
+						const size = this.paneSizes.get(ptyId) ?? {cols: 80, rows: 24};
+						await this.createTerminalWs(session.sandboxId, ptyId, size.cols, size.rows);
 					}
 				}
 			}
