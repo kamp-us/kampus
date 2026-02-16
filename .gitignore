@@ -202,3 +202,6 @@ ralph*.sh
 
 # Zensical build output
 site/
+
+# Git worktrees
+.worktrees/
