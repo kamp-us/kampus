@@ -366,6 +366,15 @@ export class WormholeServer extends DurableObject {
 
 	// --- Broadcast helpers ---
 
+	private buildConnectedRecord(): Record<string, boolean> {
+		const channels = this.channelMap.toRecord();
+		const connected: Record<string, boolean> = {};
+		for (const ptyId of Object.keys(channels)) {
+			connected[ptyId] = this.terminals.has(ptyId);
+		}
+		return connected;
+	}
+
 	private buildStateMessage(): Protocol.StateMessage {
 		return new Protocol.StateMessage({
 			type: "state",
@@ -380,6 +389,7 @@ export class WormholeServer extends DurableObject {
 				})) ?? [],
 			activeTab: this.layout?.tabs[this.layout.activeTab]?.id ?? null,
 			channels: this.channelMap.toRecord(),
+			connected: this.buildConnectedRecord(),
 		});
 	}
 
@@ -404,6 +414,7 @@ export class WormholeServer extends DurableObject {
 				})) ?? [],
 			activeTab: this.layout?.tabs[this.layout.activeTab]?.id ?? null,
 			channels: this.channelMap.toRecord(),
+			connected: this.buildConnectedRecord(),
 		});
 		const encoded = Protocol.encodeControlMessage(msg);
 		for (const ws of this.clients) {
